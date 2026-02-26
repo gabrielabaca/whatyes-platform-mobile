@@ -1,0 +1,121 @@
+# Deploy demo: build Android APK + landing de descargas a S3
+# Los usuarios de prueba acceden a la URL del bucket (o dominio) para descargar la app.
+name: Deploy Demo Downloads
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'download-page/**'
+      - 'src/**'
+      - 'android/**'
+      - 'package.json'
+      - '.github/workflows/deploy-demo-downloads.yml'
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: '20'
+  JAVA_VERSION: '17'
+  APK_S3_KEY: 'app/releases/latest.apk'
+
+jobs:
+  build-and-deploy:
+    name: Build APK and deploy to S3
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Prepare env for build
+        run: |
+          if [ -f env/.env_main ]; then
+            cp env/.env_main .env
+            echo "Using env/.env_main for build"
+          else
+            echo "API_BASE_URL_DEV=http://localhost:4000" > .env
+            echo "LIVESTREAM_HTTP_URL_DEV=http://localhost:8080" >> .env
+            echo "API_BASE_URL=https://api.whatyes.com" >> .env
+            echo "LIVESTREAM_HTTP_URL=https://live.whatyes.com" >> .env
+            echo "Created minimal .env for CI build"
+          fi
+
+      - name: Generate debug keystore (for demo signing)
+        run: |
+          mkdir -p android/app
+          keytool -genkeypair -v -storetype PKCS12 \
+            -keystore android/app/debug.keystore \
+            -storepass android -alias androiddebugkey -keypass android \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -dname "CN=Android Debug,O=Android,C=US"
+
+      - name: Build Android release APK
+        run: |
+          cd android
+          ./gradlew assembleRelease --no-daemon
+        env:
+          ORG_GRADLE_PROJECT_reactNativeArchitectures: arm64-v8a
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION || 'us-east-1' }}
+
+      - name: Prepare download page with APK URL
+        id: page
+        run: |
+          BUCKET="${{ secrets.S3_BUCKET }}"
+          REGION="${{ secrets.AWS_REGION || 'us-east-1' }}"
+          APK_URL="https://${BUCKET}.s3.${REGION}.amazonaws.com/${APK_S3_KEY}"
+          IOS_URL="${{ secrets.IOS_TESTFLIGHT_URL || '#' }}"
+          sed -e "s|__ANDROID_APK_URL__|${APK_URL}|g" \
+              -e "s|__IOS_TESTFLIGHT_URL__|${IOS_URL}|g" \
+              download-page/index.html > download-page/index.out.html
+          mv download-page/index.out.html download-page/index.html
+          echo "APK_URL=${APK_URL}" >> $GITHUB_OUTPUT
+
+      - name: Upload APK to S3
+        run: |
+          aws s3 cp android/app/build/outputs/apk/release/app-release.apk \
+            "s3://${{ secrets.S3_BUCKET }}/${{ env.APK_S3_KEY }}" \
+            --content-type application/vnd.android.package-archive \
+            --cache-control "no-cache"
+
+      - name: Upload download page to S3
+        run: |
+          aws s3 cp download-page/index.html "s3://${{ secrets.S3_BUCKET }}/index.html" \
+            --content-type "text/html; charset=utf-8" \
+            --cache-control "no-cache"
+
+      - name: Set public read (ACL)
+        run: |
+          aws s3api put-object-acl --bucket "${{ secrets.S3_BUCKET }}" --key "${{ env.APK_S3_KEY }}" --acl public-read
+          aws s3api put-object-acl --bucket "${{ secrets.S3_BUCKET }}" --key "index.html" --acl public-read
+        continue-on-error: true
+
+      - name: Output URLs
+        run: |
+          BUCKET="${{ secrets.S3_BUCKET }}"
+          REGION="${{ secrets.AWS_REGION || 'us-east-1' }}"
+          echo "## 📥 URLs de descarga" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Página:** https://${BUCKET}.s3.${REGION}.amazonaws.com/index.html" >> $GITHUB_STEP_SUMMARY
+          echo "- **APK directo:** https://${BUCKET}.s3.${REGION}.amazonaws.com/${{ env.APK_S3_KEY }}" >> $GITHUB_STEP_SUMMARY
