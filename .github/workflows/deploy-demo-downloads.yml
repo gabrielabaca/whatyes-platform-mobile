@@ -18,7 +18,7 @@ on:
 env:
   NODE_VERSION: '20'
   JAVA_VERSION: '17'
-  APK_S3_KEY: 'app/releases/latest-debug.apk'
+  APK_S3_KEY: 'app/releases/latest.apk'
 
 jobs:
   build-and-deploy:
