@@ -5,7 +5,7 @@ apply plugin: "com.facebook.react"
 // react-native-config
 // Usar env/.env_main para builds release (APK) y evitar URLs incorrectas
 project.ext.envConfigFiles = [
-    debug: ".env",
+    debug: "env/.env_main",
     release: "env/.env_main",
 ]
 apply from: project(':react-native-config').projectDir.getPath() + "/dotenv.gradle"
