@@ -3,6 +3,8 @@ apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
 
 // react-native-config
+// Forzar env/.env_main como archivo por defecto en builds
+project.ext.defaultEnvFile = "env/.env_main"
 // Usar env/.env_main para builds release (APK) y evitar URLs incorrectas
 project.ext.envConfigFiles = [
     debug: "env/.env_main",

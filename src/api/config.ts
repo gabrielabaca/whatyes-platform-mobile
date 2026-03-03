@@ -41,7 +41,7 @@ const getApiBaseUrl = (): string => {
   }
   
   // Producción: usar variable de entorno o valor por defecto
-  return 'http://75.101.158.6:4000';
+  return Config.API_BASE_URL || 'https://api.tutoke.app/users';
 };
 
 export const API_BASE_URL = getApiBaseUrl();
@@ -62,7 +62,7 @@ const getPlatformBaseUrl = (): string => {
     if (match) return `${match[1]}://${match[2]}:8001`;
     return 'http://192.168.1.51:8001';
   }
-  return 'http://75.101.158.6:4001';
+  return Config.PLATFORM_HTTP_URL || 'https://api.tutoke.app/platform';
 };
 
 export const PLATFORM_HTTP_URL = getPlatformBaseUrl();
