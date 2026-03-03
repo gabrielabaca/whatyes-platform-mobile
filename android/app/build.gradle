@@ -123,4 +123,8 @@ dependencies {
     } else {
         implementation jscFlavor
     }
+
+    // AWS Kinesis Video Streams Producer (cámara → Kinesis)
+    implementation("com.amazonaws:aws-android-sdk-kinesisvideo:2.71.+")
+    implementation("com.amazonaws:aws-android-sdk-core:2.71.+")
 }

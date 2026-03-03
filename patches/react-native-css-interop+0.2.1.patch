@@ -1,0 +1,36 @@
+diff --git a/node_modules/react-native-css-interop/.cache/android.js b/node_modules/react-native-css-interop/.cache/android.js
+new file mode 100644
+index 0000000..e69de29
+diff --git a/node_modules/react-native-css-interop/.cache/ios.js b/node_modules/react-native-css-interop/.cache/ios.js
+new file mode 100644
+index 0000000..e69de29
+diff --git a/node_modules/react-native-css-interop/.cache/macos.js b/node_modules/react-native-css-interop/.cache/macos.js
+new file mode 100644
+index 0000000..e69de29
+diff --git a/node_modules/react-native-css-interop/.cache/native.js b/node_modules/react-native-css-interop/.cache/native.js
+new file mode 100644
+index 0000000..e69de29
+diff --git a/node_modules/react-native-css-interop/.cache/windows.js b/node_modules/react-native-css-interop/.cache/windows.js
+new file mode 100644
+index 0000000..e69de29
+diff --git a/node_modules/react-native-css-interop/dist/metro/expo.js b/node_modules/react-native-css-interop/dist/metro/expo.js
+index aef75e4..e98bc55 100644
+--- a/node_modules/react-native-css-interop/dist/metro/expo.js
++++ b/node_modules/react-native-css-interop/dist/metro/expo.js
+@@ -5,9 +5,13 @@ function expoColorSchemeWarning() {
+     if (!isExpo()) {
+         return;
+     }
+-    const config = require("@expo/config").getConfig(process.cwd());
+-    if (config && config.exp.userInterfaceStyle === undefined) {
+-        console.warn(`Your Expo app does not have a 'userInterfaceStyle' setting which can to confusing color scheme behavior. Please set a 'userInterfaceStyle' to remove this warning (recommended 'automatic'). https://docs.expo.dev/develop/user-interface/color-themes`);
++    try {
++        const config = require("@expo/config").getConfig(process.cwd());
++        if (config && config.exp.userInterfaceStyle === undefined) {
++            console.warn(`Your Expo app does not have a 'userInterfaceStyle' setting which can to confusing color scheme behavior. Please set a 'userInterfaceStyle' to remove this warning (recommended 'automatic'). https://docs.expo.dev/develop/user-interface/color-themes`);
++        }
++    } catch {
++        // Project is not an Expo app (e.g. bare React Native); skip warning
+     }
+ }
+ function isExpo() {

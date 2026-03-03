@@ -6,5 +6,5 @@
 export * from './config';
 export * from './types';
 export * from './authApi';
-export * from './livestreamApi';
+export * from './platformApi';
 export { ApiError } from './authApi';

@@ -73,7 +73,7 @@ Si configuraste sitio estático:
 
 ## URLs de API en el APK
 
-El APK se construye con las variables de `env/.env_main` (o un `.env` mínimo en CI). Para que los usuarios de prueba puedan usar la app contra tu backend, usa en `env/.env_main` las URLs de producción o staging (`API_BASE_URL`, `LIVESTREAM_HTTP_URL`) antes de hacer push.
+El APK se construye con las variables de `env/.env_main` (o un `.env` mínimo en CI). Para que los usuarios de prueba puedan usar la app contra tu backend, usa en `env/.env_main` las URLs de producción o staging (`API_BASE_URL`, `PLATFORM_HTTP_URL`) antes de hacer push.
 
 ## iOS
 

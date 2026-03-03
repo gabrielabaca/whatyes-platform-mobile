@@ -47,30 +47,25 @@ const getApiBaseUrl = (): string => {
 export const API_BASE_URL = getApiBaseUrl();
 
 /**
- * URL base del servidor de livestream (WebRTC SFU).
- * En desarrollo: LIVESTREAM_HTTP_URL en .env (ej. http://192.168.1.51:8080) o mismo host que API con puerto 8080.
+ * URL base de service-platform (rooms + Kinesis, URL firmada HLS).
+ * En desarrollo: PLATFORM_HTTP_URL_DEV en .env (ej. http://192.168.1.51:8001).
  */
-const getLivestreamBaseUrl = (): string => {
+const getPlatformBaseUrl = (): string => {
   if (__DEV__) {
-    const dev = Config.LIVESTREAM_HTTP_URL_DEV;
+    const dev = Config.PLATFORM_HTTP_URL_DEV;
     if (dev && (dev.startsWith('http://') || dev.startsWith('https://'))) {
       return dev.replace(/\/$/, '');
     }
     if (dev) return `http://${dev}`;
     const apiUrl = getApiBaseUrl();
     const match = apiUrl.match(/^(https?):\/\/([^:/]+)(:\d+)?/);
-    if (match) return `${match[1]}://${match[2]}:8080`;
-    return 'http://192.168.1.51:8080';
+    if (match) return `${match[1]}://${match[2]}:8001`;
+    return 'http://192.168.1.51:8001';
   }
-  return Config.LIVESTREAM_HTTP_URL || 'https://live.whatyes.com';
+  return Config.PLATFORM_HTTP_URL || 'https://platform.whatyes.com';
 };
 
-export const LIVESTREAM_HTTP_URL = getLivestreamBaseUrl();
-
-export const LIVESTREAM_WS_URL = (() => {
-  const base = LIVESTREAM_HTTP_URL;
-  return base.replace(/^http/, 'ws');
-})();
+export const PLATFORM_HTTP_URL = getPlatformBaseUrl();
 
 export const API_ENDPOINTS = {
   AUTH: {

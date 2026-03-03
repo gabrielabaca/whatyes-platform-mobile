@@ -1,7 +1,7 @@
 /**
  * Home Screen
  * Pantalla principal después del login.
- * Lista canales en vivo desde el servidor de livestream (GET /rooms).
+ * Lista canales en vivo desde service-platform (GET /rooms, solo estado live).
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -13,8 +13,8 @@ import { StreamCard, StreamData } from '../../molecules/StreamCard';
 import { SellerHomeScreen } from '../SellerHomeScreen';
 import { LayoutGrid, Rows } from 'lucide-react-native';
 import { useAuth } from '../../../hooks/useAuth';
-import { getRooms } from '../../../api/livestreamApi';
-import { LIVESTREAM_HTTP_URL } from '../../../api/config';
+import { getRooms } from '../../../api/platformApi';
+import { storage } from '../../../utils/storage';
 
 interface HomeScreenProps {
   onStreamPress?: (stream: StreamData | any) => void;
@@ -31,20 +31,20 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onStreamPress, onStartNe
 
   const loadRooms = useCallback(async () => {
     try {
-      const rooms = await getRooms();
+      const token = await storage.getAccessToken();
+      if (!token) {
+        setLiveStreams([]);
+        return;
+      }
+      const rooms = await getRooms(token);
       setLiveStreams(
-        rooms.map((r) => {
-          const snapshotUrl = r.snapshot_url
-            ? (r.snapshot_url.startsWith('http') ? r.snapshot_url : `${LIVESTREAM_HTTP_URL}${r.snapshot_url}`)
-            : undefined;
-          return {
-            id: r.room_id,
-            sellerName: r.seller_name || 'Streamer',
-            viewerCount: r.viewer_count,
-            streamingTime: 'En vivo',
-            thumbnail: snapshotUrl,
-          };
-        }),
+        rooms.map((r) => ({
+          id: r.uuid,
+          sellerName: r.name || r.stream_name || 'Sala en vivo',
+          viewerCount: 0,
+          streamingTime: 'En vivo',
+          thumbnail: undefined,
+        })),
       );
     } catch (e) {
       setLiveStreams([]);

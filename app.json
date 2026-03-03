@@ -1,4 +1,9 @@
 {
   "name": "PlatformMobile",
-  "displayName": "PlatformMobile"
+  "displayName": "PlatformMobile",
+  "extra": {
+    "eas": {
+      "projectId": "6ea0a4ba-7ede-46c1-b539-a8106cb3ecc6"
+    }
+  }
 }

@@ -29,7 +29,7 @@ ipconfig | findstr IPv4
 
 ### 2. Crear archivo .env
 
-Usa la plantilla con todas las keys (users + livestream):
+Usa la plantilla con todas las keys (users + platform):
 ```bash
 cp env/.env_main .env
 ```
@@ -39,24 +39,33 @@ cp env/.env_main .env
 Edita el archivo `.env` y reemplaza las IP con la de tu máquina:
 ```env
 API_BASE_URL_DEV=http://TU_IP:4000
-LIVESTREAM_HTTP_URL_DEV=http://TU_IP:8080
+PLATFORM_HTTP_URL_DEV=http://TU_IP:8001
 ```
 
-Ejemplo (service-users en 4000, livestream en 8080):
+Ejemplo (service-users en 4000, service-platform en 8001):
 ```env
 API_BASE_URL_DEV=http://192.168.1.51:4000
-LIVESTREAM_HTTP_URL_DEV=http://192.168.1.51:8080
+PLATFORM_HTTP_URL_DEV=http://192.168.1.51:8001
 ```
 
-### 4. Reiniciar Metro Bundler
+### 4. Recargar variables de entorno en Android
 
-Después de cambiar el archivo `.env`, reinicia Metro:
+Con `react-native-config` las variables se incluyen en el build nativo. Si cambiaste el `.env`, **hay que hacer un build limpio** para que se usen las nuevas:
+
+```bash
+npm run android:clean
+```
+
+(O manualmente: `cd android && ./gradlew clean && cd ..` y luego `npm run android`.)
+
+### 5. Reiniciar Metro (opcional)
+
+Si además cambiaste código JS, reinicia Metro con caché limpia:
 ```bash
 npm start -- --reset-cache
 ```
 
-### 5. Recompilar la app
-
+Luego en otra terminal:
 ```bash
 npm run android
 # o
