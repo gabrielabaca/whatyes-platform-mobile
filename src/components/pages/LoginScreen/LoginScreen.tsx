@@ -5,7 +5,7 @@ import { Button } from '../../atoms/Button';
 import { Input } from '../../atoms/Input';
 import { Text } from '../../atoms/Text';
 import { useAuth } from '../../../hooks/useAuth';
-import { ApiError } from '../../../api';
+import { ApiError, API_BASE_URL } from '../../../api';
 
 interface LoginScreenProps {
   onNavigateToRegister?: () => void;
@@ -111,14 +111,19 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
             </View>
 
             {/* Footer */}
-            <TouchableOpacity onPress={onNavigateToRegister} className="mt-8 items-center">
-              <Text variant="caption" className="text-gray-500">
-                ¿No tienes una cuenta?{' '}
-                <Text variant="caption" className="text-primary-600 font-semibold">
-                  Regístrate
+            <View className="mt-8 items-center">
+              <TouchableOpacity onPress={onNavigateToRegister} className="items-center">
+                <Text variant="caption" className="text-gray-500">
+                  ¿No tienes una cuenta?{' '}
+                  <Text variant="caption" className="text-primary-600 font-semibold">
+                    Regístrate
+                  </Text>
                 </Text>
+              </TouchableOpacity>
+              <Text variant="caption" className="text-gray-400 mt-4">
+                API: {API_BASE_URL}
               </Text>
-            </TouchableOpacity>
+            </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
