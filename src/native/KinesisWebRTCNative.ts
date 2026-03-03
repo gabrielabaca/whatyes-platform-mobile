@@ -5,11 +5,6 @@
  */
 import { NativeModules, Platform } from 'react-native';
 import type { StreamWebRTCCredentialsResponse } from '../api/platformApi';
-import {
-  startKinesisWebRTCMasterJS,
-  stopKinesisWebRTCMasterJS,
-  isKinesisWebRTCMasterJSAvailable,
-} from '../services/KinesisWebRTCMaster';
 
 const { KinesisWebRTC } = NativeModules;
 
@@ -24,6 +19,10 @@ export async function startKinesisWebRTCMaster(
   creds: KinesisWebRTCCreds,
   options: StartMasterOptions = {}
 ): Promise<void> {
+  const {
+    startKinesisWebRTCMasterJS,
+    isKinesisWebRTCMasterJSAvailable,
+  } = await import('../services/KinesisWebRTCMaster');
   if (isKinesisWebRTCMasterJSAvailable(creds)) {
     await startKinesisWebRTCMasterJS(creds, options);
     return;
@@ -42,6 +41,7 @@ export async function startKinesisWebRTCMaster(
 
 /** Detiene el Master. */
 export async function stopKinesisWebRTCMaster(): Promise<void> {
+  const { stopKinesisWebRTCMasterJS } = await import('../services/KinesisWebRTCMaster');
   stopKinesisWebRTCMasterJS();
   if (Platform.OS === 'android' && KinesisWebRTC?.stopMaster) {
     return KinesisWebRTC.stopMaster();

@@ -2,9 +2,9 @@
  * Viewer WebRTC para Kinesis Video Streams (solo recepción).
  * Usa el SDK amazon-kinesis-video-streams-webrtc y react-native-webrtc.
  */
-import { SignalingClient, Role } from 'amazon-kinesis-video-streams-webrtc';
 import { RTCPeerConnection, MediaStream } from 'react-native-webrtc';
 import type { StreamWebRTCCredentialsResponse } from '../api/platformApi';
+import { SigV4RequestSigner } from './SigV4RequestSigner';
 
 let signalingClient: SignalingClient | null = null;
 let peerConnection: RTCPeerConnection | null = null;
@@ -59,8 +59,17 @@ export async function startKinesisWebRTCViewerJS(
   options: ViewerOptions
 ): Promise<() => void> {
   const { creds, onRemoteStream: callback, onError, onClose } = options;
+  const { SignalingClient, Role } = await import('amazon-kinesis-video-streams-webrtc');
   if (!creds.signaling_endpoint) {
     throw new Error('Falta signaling_endpoint en las credenciales WebRTC');
+  }
+  const missing: string[] = [];
+  if (!creds.access_key_id) missing.push('access_key_id');
+  if (!creds.secret_access_key) missing.push('secret_access_key');
+  if (!creds.region) missing.push('region');
+  if (!creds.channel_arn) missing.push('channel_arn');
+  if (missing.length > 0) {
+    throw new Error(`Credenciales WebRTC inválidas (faltan: ${missing.join(', ')})`);
   }
 
   if (signalingClient) {
@@ -93,6 +102,12 @@ export async function startKinesisWebRTCViewerJS(
     sessionToken: creds.session_token || undefined,
   };
 
+  const requestSigner = new SigV4RequestSigner(creds.region, {
+    accessKeyId: creds.access_key_id,
+    secretAccessKey: creds.secret_access_key,
+    sessionToken: creds.session_token || undefined,
+  });
+
   const client = new SignalingClient({
     role: Role.VIEWER,
     clientId,
@@ -100,6 +115,7 @@ export async function startKinesisWebRTCViewerJS(
     region: creds.region,
     channelEndpoint: creds.signaling_endpoint,
     credentials,
+    requestSigner,
   });
   signalingClient = client;
 
@@ -220,6 +236,15 @@ export async function startKinesisWebRTCViewerJS(
   client.on('error', (err: Error) => {
     onError?.(err);
     console.warn('Kinesis SignalingClient error:', err);
+    // Log extra debug to locate "slice of undefined"
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const anyErr = err as any;
+    console.warn('Kinesis SignalingClient error details:', {
+      message: anyErr?.message,
+      stack: anyErr?.stack,
+      name: anyErr?.name,
+      type: typeof anyErr,
+    });
   });
 
   client.on('close', () => {

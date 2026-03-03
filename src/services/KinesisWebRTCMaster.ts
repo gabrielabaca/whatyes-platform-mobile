@@ -2,9 +2,9 @@
  * Master WebRTC para Kinesis Video Streams (solo envío).
  * Usa el SDK amazon-kinesis-video-streams-webrtc y react-native-webrtc.
  */
-import { SignalingClient, Role } from 'amazon-kinesis-video-streams-webrtc';
 import { mediaDevices, RTCPeerConnection } from 'react-native-webrtc';
 import type { StreamWebRTCCredentialsResponse } from '../api/platformApi';
+import { SigV4RequestSigner } from './SigV4RequestSigner';
 
 let signalingClient: SignalingClient | null = null;
 let peerConnectionsByClientId: Record<string, RTCPeerConnection> = {};
@@ -33,8 +33,17 @@ export async function startKinesisWebRTCMasterJS(
   creds: StreamWebRTCCredentialsResponse,
   options: MasterOptions = {}
 ): Promise<() => void> {
+  const { SignalingClient, Role } = await import('amazon-kinesis-video-streams-webrtc');
   if (!creds.signaling_endpoint) {
     throw new Error('Falta signaling_endpoint en las credenciales WebRTC');
+  }
+  const missing: string[] = [];
+  if (!creds.access_key_id) missing.push('access_key_id');
+  if (!creds.secret_access_key) missing.push('secret_access_key');
+  if (!creds.region) missing.push('region');
+  if (!creds.channel_arn) missing.push('channel_arn');
+  if (missing.length > 0) {
+    throw new Error(`Credenciales WebRTC inválidas (faltan: ${missing.join(', ')})`);
   }
 
   if (signalingClient) {
@@ -47,12 +56,19 @@ export async function startKinesisWebRTCMasterJS(
     sessionToken: creds.session_token || undefined,
   };
 
+  const requestSigner = new SigV4RequestSigner(creds.region, {
+    accessKeyId: creds.access_key_id,
+    secretAccessKey: creds.secret_access_key,
+    sessionToken: creds.session_token || undefined,
+  });
+
   const client = new SignalingClient({
     role: Role.MASTER,
     channelARN: creds.channel_arn,
     region: creds.region,
     channelEndpoint: creds.signaling_endpoint,
     credentials,
+    requestSigner,
   });
   signalingClient = client;
   console.log('[Seller WebRTC] SignalingClient creado, obteniendo cámara/mic...');
@@ -116,6 +132,14 @@ export async function startKinesisWebRTCMasterJS(
 
   client.on('error', (err: Error) => {
     console.warn('Kinesis SignalingClient error:', err);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const anyErr = err as any;
+    console.warn('Kinesis SignalingClient error details:', {
+      message: anyErr?.message,
+      stack: anyErr?.stack,
+      name: anyErr?.name,
+      type: typeof anyErr,
+    });
   });
 
   client.on('close', () => {
