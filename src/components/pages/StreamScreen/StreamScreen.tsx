@@ -25,6 +25,8 @@ import { getWebRTCCredentials } from '../../../api/platformApi';
 import { startKinesisWebRTCViewer, stopKinesisWebRTCViewer } from '../../../native/KinesisWebRTCNative';
 import type { MediaStream } from 'react-native-webrtc';
 import { useStreamChat } from '../../../hooks/useStreamChat';
+import { enableSpeakerphone, disableSpeakerphone } from '../../../utils/audioRoute';
+import KeepAwake from 'react-native-keep-awake';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -65,9 +67,17 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({
   } = useStreamChat({ roomId, accessToken: chatToken });
 
   useEffect(() => {
+    KeepAwake.activate();
+    return () => {
+      KeepAwake.deactivate();
+    };
+  }, []);
+
+  useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
+        enableSpeakerphone();
         const token = await storage.getAccessToken();
         if (!token) {
           if (!cancelled) setStreamError('No se pudo obtener la sesión');
@@ -99,6 +109,7 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({
       viewerCleanupRef.current?.();
       viewerCleanupRef.current = null;
       stopKinesisWebRTCViewer().catch(() => {});
+      disableSpeakerphone();
     };
   }, [roomId]);
 

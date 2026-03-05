@@ -4,7 +4,7 @@
  * en Android envía video con el Producer SDK; en iOS solo preview (ingest opcional más adelante).
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   StyleSheet,
@@ -17,22 +17,76 @@ import {
   KeyboardAvoidingView,
   Alert,
   ActivityIndicator,
+  Animated,
 } from 'react-native';
 import { Camera, useCameraDevice, useCameraPermission } from 'react-native-vision-camera';
 import { RTCView } from 'react-native-webrtc';
 import type { MediaStream } from 'react-native-webrtc';
 import { Text } from '../../atoms/Text';
-import { Send, MessageSquare, MessageSquareOff, ChevronUp, ChevronDown, Maximize2, Square, ArrowLeft, FlipHorizontal, Users } from 'lucide-react-native';
+import { Heart, Send, MessageSquare, MessageSquareOff, ChevronUp, ChevronDown, Maximize2, Square, ArrowLeft, FlipHorizontal, Users } from 'lucide-react-native';
 import type { StreamConfig } from '../StreamConfigScreen';
 import { useAuth } from '../../../hooks/useAuth';
 import { storage } from '../../../utils/storage';
 import { createRoom, goLive, endStream, getWebRTCCredentials } from '../../../api/platformApi';
 import { startKinesisWebRTCMaster, stopKinesisWebRTCMaster } from '../../../native/KinesisWebRTCNative';
 import { useStreamChat } from '../../../hooks/useStreamChat';
+import KeepAwake from 'react-native-keep-awake';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 type ChatSize = 'small' | 'medium' | 'large';
+
+type LikeEvent = {
+  id: string;
+  username: string;
+  offset: number;
+};
+
+const FloatingHeart: React.FC<{
+  event: LikeEvent;
+  onDone: (id: string) => void;
+}> = ({ event, onDone }) => {
+  const progress = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(progress, {
+      toValue: 1,
+      duration: 1400,
+      useNativeDriver: true,
+    }).start(({ finished }) => {
+      if (finished) onDone(event.id);
+    });
+  }, [event.id, onDone, progress]);
+
+  const translateY = progress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, -140],
+  });
+  const opacity = progress.interpolate({
+    inputRange: [0, 0.7, 1],
+    outputRange: [1, 1, 0],
+  });
+  const scale = progress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 1.35],
+  });
+
+  return (
+    <Animated.View
+      style={[
+        styles.floatingHeart,
+        {
+          right: 16 + event.offset,
+          opacity,
+          transform: [{ translateY }, { scale }],
+        },
+      ]}
+    >
+      <Heart size={18} color="#ff4d6d" fill="#ff4d6d" />
+      <Text style={styles.likeLabel}>{event.username}</Text>
+    </Animated.View>
+  );
+};
 
 interface SellerStreamScreenProps {
   streamConfig: StreamConfig;
@@ -54,9 +108,35 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
   const [isStarting, setIsStarting] = useState(true);
   const [localWebRTCStream, setLocalWebRTCStream] = useState<MediaStream | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
+  const [likeEvents, setLikeEvents] = useState<LikeEvent[]>([]);
   const cameraRef = useRef<Camera>(null);
   const flatListRef = useRef<FlatList>(null);
-  const { messages, viewerCount, sendChat } = useStreamChat({ roomId, accessToken: token });
+  const likeSeqRef = useRef(0);
+
+  const handleLikeDone = useCallback((id: string) => {
+    setLikeEvents((prev) => prev.filter((event) => event.id !== id));
+  }, []);
+
+  const handleLikeEvent = useCallback((like: { username?: string }) => {
+    const username = (like.username || 'Alguien').trim() || 'Alguien';
+    const id = `${Date.now()}-${likeSeqRef.current++}`;
+    const offset = Math.floor(Math.random() * 40);
+    setLikeEvents((prev) => [...prev, { id, username, offset }].slice(-6));
+  }, []);
+
+  const { messages, viewerCount, sendChat } = useStreamChat({
+    roomId,
+    accessToken: token,
+    onLike: handleLikeEvent,
+  });
+
+  // Mantener la pantalla activa durante el stream
+  useEffect(() => {
+    KeepAwake.activate();
+    return () => {
+      KeepAwake.deactivate();
+    };
+  }, []);
 
   // Crear room (draft) y pasar a live al montar
   useEffect(() => {
@@ -237,6 +317,11 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
   return (
     <View style={styles.container}>
       <StatusBar hidden={true} />
+      <View pointerEvents="none" style={styles.floatingHeartsLayer}>
+        {likeEvents.map((event) => (
+          <FloatingHeart key={event.id} event={event} onDone={handleLikeDone} />
+        ))}
+      </View>
       {localWebRTCStream ? (
         <RTCView
           streamURL={localWebRTCStream.toURL()}
@@ -369,4 +454,28 @@ const styles = StyleSheet.create({
   chatInputContainer: { flexDirection: 'row', alignItems: 'center', padding: 8, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.2)' },
   chatInput: { flex: 1, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 20, paddingHorizontal: 16, paddingVertical: Platform.OS === 'ios' ? 10 : 8, color: '#ffffff', fontSize: 14, marginRight: 8 },
   sendButton: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#0284c7', justifyContent: 'center', alignItems: 'center' },
+  floatingHeartsLayer: {
+    position: 'absolute',
+    right: 0,
+    bottom: Platform.OS === 'ios' ? 120 : 100,
+    left: 0,
+    height: 180,
+    zIndex: 5,
+  },
+  floatingHeart: {
+    position: 'absolute',
+    bottom: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 18,
+  },
+  likeLabel: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '600',
+  },
 });

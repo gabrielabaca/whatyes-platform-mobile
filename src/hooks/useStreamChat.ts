@@ -12,6 +12,7 @@ interface UseStreamChatOptions {
   roomId: string | null;
   accessToken: string | null;
   enabled?: boolean;
+  onLike?: (like: LikeEvent) => void;
 }
 
 interface WsPayloadMessage {
@@ -21,6 +22,12 @@ interface WsPayloadMessage {
   username?: string;
   message?: string;
   created_at?: number;
+}
+
+interface LikeEvent {
+  count?: number;
+  userId?: string;
+  username?: string;
 }
 
 const formatTimestamp = (createdAt?: number): string => {
@@ -39,7 +46,7 @@ const toChatMessage = (msg: WsPayloadMessage): ChatMessage => {
   };
 };
 
-export function useStreamChat({ roomId, accessToken, enabled = true }: UseStreamChatOptions) {
+export function useStreamChat({ roomId, accessToken, enabled = true, onLike }: UseStreamChatOptions) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [viewerCount, setViewerCount] = useState(0);
   const [likesCount, setLikesCount] = useState(0);
@@ -101,8 +108,18 @@ export function useStreamChat({ roomId, accessToken, enabled = true }: UseStream
           setViewerCount(msg.payload.count);
           return;
         }
-        if (msg.type === 'like' && msg.payload && typeof msg.payload.count === 'number') {
-          setLikesCount(msg.payload.count);
+        if (msg.type === 'like' && msg.payload) {
+          if (typeof msg.payload.count === 'number') {
+            setLikesCount(msg.payload.count);
+          }
+          if (onLike) {
+            const user = msg.payload.user || {};
+            onLike({
+              count: msg.payload.count,
+              userId: user.id || msg.payload.user_id,
+              username: user.username || msg.payload.username,
+            });
+          }
         }
       } catch {
         setError('Mensaje inválido');
@@ -114,7 +131,7 @@ export function useStreamChat({ roomId, accessToken, enabled = true }: UseStream
       wsRef.current = null;
       setIsConnected(false);
     };
-  }, [roomId, accessToken, enabled]);
+  }, [roomId, accessToken, enabled, onLike]);
 
   return {
     messages,
