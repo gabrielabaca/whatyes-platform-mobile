@@ -67,6 +67,18 @@ const getPlatformBaseUrl = (): string => {
 
 export const PLATFORM_HTTP_URL = getPlatformBaseUrl();
 
+/**
+ * URL base WebSocket de service-platform.
+ */
+const getPlatformWsUrl = (): string => {
+  const httpUrl = getPlatformBaseUrl();
+  if (httpUrl.startsWith('https://')) return httpUrl.replace('https://', 'wss://');
+  if (httpUrl.startsWith('http://')) return httpUrl.replace('http://', 'ws://');
+  return httpUrl;
+};
+
+export const PLATFORM_WS_URL = getPlatformWsUrl();
+
 export const API_ENDPOINTS = {
   AUTH: {
     LOGIN: '/auth/login',

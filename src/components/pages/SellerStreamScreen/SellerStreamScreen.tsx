@@ -22,21 +22,15 @@ import { Camera, useCameraDevice, useCameraPermission } from 'react-native-visio
 import { RTCView } from 'react-native-webrtc';
 import type { MediaStream } from 'react-native-webrtc';
 import { Text } from '../../atoms/Text';
-import { Send, MessageSquare, MessageSquareOff, ChevronUp, ChevronDown, Maximize2, Square, ArrowLeft, FlipHorizontal } from 'lucide-react-native';
+import { Send, MessageSquare, MessageSquareOff, ChevronUp, ChevronDown, Maximize2, Square, ArrowLeft, FlipHorizontal, Users } from 'lucide-react-native';
 import type { StreamConfig } from '../StreamConfigScreen';
 import { useAuth } from '../../../hooks/useAuth';
 import { storage } from '../../../utils/storage';
 import { createRoom, goLive, endStream, getWebRTCCredentials } from '../../../api/platformApi';
 import { startKinesisWebRTCMaster, stopKinesisWebRTCMaster } from '../../../native/KinesisWebRTCNative';
+import { useStreamChat } from '../../../hooks/useStreamChat';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-
-interface ChatMessage {
-  id: string;
-  username: string;
-  message: string;
-  timestamp: string;
-}
 
 type ChatSize = 'small' | 'medium' | 'large';
 
@@ -52,7 +46,6 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
   const { user } = useAuth();
   const [showChat, setShowChat] = useState(false);
   const [chatSize, setChatSize] = useState<ChatSize>('medium');
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [messageText, setMessageText] = useState('');
   const [cameraPosition, setCameraPosition] = useState<'front' | 'back'>('front');
   const [token, setToken] = useState<string | null>(null);
@@ -62,7 +55,8 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
   const [localWebRTCStream, setLocalWebRTCStream] = useState<MediaStream | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
   const cameraRef = useRef<Camera>(null);
-  const flatListRef = useRef<FlatList<ChatMessage>>(null);
+  const flatListRef = useRef<FlatList>(null);
+  const { messages, viewerCount, sendChat } = useStreamChat({ roomId, accessToken: token });
 
   // Crear room (draft) y pasar a live al montar
   useEffect(() => {
@@ -151,10 +145,7 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
   };
   const handleSendMessage = () => {
     if (messageText.trim()) {
-      setMessages([
-        ...messages,
-        { id: Date.now().toString(), username: 'Tú', message: messageText.trim(), timestamp: 'ahora' },
-      ]);
+      sendChat(messageText.trim());
       setMessageText('');
       setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
     }
@@ -178,6 +169,12 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
   };
 
   const handleToggleCamera = () => setCameraPosition(p => (p === 'front' ? 'back' : 'front'));
+
+  useEffect(() => {
+    if (!messages.length) return;
+    const t = setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 60);
+    return () => clearTimeout(t);
+  }, [messages.length]);
 
   if (!hasPermission) {
     return (
@@ -274,9 +271,15 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
           <Square size={20} color="#ffffff" />
           <Text style={styles.endStreamText}>Finalizar</Text>
         </TouchableOpacity>
-        <View style={styles.liveBadge}>
-          <View style={styles.liveDot} />
-          <Text style={styles.liveText}>EN VIVO</Text>
+        <View style={styles.topRightBadges}>
+          <View style={styles.viewerBadge}>
+            <Users size={14} color="#ffffff" />
+            <Text style={styles.viewerText}>{viewerCount}</Text>
+          </View>
+          <View style={styles.liveBadge}>
+            <View style={styles.liveDot} />
+            <Text style={styles.liveText}>EN VIVO</Text>
+          </View>
         </View>
       </View>
 
@@ -344,6 +347,9 @@ const styles = StyleSheet.create({
   topControls: { position: 'absolute', top: 0, left: 0, right: 0, paddingTop: Platform.OS === 'ios' ? 50 : 20, paddingHorizontal: 16, paddingBottom: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', zIndex: 3 },
   endStreamButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#ef4444', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 8, gap: 8 },
   endStreamText: { color: '#ffffff', fontSize: 14, fontWeight: '700' },
+  topRightBadges: { alignItems: 'flex-end', gap: 8 },
+  viewerBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(0,0,0,0.5)', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 },
+  viewerText: { color: '#ffffff', fontSize: 12, fontWeight: '700' },
   liveBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#ef4444', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6 },
   liveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#ffffff', marginRight: 6 },
   liveText: { color: '#ffffff', fontSize: 12, fontWeight: '700', letterSpacing: 0.5 },

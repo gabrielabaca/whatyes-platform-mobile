@@ -24,15 +24,9 @@ import { storage } from '../../../utils/storage';
 import { getWebRTCCredentials } from '../../../api/platformApi';
 import { startKinesisWebRTCViewer, stopKinesisWebRTCViewer } from '../../../native/KinesisWebRTCNative';
 import type { MediaStream } from 'react-native-webrtc';
+import { useStreamChat } from '../../../hooks/useStreamChat';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-
-interface ChatMessage {
-  id: string;
-  username: string;
-  message: string;
-  timestamp: string;
-}
 
 interface StreamScreenProps {
   stream: StreamData;
@@ -53,15 +47,22 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({
   const [showChat, setShowChat] = useState(false);
   const [showBidInterface, setShowBidInterface] = useState(false);
   const [bidAmount, setBidAmount] = useState(10);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [messageText, setMessageText] = useState('');
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const [streamError, setStreamError] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(true);
+  const [chatToken, setChatToken] = useState<string | null>(null);
   const viewerCleanupRef = useRef<(() => void) | null>(null);
   const flatListRef = useRef<FlatList>(null);
 
   const roomId = stream.id;
+  const {
+    messages,
+    viewerCount,
+    isConnected: isChatConnected,
+    sendChat,
+    sendLike,
+  } = useStreamChat({ roomId, accessToken: chatToken });
 
   useEffect(() => {
     let cancelled = false;
@@ -72,6 +73,7 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({
           if (!cancelled) setStreamError('No se pudo obtener la sesión');
           return;
         }
+        if (!cancelled) setChatToken(token);
         const webrtcCreds = await getWebRTCCredentials(token, roomId, 'viewer');
         const cleanup = await startKinesisWebRTCViewer(
           webrtcCreds,
@@ -143,22 +145,13 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({
   const handleIncreaseBid = () => setBidAmount(bidAmount + 1);
 
   const handleSubmitBid = () => {
-    const bidMessage: ChatMessage = {
-      id: Date.now().toString(),
-      username: 'Tú',
-      message: `Oferta enviada: $${bidAmount}`,
-      timestamp: 'ahora',
-    };
-    setMessages([...messages, bidMessage]);
+    sendChat(`Oferta enviada: $${bidAmount}`);
     setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
   };
 
   const handleSendMessage = () => {
     if (messageText.trim()) {
-      setMessages([
-        ...messages,
-        { id: Date.now().toString(), username: 'Tú', message: messageText.trim(), timestamp: 'ahora' },
-      ]);
+      sendChat(messageText.trim());
       setMessageText('');
       setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
     }
@@ -185,6 +178,12 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({
       default: return <Maximize2 size={18} color="#ffffff" />;
     }
   };
+
+  useEffect(() => {
+    if (!messages.length) return;
+    const t = setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 60);
+    return () => clearTimeout(t);
+  }, [messages.length]);
 
   if (streamError) {
     const isNoFragments = (streamError as string).includes('Aún no hay video') || (streamError as string).includes('broadcaster');
@@ -263,7 +262,7 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({
             <View style={styles.statsRow}>
               <View style={styles.statItem}>
                 <Users size={16} color="#ffffff" />
-                <Text style={styles.statText}>{stream.viewerCount}</Text>
+                <Text style={styles.statText}>{isChatConnected ? viewerCount : stream.viewerCount}</Text>
               </View>
               <View style={styles.statItem}>
                 <Clock size={16} color="#ffffff" />
@@ -278,7 +277,7 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({
             <TouchableOpacity style={styles.soundButton} activeOpacity={0.7} onPress={handleToggleChat}>
               {showChat ? <MessageSquareOff size={24} color="#ffffff" /> : <MessageSquare size={24} color="#ffffff" />}
             </TouchableOpacity>
-            <TouchableOpacity style={styles.actionButton} activeOpacity={0.7}>
+            <TouchableOpacity style={styles.actionButton} activeOpacity={0.7} onPress={sendLike}>
               <Heart size={24} color="#ffffff" />
               <Text style={styles.actionButtonText}>Me gusta</Text>
             </TouchableOpacity>
