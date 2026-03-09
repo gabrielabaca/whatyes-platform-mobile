@@ -5,7 +5,11 @@
   "scripts": {
     "android": "react-native run-android",
     "android:clean": "cd android && ./gradlew clean && cd .. && react-native run-android",
+    "build:android": "cd android && ./gradlew clean bundleRelease",
+    "build:android:apk": "cd android && ./gradlew clean assembleRelease",
     "ios": "react-native run-ios",
+    "build:ios": "bundle exec fastlane build",
+    "fastlane:beta": "bundle exec fastlane beta",
     "lint": "eslint .",
     "postinstall": "patch-package",
     "start": "react-native start",

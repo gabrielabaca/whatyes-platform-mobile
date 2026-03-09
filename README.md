@@ -58,6 +58,32 @@ npm run ios
 yarn ios
 ```
 
+### iOS (Fastlane / TestFlight)
+
+Prepara las variables en `env/.env_main`:
+- `APP_STORE_CONNECT_API_KEY_PATH=keys/AuthKey_XXXX.p8`
+- `APP_STORE_CONNECT_KEY_ID=XXXX`
+- `APP_STORE_CONNECT_ISSUER_ID=XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX`
+- `APPLE_TEAM_ID=XXXXXXXXXX`
+
+Instala gems y pods (una sola vez o cuando cambien deps nativas):
+```sh
+bundle install
+cd ios && bundle exec pod install
+```
+
+Build local (sin subir):
+```sh
+npm run build:ios
+```
+
+Build + subida a TestFlight:
+```sh
+npm run fastlane:beta
+```
+
+Nota: si es la primera vez, abre Xcode y selecciona el Team en Signing & Capabilities.
+
 If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
 
 This is one way to run your app — you can also build it directly from Android Studio or Xcode.

@@ -1,0 +1,64 @@
+require "dotenv"
+
+project_root = File.expand_path("..", __dir__)
+Dotenv.load(File.join(project_root, "env", ".env_main"))
+
+default_platform(:ios)
+
+def build_ios(team_id:, project_root:)
+  xcargs = "-allowProvisioningUpdates"
+  xcargs += " DEVELOPMENT_TEAM=#{team_id}" if team_id && !team_id.empty?
+
+  cocoapods(
+    podfile: "ios/Podfile",
+    clean_install: true,
+    repo_update: false
+  )
+
+  build_app(
+    workspace: "ios/PlatformMobile.xcworkspace",
+    scheme: "PlatformMobile",
+    export_method: "app-store",
+    clean: true,
+    output_directory: "build/ios",
+    xcargs: xcargs,
+    export_team_id: team_id
+  )
+end
+
+platform :ios do
+  desc "Build y subida a TestFlight"
+  lane :beta do
+    team_id = ENV["APPLE_TEAM_ID"]
+    build_ios(team_id: team_id, project_root: project_root)
+
+    api_key_path = ENV["APP_STORE_CONNECT_API_KEY_PATH"]
+    api_key_path = api_key_path ? File.expand_path(api_key_path, project_root) : nil
+    key_id = ENV["APP_STORE_CONNECT_KEY_ID"]
+    issuer_id = ENV["APP_STORE_CONNECT_ISSUER_ID"]
+
+    api_key =
+      if api_key_path&.end_with?(".json")
+        app_store_connect_api_key(path: api_key_path)
+      elsif api_key_path && key_id && issuer_id
+        app_store_connect_api_key(
+          key_id: key_id,
+          issuer_id: issuer_id,
+          key_filepath: api_key_path
+        )
+      else
+        nil
+      end
+
+    upload_to_testflight(
+      api_key: api_key,
+      skip_waiting_for_build_processing: true
+    )
+  end
+
+  desc "Build iOS (sin subir)"
+  lane :build do
+    team_id = ENV["APPLE_TEAM_ID"]
+    build_ios(team_id: team_id, project_root: project_root)
+  end
+end
