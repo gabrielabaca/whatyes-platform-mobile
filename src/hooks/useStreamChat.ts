@@ -46,12 +46,34 @@ const toChatMessage = (msg: WsPayloadMessage): ChatMessage => {
   };
 };
 
+export interface AuctionState {
+  id: string;
+  durationSeconds: number;
+  startedAt: number;
+  endsAt: number;
+}
+
+export interface AuctionBid {
+  id: string;
+  username: string;
+  amount: number;
+  created_at: number;
+}
+
+export interface AuctionWinner {
+  username: string;
+  amount: number;
+}
+
 export function useStreamChat({ roomId, accessToken, enabled = true, onLike }: UseStreamChatOptions) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [viewerCount, setViewerCount] = useState(0);
   const [likesCount, setLikesCount] = useState(0);
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [auction, setAuction] = useState<AuctionState | null>(null);
+  const [auctionBids, setAuctionBids] = useState<AuctionBid[]>([]);
+  const [auctionWinner, setAuctionWinner] = useState<AuctionWinner | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
 
   const send = useCallback((payload: Record<string, any>) => {
@@ -72,6 +94,21 @@ export function useStreamChat({ roomId, accessToken, enabled = true, onLike }: U
   const sendLike = useCallback(() => {
     send({ type: 'like' });
   }, [send]);
+
+  const sendAuctionStart = useCallback(
+    (durationSeconds: number) => {
+      send({ type: 'auction_start', duration_seconds: durationSeconds });
+    },
+    [send]
+  );
+
+  const sendBid = useCallback(
+    (amount: number) => {
+      if (amount < 1) return;
+      send({ type: 'auction_bid', amount });
+    },
+    [send]
+  );
 
   useEffect(() => {
     if (!enabled || !roomId || !accessToken) return;
@@ -98,6 +135,57 @@ export function useStreamChat({ roomId, accessToken, enabled = true, onLike }: U
           if (typeof msg.payload.likes_count === 'number') {
             setLikesCount(msg.payload.likes_count);
           }
+          const a = msg.payload.auction;
+          if (a && a.id && typeof a.ends_at === 'number' && a.ends_at > Math.floor(Date.now() / 1000)) {
+            setAuction({
+              id: a.id,
+              durationSeconds: a.duration_seconds ?? 10,
+              startedAt: a.started_at ?? 0,
+              endsAt: a.ends_at,
+            });
+            const bids = Array.isArray(a.bids) ? a.bids : [];
+            setAuctionBids(bids.map((b: any) => ({
+              id: b.id || `${b.username}-${b.created_at}`,
+              username: b.username || 'Usuario',
+              amount: b.amount ?? 0,
+              created_at: b.created_at ?? 0,
+            })));
+          } else {
+            setAuction(null);
+            setAuctionBids([]);
+          }
+          return;
+        }
+        if (msg.type === 'auction_start' && msg.payload) {
+          const a = msg.payload;
+          if (a.id && typeof a.ends_at === 'number') {
+            setAuction({
+              id: a.id,
+              durationSeconds: a.duration_seconds ?? 10,
+              startedAt: a.started_at ?? 0,
+              endsAt: a.ends_at,
+            });
+            setAuctionBids([]);
+          }
+          return;
+        }
+        if (msg.type === 'auction_end') {
+          const winner = msg.payload?.winner;
+          if (winner?.username) {
+            setAuctionWinner({ username: winner.username, amount: winner.amount ?? 0 });
+          }
+          setAuction(null);
+          setAuctionBids([]);
+          return;
+        }
+        if (msg.type === 'auction_bid' && msg.payload) {
+          const b = msg.payload;
+          setAuctionBids(prev => [...prev, {
+            id: b.id || `${b.username}-${b.created_at}`,
+            username: b.username || 'Usuario',
+            amount: b.amount ?? 0,
+            created_at: b.created_at ?? 0,
+          }]);
           return;
         }
         if (msg.type === 'chat' && msg.payload) {
@@ -133,6 +221,40 @@ export function useStreamChat({ roomId, accessToken, enabled = true, onLike }: U
     };
   }, [roomId, accessToken, enabled, onLike]);
 
+  const [auctionSecondsRemaining, setAuctionSecondsRemaining] = useState<number | null>(null);
+
+  const now = Math.floor(Date.now() / 1000);
+  const isAuctionActive = auction !== null && auction.endsAt > now;
+
+  useEffect(() => {
+    if (!auction || auction.endsAt <= Math.floor(Date.now() / 1000)) {
+      setAuctionSecondsRemaining(null);
+      return;
+    }
+    const update = () => {
+      const n = Math.floor(Date.now() / 1000);
+      const remaining = Math.max(0, auction.endsAt - n);
+      setAuctionSecondsRemaining(remaining);
+      if (remaining <= 0) setAuction(null);
+    };
+    update();
+    const id = setInterval(update, 1000);
+    return () => clearInterval(id);
+  }, [auction?.id, auction?.endsAt]);
+
+  useEffect(() => {
+    if (!auction || auction.endsAt <= now) return;
+    const delay = (auction.endsAt - now) * 1000 + 500;
+    const t = setTimeout(() => setAuction(null), delay);
+    return () => clearTimeout(t);
+  }, [auction?.id, auction?.endsAt]);
+
+  useEffect(() => {
+    if (!auctionWinner) return;
+    const t = setTimeout(() => setAuctionWinner(null), 5000);
+    return () => clearTimeout(t);
+  }, [auctionWinner]);
+
   return {
     messages,
     viewerCount,
@@ -141,5 +263,13 @@ export function useStreamChat({ roomId, accessToken, enabled = true, onLike }: U
     error,
     sendChat,
     sendLike,
+    sendAuctionStart,
+    sendBid,
+    auction,
+    isAuctionActive,
+    auctionSecondsRemaining,
+    auctionBids,
+    auctionWinner,
+    clearAuctionWinner: () => setAuctionWinner(null),
   };
 }

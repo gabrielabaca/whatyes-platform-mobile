@@ -18,18 +18,20 @@ import {
   Alert,
   ActivityIndicator,
   Animated,
+  Modal,
 } from 'react-native';
 import { Camera, useCameraDevice, useCameraPermission } from 'react-native-vision-camera';
 import { RTCView } from 'react-native-webrtc';
 import type { MediaStream } from 'react-native-webrtc';
 import { Text } from '../../atoms/Text';
-import { Heart, Send, MessageSquare, MessageSquareOff, ChevronUp, ChevronDown, Maximize2, Square, ArrowLeft, FlipHorizontal, Users } from 'lucide-react-native';
+import { Heart, Send, MessageSquare, MessageSquareOff, ChevronUp, ChevronDown, Maximize2, Square, ArrowLeft, FlipHorizontal, Users, Gavel } from 'lucide-react-native';
 import type { StreamConfig } from '../StreamConfigScreen';
 import { useAuth } from '../../../hooks/useAuth';
 import { storage } from '../../../utils/storage';
 import { createRoom, goLive, endStream, getWebRTCCredentials } from '../../../api/platformApi';
 import { startKinesisWebRTCMaster, stopKinesisWebRTCMaster } from '../../../native/KinesisWebRTCNative';
 import { useStreamChat } from '../../../hooks/useStreamChat';
+import { AuctionWinnerOverlay } from '../../molecules/AuctionWinnerOverlay/AuctionWinnerOverlay';
 import KeepAwake from 'react-native-keep-awake';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -111,7 +113,11 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
   const [likeEvents, setLikeEvents] = useState<LikeEvent[]>([]);
   const cameraRef = useRef<Camera>(null);
   const flatListRef = useRef<FlatList>(null);
+  const auctionBidsListRef = useRef<FlatList>(null);
   const likeSeqRef = useRef(0);
+  const prevMessagesLengthRef = useRef(0);
+  const initialMessagesHandledRef = useRef(false);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const handleLikeDone = useCallback((id: string) => {
     setLikeEvents((prev) => prev.filter((event) => event.id !== id));
@@ -124,11 +130,20 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
     setLikeEvents((prev) => [...prev, { id, username, offset }].slice(-6));
   }, []);
 
-  const { messages, viewerCount, sendChat } = useStreamChat({
+  const { messages, viewerCount, sendChat, sendAuctionStart, isAuctionActive, auctionSecondsRemaining, auctionBids, auctionWinner } = useStreamChat({
     roomId,
     accessToken: token,
     onLike: handleLikeEvent,
   });
+
+  const [showAuctionModal, setShowAuctionModal] = useState(false);
+  const [auctionDuration, setAuctionDuration] = useState('10');
+
+  const handleStartAuction = () => {
+    const duration = Math.max(5, Math.min(300, parseInt(auctionDuration, 10) || 10));
+    sendAuctionStart(duration);
+    setShowAuctionModal(false);
+  };
 
   // Mantener la pantalla activa durante el stream
   useEffect(() => {
@@ -219,7 +234,29 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
     if (!hasPermission) requestPermission();
   }, [hasPermission, requestPermission]);
 
-  const handleToggleChat = () => setShowChat(!showChat);
+  const handleToggleChat = () => {
+    setShowChat(prev => {
+      if (!prev) setUnreadCount(0);
+      return !prev;
+    });
+  };
+
+  useEffect(() => {
+    if (showChat) {
+      prevMessagesLengthRef.current = messages.length;
+      return;
+    }
+    const prev = prevMessagesLengthRef.current;
+    if (messages.length > 0 && !initialMessagesHandledRef.current) {
+      initialMessagesHandledRef.current = true;
+      prevMessagesLengthRef.current = messages.length;
+      return;
+    }
+    if (messages.length > prev) {
+      setUnreadCount(c => c + (messages.length - prev));
+    }
+    prevMessagesLengthRef.current = messages.length;
+  }, [messages.length, showChat]);
   const handleToggleChatSize = () => {
     setChatSize(s => (s === 'small' ? 'medium' : s === 'medium' ? 'large' : 'small'));
   };
@@ -255,6 +292,12 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
     const t = setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 60);
     return () => clearTimeout(t);
   }, [messages.length]);
+
+  useEffect(() => {
+    if (!auctionBids.length) return;
+    const t = setTimeout(() => auctionBidsListRef.current?.scrollToEnd({ animated: true }), 60);
+    return () => clearTimeout(t);
+  }, [auctionBids.length]);
 
   if (!hasPermission) {
     return (
@@ -317,6 +360,7 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
   return (
     <View style={styles.container}>
       <StatusBar hidden={true} />
+      <AuctionWinnerOverlay winner={auctionWinner} />
       <View pointerEvents="none" style={styles.floatingHeartsLayer}>
         {likeEvents.map((event) => (
           <FloatingHeart key={event.id} event={event} onDone={handleLikeDone} />
@@ -357,6 +401,35 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
           <Text style={styles.endStreamText}>Finalizar</Text>
         </TouchableOpacity>
         <View style={styles.topRightBadges}>
+          {isAuctionActive && (
+            <View style={styles.auctionBidsPanel}>
+              <View style={styles.auctionBidsHeader}>
+                <Gavel size={14} color="#ffffff" />
+                <Text style={styles.auctionBidsTitle}>Ofertas</Text>
+                {auctionSecondsRemaining !== null && (
+                  <Text style={styles.auctionCountdownText}>{auctionSecondsRemaining}s</Text>
+                )}
+              </View>
+              {auctionBids.length > 0 ? (
+                <FlatList
+                  ref={auctionBidsListRef}
+                  data={auctionBids}
+                  keyExtractor={item => item.id}
+                  renderItem={({ item }) => (
+                    <View style={styles.auctionBidRow}>
+                      <Text style={styles.auctionBidUser} numberOfLines={1}>{item.username}</Text>
+                      <Text style={styles.auctionBidAmount}>${item.amount}</Text>
+                    </View>
+                  )}
+                  style={styles.auctionBidsList}
+                  contentContainerStyle={styles.auctionBidsContent}
+                  scrollEnabled={auctionBids.length > 3}
+                />
+              ) : (
+                <Text style={styles.auctionBidsEmpty}>Sin ofertas aún</Text>
+              )}
+            </View>
+          )}
           <View style={styles.viewerBadge}>
             <Users size={14} color="#ffffff" />
             <Text style={styles.viewerText}>{viewerCount}</Text>
@@ -369,13 +442,55 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
       </View>
 
       <View style={styles.bottomControls}>
+        {!isAuctionActive && (
+          <TouchableOpacity style={styles.auctionButton} activeOpacity={0.7} onPress={() => setShowAuctionModal(true)}>
+            <Gavel size={24} color="#ffffff" />
+            <Text style={styles.auctionButtonText}>Subasta</Text>
+          </TouchableOpacity>
+        )}
         <TouchableOpacity style={styles.cameraToggleButton} activeOpacity={0.7} onPress={handleToggleCamera}>
           <FlipHorizontal size={24} color="#ffffff" />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.chatToggleButton} activeOpacity={0.7} onPress={handleToggleChat}>
-          {showChat ? <MessageSquareOff size={24} color="#ffffff" /> : <MessageSquare size={24} color="#ffffff" />}
+        <TouchableOpacity
+          style={[styles.chatToggleButton, unreadCount > 0 && styles.chatToggleButtonHighlight]}
+          activeOpacity={0.7}
+          onPress={handleToggleChat}
+        >
+          <View style={styles.chatIconWrapper}>
+            {showChat ? <MessageSquareOff size={24} color="#ffffff" /> : <MessageSquare size={24} color="#ffffff" />}
+            {unreadCount > 0 && (
+              <View style={styles.chatBadge}>
+                <Text style={styles.chatBadgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
+              </View>
+            )}
+          </View>
         </TouchableOpacity>
       </View>
+
+      <Modal visible={showAuctionModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text variant="h3" className="text-white mb-2">Iniciar subasta</Text>
+            <Text variant="body" className="text-white/80 mb-4">Duración en segundos (5-300):</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="10"
+              placeholderTextColor="#9ca3af"
+              keyboardType="number-pad"
+              value={auctionDuration}
+              onChangeText={setAuctionDuration}
+            />
+            <View style={styles.modalButtons}>
+              <TouchableOpacity style={styles.modalCancelButton} onPress={() => setShowAuctionModal(false)} activeOpacity={0.7}>
+                <Text style={styles.modalCancelText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.modalStartButton} onPress={handleStartAuction} activeOpacity={0.7}>
+                <Text style={styles.modalStartText}>Iniciar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {showChat && (
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={[styles.chatContainer, { height: getChatHeight() }]}>
@@ -433,14 +548,38 @@ const styles = StyleSheet.create({
   endStreamButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#ef4444', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 8, gap: 8 },
   endStreamText: { color: '#ffffff', fontSize: 14, fontWeight: '700' },
   topRightBadges: { alignItems: 'flex-end', gap: 8 },
+  auctionBidsPanel: { backgroundColor: 'rgba(0,0,0,0.7)', borderRadius: 12, padding: 10, minWidth: 140, maxHeight: 180 },
+  auctionBidsHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
+  auctionBidsTitle: { color: '#ffffff', fontSize: 12, fontWeight: '700' },
+  auctionCountdownText: { color: '#f59e0b', fontSize: 12, fontWeight: '700', marginLeft: 'auto' },
+  auctionBidsList: { maxHeight: 120 },
+  auctionBidsContent: { gap: 4 },
+  auctionBidRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.1)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
+  auctionBidUser: { color: '#ffffff', fontSize: 11, flex: 1 },
+  auctionBidAmount: { color: '#22c55e', fontSize: 12, fontWeight: '700', marginLeft: 8 },
+  auctionBidsEmpty: { color: 'rgba(255,255,255,0.6)', fontSize: 11, fontWeight: '500', paddingVertical: 8 },
   viewerBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(0,0,0,0.5)', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 },
   viewerText: { color: '#ffffff', fontSize: 12, fontWeight: '700' },
   liveBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#ef4444', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6 },
   liveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#ffffff', marginRight: 6 },
   liveText: { color: '#ffffff', fontSize: 12, fontWeight: '700', letterSpacing: 0.5 },
   bottomControls: { position: 'absolute', bottom: 0, left: 0, right: 0, paddingBottom: Platform.OS === 'ios' ? 40 : 20, paddingHorizontal: 16, paddingTop: 20, flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', gap: 12, zIndex: 3 },
+  auctionButton: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#0284c7', paddingHorizontal: 14, paddingVertical: 12, borderRadius: 24 },
+  auctionButtonText: { color: '#ffffff', fontSize: 14, fontWeight: '600' },
   cameraToggleButton: { width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
   chatToggleButton: { width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
+  chatToggleButtonHighlight: { backgroundColor: 'rgba(2,132,199,0.6)', borderWidth: 2, borderColor: '#0284c7' },
+  chatIconWrapper: { position: 'relative' },
+  chatBadge: { position: 'absolute', top: -4, right: -4, minWidth: 18, height: 18, borderRadius: 9, backgroundColor: '#ef4444', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 4 },
+  chatBadgeText: { color: '#ffffff', fontSize: 10, fontWeight: '700' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center', padding: 24 },
+  modalContent: { backgroundColor: 'rgba(30,30,30,0.98)', borderRadius: 16, padding: 24, width: '100%', maxWidth: 320 },
+  modalInput: { backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 8, paddingHorizontal: 16, paddingVertical: 12, color: '#ffffff', fontSize: 16, marginBottom: 20 },
+  modalButtons: { flexDirection: 'row', gap: 12, justifyContent: 'flex-end' },
+  modalCancelButton: { paddingHorizontal: 20, paddingVertical: 12, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.2)' },
+  modalCancelText: { color: '#ffffff', fontSize: 14, fontWeight: '600' },
+  modalStartButton: { paddingHorizontal: 20, paddingVertical: 12, borderRadius: 8, backgroundColor: '#0284c7' },
+  modalStartText: { color: '#ffffff', fontSize: 14, fontWeight: '600' },
   chatContainer: { position: 'absolute', bottom: Platform.OS === 'ios' ? 100 : 70, left: 16, right: 16, backgroundColor: 'rgba(0,0,0,0.4)', borderRadius: 12, overflow: 'hidden', zIndex: 4 },
   chatHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.2)' },
   chatSizeButton: { width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center' },

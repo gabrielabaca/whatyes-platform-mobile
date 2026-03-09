@@ -25,6 +25,8 @@ import { getWebRTCCredentials } from '../../../api/platformApi';
 import { startKinesisWebRTCViewer, stopKinesisWebRTCViewer } from '../../../native/KinesisWebRTCNative';
 import type { MediaStream } from 'react-native-webrtc';
 import { useStreamChat } from '../../../hooks/useStreamChat';
+import { AuctionWinnerOverlay } from '../../molecules/AuctionWinnerOverlay/AuctionWinnerOverlay';
+import { useFloatingHearts, FloatingHeartsLayer } from '../../molecules/FloatingHearts/FloatingHearts';
 import { enableSpeakerphone, disableSpeakerphone } from '../../../utils/audioRoute';
 import KeepAwake from 'react-native-keep-awake';
 
@@ -47,7 +49,6 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({
   const [isMuted, setIsMuted] = useState(false);
   const [chatSize, setChatSize] = useState<ChatSize>('medium');
   const [showChat, setShowChat] = useState(false);
-  const [showBidInterface, setShowBidInterface] = useState(false);
   const [bidAmount, setBidAmount] = useState(10);
   const [messageText, setMessageText] = useState('');
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
@@ -56,6 +57,11 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({
   const [chatToken, setChatToken] = useState<string | null>(null);
   const viewerCleanupRef = useRef<(() => void) | null>(null);
   const flatListRef = useRef<FlatList>(null);
+  const auctionBidsListRef = useRef<FlatList>(null);
+  const prevMessagesLengthRef = useRef(0);
+  const initialMessagesHandledRef = useRef(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const { likeEvents, handleLikeDone, handleLikeEvent } = useFloatingHearts();
 
   const roomId = stream.id;
   const {
@@ -64,7 +70,12 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({
     isConnected: isChatConnected,
     sendChat,
     sendLike,
-  } = useStreamChat({ roomId, accessToken: chatToken });
+    sendBid,
+    isAuctionActive,
+    auctionSecondsRemaining,
+    auctionBids,
+    auctionWinner,
+  } = useStreamChat({ roomId, accessToken: chatToken, onLike: handleLikeEvent });
 
   useEffect(() => {
     KeepAwake.activate();
@@ -119,25 +130,6 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({
   }, [showControls]);
 
   useEffect(() => {
-    if (__DEV__) {
-      const globalObj = global as any;
-      globalObj.showBidInterface = () => setShowBidInterface(prev => !prev);
-      globalObj.hideBidInterface = () => setShowBidInterface(false);
-      globalObj.toggleBidInterface = () => setShowBidInterface(prev => !prev);
-      globalObj.setBidAmount = (amount: number) => setBidAmount(amount);
-    }
-    return () => {
-      if (__DEV__) {
-        const globalObj = global as any;
-        delete globalObj.showBidInterface;
-        delete globalObj.hideBidInterface;
-        delete globalObj.toggleBidInterface;
-        delete globalObj.setBidAmount;
-      }
-    };
-  }, []);
-
-  useEffect(() => {
     if (!remoteStream) return;
     const audioTracks = remoteStream.getAudioTracks();
     audioTracks.forEach((track) => {
@@ -150,13 +142,35 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({
 
   const handleScreenPress = () => setShowControls(!showControls);
   const handleToggleMute = () => setIsMuted(!isMuted);
-  const handleToggleChat = () => setShowChat(!showChat);
+  const handleToggleChat = () => {
+    setShowChat(prev => {
+      if (!prev) setUnreadCount(0);
+      return !prev;
+    });
+  };
+
+  useEffect(() => {
+    if (showChat) {
+      prevMessagesLengthRef.current = messages.length;
+      return;
+    }
+    const prev = prevMessagesLengthRef.current;
+    if (messages.length > 0 && !initialMessagesHandledRef.current) {
+      initialMessagesHandledRef.current = true;
+      prevMessagesLengthRef.current = messages.length;
+      return;
+    }
+    if (messages.length > prev) {
+      setUnreadCount(c => c + (messages.length - prev));
+    }
+    prevMessagesLengthRef.current = messages.length;
+  }, [messages.length, showChat]);
 
   const handleDecreaseBid = () => { if (bidAmount > 1) setBidAmount(bidAmount - 1); };
   const handleIncreaseBid = () => setBidAmount(bidAmount + 1);
 
   const handleSubmitBid = () => {
-    sendChat(`Oferta enviada: $${bidAmount}`);
+    sendBid(bidAmount);
     setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
   };
 
@@ -196,6 +210,12 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({
     return () => clearTimeout(t);
   }, [messages.length]);
 
+  useEffect(() => {
+    if (!auctionBids.length) return;
+    const t = setTimeout(() => auctionBidsListRef.current?.scrollToEnd({ animated: true }), 60);
+    return () => clearTimeout(t);
+  }, [auctionBids.length]);
+
   if (streamError) {
     const isNoFragments = (streamError as string).includes('Aún no hay video') || (streamError as string).includes('broadcaster');
     return (
@@ -232,6 +252,8 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({
   return (
     <View style={styles.container}>
       <StatusBar hidden={true} />
+      <AuctionWinnerOverlay winner={auctionWinner} />
+      <FloatingHeartsLayer likeEvents={likeEvents} onLikeDone={handleLikeDone} />
       <View style={styles.videoContainer}>
         <RTCView
           streamURL={remoteStream.toURL()}
@@ -240,8 +262,34 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({
         />
         <TouchableOpacity style={styles.videoOverlay} activeOpacity={1} onPress={handleScreenPress} />
 
-        {showBidInterface && (
+        {isAuctionActive && (
           <View style={styles.bidInterface}>
+            <View style={styles.auctionBidsPanel}>
+              <View style={styles.auctionBidsHeader}>
+                <Text style={styles.auctionBidsTitle}>Ofertas</Text>
+                {auctionSecondsRemaining !== null && (
+                  <Text style={styles.auctionCountdownText}>{auctionSecondsRemaining}s</Text>
+                )}
+              </View>
+              {auctionBids.length > 0 ? (
+                <FlatList
+                  ref={auctionBidsListRef}
+                  data={auctionBids}
+                  keyExtractor={item => item.id}
+                  renderItem={({ item }) => (
+                    <View style={styles.auctionBidRow}>
+                      <Text style={styles.auctionBidUser} numberOfLines={1}>{item.username}</Text>
+                      <Text style={styles.auctionBidAmount}>${item.amount}</Text>
+                    </View>
+                  )}
+                  style={styles.auctionBidsList}
+                  contentContainerStyle={styles.auctionBidsContent}
+                  scrollEnabled={auctionBids.length > 3}
+                />
+              ) : (
+                <Text style={styles.auctionBidsEmpty}>Sin ofertas aún</Text>
+              )}
+            </View>
             <View style={styles.bidContainer}>
               <TouchableOpacity style={styles.bidButton} onPress={handleDecreaseBid} activeOpacity={0.7}>
                 <Minus size={24} color="#ffffff" />
@@ -285,8 +333,19 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({
             <TouchableOpacity style={styles.soundButton} activeOpacity={0.7} onPress={handleToggleMute}>
               {isMuted ? <VolumeX size={24} color="#ffffff" /> : <Volume2 size={24} color="#ffffff" />}
             </TouchableOpacity>
-            <TouchableOpacity style={styles.soundButton} activeOpacity={0.7} onPress={handleToggleChat}>
-              {showChat ? <MessageSquareOff size={24} color="#ffffff" /> : <MessageSquare size={24} color="#ffffff" />}
+            <TouchableOpacity
+              style={[styles.soundButton, unreadCount > 0 && styles.chatToggleButtonHighlight]}
+              activeOpacity={0.7}
+              onPress={handleToggleChat}
+            >
+              <View style={styles.chatIconWrapper}>
+                {showChat ? <MessageSquareOff size={24} color="#ffffff" /> : <MessageSquare size={24} color="#ffffff" />}
+                {unreadCount > 0 && (
+                  <View style={styles.chatBadge}>
+                    <Text style={styles.chatBadgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
+                  </View>
+                )}
+              </View>
             </TouchableOpacity>
             <TouchableOpacity style={styles.actionButton} activeOpacity={0.7} onPress={sendLike}>
               <Heart size={24} color="#ffffff" />
@@ -366,6 +425,10 @@ const styles = StyleSheet.create({
   statText: { color: '#ffffff', fontSize: 14, fontWeight: '600' },
   alwaysVisibleButtons: { flexDirection: 'row', alignItems: 'center', gap: 16 },
   soundButton: { width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
+  chatToggleButtonHighlight: { backgroundColor: 'rgba(2,132,199,0.6)', borderWidth: 2, borderColor: '#0284c7' },
+  chatIconWrapper: { position: 'relative' },
+  chatBadge: { position: 'absolute', top: -4, right: -4, minWidth: 18, height: 18, borderRadius: 9, backgroundColor: '#ef4444', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 4 },
+  chatBadgeText: { color: '#ffffff', fontSize: 10, fontWeight: '700' },
   actionButton: { alignItems: 'center', gap: 4 },
   actionButtonText: { color: '#ffffff', fontSize: 12, fontWeight: '600' },
   chatContainer: {
@@ -384,7 +447,17 @@ const styles = StyleSheet.create({
   chatInputContainer: { flexDirection: 'row', paddingHorizontal: 12, paddingVertical: 8, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.2)', alignItems: 'center', gap: 8 },
   chatInput: { flex: 1, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 8, color: '#ffffff', fontSize: 14, maxHeight: 80 },
   sendButton: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#0284c7', justifyContent: 'center', alignItems: 'center' },
-  bidInterface: { position: 'absolute', bottom: Platform.OS === 'ios' ? 200 : 180, left: 0, right: 0, alignItems: 'center', zIndex: 5, paddingHorizontal: 16 },
+  bidInterface: { position: 'absolute', bottom: Platform.OS === 'ios' ? 200 : 180, left: 0, right: 0, alignItems: 'center', zIndex: 5, paddingHorizontal: 16, gap: 8 },
+  auctionBidsPanel: { backgroundColor: 'rgba(0,0,0,0.7)', borderRadius: 12, padding: 10, width: '100%', maxWidth: 280, maxHeight: 140 },
+  auctionBidsHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 8 },
+  auctionBidsTitle: { color: '#ffffff', fontSize: 12, fontWeight: '700' },
+  auctionCountdownText: { color: '#f59e0b', fontSize: 14, fontWeight: '700' },
+  auctionBidsList: { maxHeight: 80 },
+  auctionBidsContent: { gap: 4 },
+  auctionBidRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.1)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 },
+  auctionBidUser: { color: '#ffffff', fontSize: 12, flex: 1 },
+  auctionBidAmount: { color: '#22c55e', fontSize: 13, fontWeight: '700', marginLeft: 8 },
+  auctionBidsEmpty: { color: 'rgba(255,255,255,0.6)', fontSize: 12, fontWeight: '500', paddingVertical: 8 },
   bidContainer: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: 'rgba(0,0,0,0.7)', borderRadius: 16, padding: 8 },
   bidButton: { width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center' },
   bidAmountButton: { minWidth: 120, height: 56, borderRadius: 28, backgroundColor: '#0284c7', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 20 },
