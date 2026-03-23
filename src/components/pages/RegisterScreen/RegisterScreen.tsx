@@ -1,19 +1,24 @@
 /**
  * Register Screen
- * Pantalla de registro con tabs para buyer y seller
+ * Registro en dos pasos:
+ * 1) Elegir perfil
+ * 2) Completar formulario por perfil
  */
 
 import React, { useState } from 'react';
-import { View, KeyboardAvoidingView, Platform, ScrollView, Alert, TouchableOpacity } from 'react-native';
+import { useTranslation } from 'react-i18next';
+import { View, KeyboardAvoidingView, Platform, ScrollView, Alert, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { ArrowLeft } from 'lucide-react-native';
+import Svg, { Defs, LinearGradient, Stop, Text as SvgText } from 'react-native-svg';
 import { Button } from '../../atoms/Button';
 import { Input } from '../../atoms/Input';
 import { Text } from '../../atoms/Text';
-import { TabSelector, TabOption } from '../../molecules/TabSelector';
 import { CountrySelect } from '../../molecules/CountrySelect';
 import { VerificationCodeScreen } from '../VerificationCodeScreen';
 import { createBuyerUser, createSellerUser, ApiError } from '../../../api';
 import type { CreateBuyerUserRequest, CreateSellerUserRequest } from '../../../api/types';
+import { FONT_FAMILY } from '../../../theme/typography';
 
 type UserType = 'buyer' | 'seller';
 
@@ -26,7 +31,9 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
   onBackToLogin,
   onRegisterSuccess,
 }) => {
-  const [userType, setUserType] = useState<UserType>('buyer');
+  const { t } = useTranslation();
+  const [step, setStep] = useState<1 | 2>(1);
+  const [userType, setUserType] = useState<UserType | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [showVerification, setShowVerification] = useState(false);
   const [registeredEmail, setRegisteredEmail] = useState('');
@@ -49,24 +56,63 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
   const [customerAddressLine1, setCustomerAddressLine1] = useState('');
   const [customerContactPhone, setCustomerContactPhone] = useState('');
 
-  const tabOptions: TabOption[] = [
-    { label: 'Comprador', value: 'buyer' },
-    { label: 'Streamer', value: 'seller' },
-  ];
+  const goToStep2 = () => {
+    if (!userType) {
+      Alert.alert(t('common.error'), t('register.selectProfile'));
+      return;
+    }
+    setStep(2);
+  };
+
+  const renderProfileLabel = (
+    label: string,
+    selected: boolean,
+    gradientId: string
+  ) => {
+    if (!selected) {
+      return (
+        <Text className="text-center text-base leading-[20px] font-bold text-[#7D7E83]">
+          {label}
+        </Text>
+      );
+    }
+
+    return (
+      <Svg width="100%" height={20}>
+        <Defs>
+          <LinearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="0%">
+            <Stop offset="37.52%" stopColor="#49A9E1" />
+            <Stop offset="63.38%" stopColor="#2056FC" />
+          </LinearGradient>
+        </Defs>
+        <SvgText
+          x="50%"
+          y="16"
+          textAnchor="middle"
+          fontSize="16"
+          fontWeight="700"
+          fontFamily={FONT_FAMILY.bold}
+          fill={`url(#${gradientId})`}
+        >
+          {label}
+        </SvgText>
+      </Svg>
+    );
+  };
 
   const validateBuyerForm = (): boolean => {
     if (!email || !name || !password || !repeatPassword) {
-      Alert.alert('Error', 'Por favor completa todos los campos obligatorios');
+      Alert.alert(t('common.error'), t('register.fillRequired'));
       return false;
     }
 
     if (password !== repeatPassword) {
-      Alert.alert('Error', 'Las contraseñas no coinciden');
+      Alert.alert(t('common.error'), t('register.passwordsMismatch'));
       return false;
     }
 
     if (password.length < 6) {
-      Alert.alert('Error', 'La contraseña debe tener al menos 6 caracteres');
+      Alert.alert(t('common.error'), t('register.passwordMin'));
       return false;
     }
 
@@ -79,7 +125,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
     }
 
     if (!customerName) {
-      Alert.alert('Error', 'El nombre del cliente es obligatorio');
+      Alert.alert(t('common.error'), t('register.customerNameRequired'));
       return false;
     }
 
@@ -87,6 +133,11 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
   };
 
   const handleRegister = async () => {
+    if (!userType) {
+      Alert.alert(t('common.error'), t('register.selectProfile'));
+      return;
+    }
+
     if (userType === 'buyer') {
       if (!validateBuyerForm()) return;
 
@@ -108,11 +159,11 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
           setShowVerification(true);
         } else {
           Alert.alert(
-            'Éxito',
-            'Tu cuenta ha sido creada. Revisa tu correo para verificar tu cuenta.',
+            t('common.success'),
+            t('register.createdBuyer'),
             [
               {
-                text: 'OK',
+                text: t('common.ok'),
                 onPress: () => {
                   onRegisterSuccess?.();
                   onBackToLogin();
@@ -123,9 +174,9 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
         }
       } catch (error) {
         if (error instanceof ApiError) {
-          Alert.alert('Error', error.message);
+          Alert.alert(t('common.error'), error.message);
         } else {
-          Alert.alert('Error', 'No se pudo crear la cuenta. Intenta nuevamente.');
+          Alert.alert(t('common.error'), t('register.createFailed'));
         }
       } finally {
         setIsLoading(false);
@@ -160,11 +211,11 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
           setShowVerification(true);
         } else {
           Alert.alert(
-            'Éxito',
-            'Tu cuenta de streamer ha sido creada. Revisa tu correo para verificar tu cuenta.',
+            t('common.success'),
+            t('register.createdSeller'),
             [
               {
-                text: 'OK',
+                text: t('common.ok'),
                 onPress: () => {
                   onRegisterSuccess?.();
                   onBackToLogin();
@@ -175,9 +226,9 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
         }
       } catch (error) {
         if (error instanceof ApiError) {
-          Alert.alert('Error', error.message);
+          Alert.alert(t('common.error'), error.message);
         } else {
-          Alert.alert('Error', 'No se pudo crear la cuenta. Intenta nuevamente.');
+          Alert.alert(t('common.error'), t('register.createFailed'));
         }
       } finally {
         setIsLoading(false);
@@ -218,7 +269,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
+    <SafeAreaView className="flex-1 bg-white dark:bg-night-950">
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         className="flex-1"
@@ -229,186 +280,219 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
           showsVerticalScrollIndicator={false}
         >
           <View className="flex-1 px-6 pt-8 pb-6">
-            {/* Header */}
-            <View className="items-center mb-8">
-              <View className="w-20 h-20 bg-primary-600 rounded-2xl items-center justify-center mb-4 shadow-lg">
-                <Text className="text-white text-3xl font-bold">WY</Text>
-              </View>
-              <Text variant="h1" className="text-primary-600 mb-2">
-                Crear cuenta
-              </Text>
-              <Text variant="body" className="text-gray-600 text-center">
-                Únete a WhatYes!
-              </Text>
-            </View>
-
-            {/* Tab Selector */}
-            <TabSelector
-              options={tabOptions}
-              selectedValue={userType}
-              onValueChange={(value) => setUserType(value as UserType)}
-            />
-
-            {/* Form Section */}
-            <View className="mb-6">
-              {/* Información Personal */}
-              <Text variant="h3" className="mb-4 text-gray-800">
-                Información Personal
-              </Text>
-
-              <Input
-                label="Correo electrónico"
-                placeholder="tu@email.com"
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoComplete="email"
-                containerClassName="mb-4"
-              />
-
-              <Input
-                label="Nombre"
-                placeholder="Juan"
-                value={name}
-                onChangeText={setName}
-                autoCapitalize="words"
-                containerClassName="mb-4"
-              />
-
-              <Input
-                label="Apellido"
-                placeholder="Pérez"
-                value={lastName}
-                onChangeText={setLastName}
-                autoCapitalize="words"
-                containerClassName="mb-4"
-              />
-
-              <Input
-                label="Contraseña"
-                placeholder="••••••••"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry
-                autoCapitalize="none"
-                autoComplete="password"
-                containerClassName="mb-4"
-              />
-
-              <Input
-                label="Confirmar contraseña"
-                placeholder="••••••••"
-                value={repeatPassword}
-                onChangeText={setRepeatPassword}
-                secureTextEntry
-                autoCapitalize="none"
-                containerClassName="mb-6"
-              />
-
-              {/* Información del Cliente (solo para seller) */}
-              {userType === 'seller' && (
-                <>
-                  <Text variant="h3" className="mb-4 text-gray-800 mt-2">
-                    Información del Cliente
-                  </Text>
-
-                  <Input
-                    label="Nombre del cliente *"
-                    placeholder="Mi Empresa"
-                    value={customerName}
-                    onChangeText={setCustomerName}
-                    autoCapitalize="words"
-                    containerClassName="mb-4"
-                  />
-
-                  <Input
-                    label="Dominio"
-                    placeholder="miempresa.com"
-                    value={customerDomain}
-                    onChangeText={setCustomerDomain}
-                    autoCapitalize="none"
-                    keyboardType="url"
-                    containerClassName="mb-4"
-                  />
-
-                  <Input
-                    label="Dirección"
-                    placeholder="Calle y número"
-                    value={customerAddressLine1}
-                    onChangeText={setCustomerAddressLine1}
-                    containerClassName="mb-4"
-                  />
-
-                  <Input
-                    label="Ciudad"
-                    placeholder="Ciudad"
-                    value={customerCity}
-                    onChangeText={setCustomerCity}
-                    autoCapitalize="words"
-                    containerClassName="mb-4"
-                  />
-
-                  <View className="flex-row mb-4">
-                    <View className="flex-1 mr-2">
-                      <Input
-                        label="Estado/Provincia"
-                        placeholder="Estado"
-                        value={customerState}
-                        onChangeText={setCustomerState}
-                        autoCapitalize="words"
-                      />
-                    </View>
-                    <View className="flex-1 ml-2">
-                      <Input
-                        label="Código Postal"
-                        placeholder="12345"
-                        value={customerPostalCode}
-                        onChangeText={setCustomerPostalCode}
-                        keyboardType="numeric"
-                      />
-                    </View>
-                  </View>
-
-                  <CountrySelect
-                    label="País"
-                    value={customerCountry}
-                    onValueChange={setCustomerCountry}
-                    placeholder="Seleccionar país"
-                    containerClassName="mb-4"
-                  />
-
-                  <Input
-                    label="Teléfono de contacto"
-                    placeholder="+1234567890"
-                    value={customerContactPhone}
-                    onChangeText={setCustomerContactPhone}
-                    keyboardType="phone-pad"
-                    containerClassName="mb-6"
-                  />
-                </>
-              )}
-
-              <Button
-                title={userType === 'buyer' ? 'Crear cuenta' : 'Crear cuenta de streamer'}
-                onPress={handleRegister}
-                loading={isLoading}
-                disabled={isLoading}
-                variant="primary"
-                size="large"
-                className="mb-4"
-              />
-
-              {/* Back to Login */}
-              <TouchableOpacity onPress={onBackToLogin} className="items-center mt-4">
-                <Text variant="caption" className="text-gray-500">
-                  ¿Ya tienes una cuenta?{' '}
-                  <Text variant="caption" className="text-primary-600 font-semibold">
-                    Inicia sesión
-                  </Text>
-                </Text>
+            <View className="flex-row items-center justify-between mb-8">
+              <TouchableOpacity
+                onPress={() => {
+                  if (step === 1) {
+                    onBackToLogin();
+                  } else {
+                    setStep(1);
+                  }
+                }}
+                className="w-8 h-8 items-start justify-center"
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <ArrowLeft size={22} color="#02050F" />
               </TouchableOpacity>
+
+              <Text className="text-center text-[#02050F] text-[20px] font-bold">
+                {step === 1 ? t('register.chooseProfile') : t('register.createAccount')}
+              </Text>
+
+              <View className="w-8 h-8" />
             </View>
+
+            {step === 1 && (
+              <View className="mt-12">
+                <TouchableOpacity
+                  onPress={() => setUserType('seller')}
+                  activeOpacity={0.9}
+                  className={`rounded-full border min-h-[52px] items-center justify-center px-4 mb-3 ${userType === 'seller' ? 'border-[#49A9E1]' : 'border-[#8C8C8C]'}`}
+                >
+                  {renderProfileLabel(t('register.profileSeller'), userType === 'seller', 'sellerGradient')}
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={() => setUserType('buyer')}
+                  activeOpacity={0.9}
+                  className={`rounded-full border min-h-[52px] items-center justify-center px-4 mb-7 ${userType === 'buyer' ? 'border-[#49A9E1]' : 'border-[#8C8C8C]'}`}
+                >
+                  {renderProfileLabel(t('register.profileBuyer'), userType === 'buyer', 'buyerGradient')}
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={goToStep2}
+                  activeOpacity={0.9}
+                  className="bg-primary-600 rounded-full min-h-[52px] items-center justify-center px-8"
+                >
+                  <Text className="text-white text-base leading-6 font-semibold">{t('common.continue')}</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {step === 2 && (
+              <View className="mb-6">
+                <Text variant="h3" className="mb-4 text-gray-800">
+                  {t('register.personalInfo')}
+                </Text>
+
+                <Input
+                  label={t('register.email')}
+                  placeholder={t('register.emailPh')}
+                  value={email}
+                  onChangeText={setEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoComplete="email"
+                  containerClassName="mb-4"
+                />
+
+                <Input
+                  label={t('register.firstName')}
+                  placeholder={t('register.firstNamePh')}
+                  value={name}
+                  onChangeText={setName}
+                  autoCapitalize="words"
+                  containerClassName="mb-4"
+                />
+
+                <Input
+                  label={t('register.lastName')}
+                  placeholder={t('register.lastNamePh')}
+                  value={lastName}
+                  onChangeText={setLastName}
+                  autoCapitalize="words"
+                  containerClassName="mb-4"
+                />
+
+                <Input
+                  label={t('register.password')}
+                  placeholder={t('register.passwordDots')}
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry
+                  autoCapitalize="none"
+                  autoComplete="password"
+                  containerClassName="mb-4"
+                />
+
+                <Input
+                  label={t('register.confirmPassword')}
+                  placeholder={t('register.passwordDots')}
+                  value={repeatPassword}
+                  onChangeText={setRepeatPassword}
+                  secureTextEntry
+                  autoCapitalize="none"
+                  containerClassName="mb-6"
+                />
+
+                {userType === 'seller' && (
+                  <>
+                    <Text variant="h3" className="mb-4 text-gray-800 mt-2">
+                      {t('register.clientInfo')}
+                    </Text>
+
+                    <Input
+                      label={t('register.customerName')}
+                      placeholder={t('register.customerNamePh')}
+                      value={customerName}
+                      onChangeText={setCustomerName}
+                      autoCapitalize="words"
+                      containerClassName="mb-4"
+                    />
+
+                    <Input
+                      label={t('register.domain')}
+                      placeholder={t('register.domainPh')}
+                      value={customerDomain}
+                      onChangeText={setCustomerDomain}
+                      autoCapitalize="none"
+                      keyboardType="url"
+                      containerClassName="mb-4"
+                    />
+
+                    <Input
+                      label={t('register.address')}
+                      placeholder={t('register.addressPh')}
+                      value={customerAddressLine1}
+                      onChangeText={setCustomerAddressLine1}
+                      containerClassName="mb-4"
+                    />
+
+                    <Input
+                      label={t('register.city')}
+                      placeholder={t('register.cityPh')}
+                      value={customerCity}
+                      onChangeText={setCustomerCity}
+                      autoCapitalize="words"
+                      containerClassName="mb-4"
+                    />
+
+                    <View className="flex-row mb-4">
+                      <View className="flex-1 mr-2">
+                        <Input
+                          label={t('register.state')}
+                          placeholder={t('register.statePh')}
+                          value={customerState}
+                          onChangeText={setCustomerState}
+                          autoCapitalize="words"
+                        />
+                      </View>
+                      <View className="flex-1 ml-2">
+                        <Input
+                          label={t('register.postalCode')}
+                          placeholder={t('register.postalCodePh')}
+                          value={customerPostalCode}
+                          onChangeText={setCustomerPostalCode}
+                          keyboardType="numeric"
+                        />
+                      </View>
+                    </View>
+
+                    <CountrySelect
+                      label={t('register.country')}
+                      value={customerCountry}
+                      onValueChange={setCustomerCountry}
+                      placeholder={t('register.selectCountry')}
+                      containerClassName="mb-4"
+                    />
+
+                    <Input
+                      label={t('register.phone')}
+                      placeholder={t('register.phonePh')}
+                      value={customerContactPhone}
+                      onChangeText={setCustomerContactPhone}
+                      keyboardType="phone-pad"
+                      containerClassName="mb-6"
+                    />
+                  </>
+                )}
+                
+                <TouchableOpacity
+                  onPress={handleRegister}
+                  activeOpacity={0.9}
+                  disabled={isLoading}
+                  className={`mb-4 rounded-full min-h-[52px] items-center justify-center px-8 ${isLoading ? 'opacity-60' : 'opacity-100'} bg-primary-600`}
+                >
+                  {isLoading ? (
+                    <ActivityIndicator color="#FFFFFF" />
+                  ) : (
+                    <Text className="text-white text-base leading-6 font-bold">
+                      {userType === 'buyer' ? t('register.submitBuyer') : t('register.submitSeller')}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+
+                <TouchableOpacity onPress={onBackToLogin} className="items-center mt-4">
+                  <Text variant="caption" className="text-gray-500">
+                    {t('register.hasAccount')}{' '}
+                    <Text variant="caption" className="text-primary-600 font-semibold">
+                      {t('register.signIn')}
+                    </Text>
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
         </ScrollView>
       </KeyboardAvoidingView>

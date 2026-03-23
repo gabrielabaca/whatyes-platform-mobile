@@ -15,6 +15,10 @@ def build_ios(team_id:, project_root:)
     repo_update: false
   )
 
+  increment_build_number(
+    xcodeproj: "ios/PlatformMobile.xcodeproj"
+  )
+
   build_app(
     workspace: "ios/PlatformMobile.xcworkspace",
     scheme: "PlatformMobile",

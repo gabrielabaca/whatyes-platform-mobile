@@ -5,6 +5,7 @@
  */
 
 import React, { useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { View, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Header } from '../../molecules/Header';
@@ -19,9 +20,11 @@ interface GeneralLayoutProps {
 
 export const GeneralLayout: React.FC<GeneralLayoutProps> = ({
   children,
-  title = 'WhatYes!',
+  title,
   menuOptions,
 }) => {
+  const { t } = useTranslation();
+  const resolvedTitle = title ?? t('common.appName');
   const { user } = useAuth();
   const menuRef = useRef<UserMenuRef>(null);
 
@@ -32,17 +35,17 @@ export const GeneralLayout: React.FC<GeneralLayoutProps> = ({
   if (!user || (user.user_type !== 'buyer_user' && user.user_type !== 'seller_user')) {
     // Si no es buyer_user ni seller_user, renderizar sin layout especial
     return (
-      <SafeAreaView className="flex-1 bg-white">
+      <SafeAreaView className="flex-1 bg-white dark:bg-night-950">
         {children}
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
+    <SafeAreaView className="flex-1 bg-white dark:bg-night-950">
       {/* Header */}
       <Header
-        title={title}
+        title={resolvedTitle}
         onMenuPress={handleMenuPress}
         showMenuButton={true}
       />

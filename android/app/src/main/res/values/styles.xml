@@ -6,4 +6,16 @@
         <item name="android:editTextBackground">@drawable/rn_edit_text_material</item>
     </style>
 
+    <!-- Splash: fondo #685CF0 (usado como windowBackground de MainActivity tras el splash) -->
+    <style name="SplashTheme" parent="AppTheme">
+        <item name="android:windowBackground">@drawable/splash_background</item>
+        <item name="android:windowNoTitle">true</item>
+    </style>
+
+    <!-- SplashActivity: solo fondo para evitar parpadeo antes del layout -->
+    <style name="SplashActivityTheme" parent="AppTheme">
+        <item name="android:windowBackground">@color/splash_background_color</item>
+        <item name="android:windowNoTitle">true</item>
+    </style>
+
 </resources>

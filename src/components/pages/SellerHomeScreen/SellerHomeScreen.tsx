@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { View, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
 import { Text } from '../../atoms/Text';
 import { GeneralLayout } from '../../templates/GeneralLayout';
@@ -25,6 +26,7 @@ export const SellerHomeScreen: React.FC<SellerHomeScreenProps> = ({
   onStartNewStream,
   onEditDraft,
 }) => {
+  const { t } = useTranslation();
   const { user, logout } = useAuth();
   const [streamDraft, setStreamDraft] = useState<StreamConfig | null>(null);
 
@@ -231,40 +233,40 @@ export const SellerHomeScreen: React.FC<SellerHomeScreenProps> = ({
 
   const menuOptions: MenuOption[] = [
     {
-      label: 'Inicio',
+      label: t('home.menuHome'),
       value: 'home',
       onPress: handleNavigateToHome,
     },
     {
-      label: 'Perfil',
+      label: t('home.menuProfile'),
       value: 'profile',
       onPress: handleNavigateToProfile,
     },
     {
-      label: 'Mis Ventas',
+      label: t('home.menuSales'),
       value: 'sales',
       onPress: handleNavigateToSales,
     },
     {
-      label: 'Iniciar Stream',
+      label: t('home.menuStartStream'),
       value: 'start_stream',
       onPress: handleStartStream,
     },
     {
-      label: 'Facturación',
+      label: t('home.menuBilling'),
       value: 'billing',
       onPress: handleNavigateToBilling,
     },
     {
-      label: 'Cerrar Sesión',
+      label: t('home.menuLogout'),
       value: 'logout',
       onPress: handleLogout,
     },
   ];
 
   return (
-    <GeneralLayout title="Mis Streams" menuOptions={menuOptions}>
-      <View style={styles.container}>
+    <GeneralLayout title={t('sellerHome.title')} menuOptions={menuOptions}>
+      <View style={styles.container} className="bg-[#f9fafb] dark:bg-night-950">
         {/* Stats Header */}
         <View style={styles.statsContainer}>
           <View style={styles.statCard}>
@@ -274,7 +276,7 @@ export const SellerHomeScreen: React.FC<SellerHomeScreenProps> = ({
                 {formatCurrency(totalSales)}
               </Text>
               <Text variant="caption" className="text-gray-500">
-                Ventas Totales
+                {t('sellerHome.totalSales')}
               </Text>
             </View>
           </View>
@@ -285,7 +287,7 @@ export const SellerHomeScreen: React.FC<SellerHomeScreenProps> = ({
                 {totalStreamCount}
               </Text>
               <Text variant="caption" className="text-gray-500">
-                Streams
+                {t('sellerHome.streams')}
               </Text>
             </View>
 
@@ -294,7 +296,7 @@ export const SellerHomeScreen: React.FC<SellerHomeScreenProps> = ({
                 {formatNumber(totalViews)}
               </Text>
               <Text variant="caption" className="text-gray-500">
-                Views
+                {t('sellerHome.views')}
               </Text>
             </View>
           </View>
@@ -308,7 +310,7 @@ export const SellerHomeScreen: React.FC<SellerHomeScreenProps> = ({
         >
           <Plus size={20} color="#ffffff" />
           <Text variant="body" className="text-white font-semibold ml-2">
-            Iniciar Nuevo Stream
+            {t('sellerHome.newStream')}
           </Text>
         </TouchableOpacity>
 
@@ -325,15 +327,15 @@ export const SellerHomeScreen: React.FC<SellerHomeScreenProps> = ({
               </View>
               <View style={styles.draftInfo}>
                 <Text variant="body" className="text-gray-900 font-semibold">
-                  {streamDraft.title || 'Borrador sin título'}
+                  {streamDraft.title || t('sellerHome.draftUntitled')}
                 </Text>
                 <Text variant="caption" className="text-gray-500 mt-1">
-                  {streamDraft.products?.length || 0} producto(s) • Borrador
+                  {t('sellerHome.draftMeta', { count: streamDraft.products?.length || 0 })}
                 </Text>
               </View>
               <View style={styles.draftBadge}>
                 <Text variant="caption" className="text-primary-600 font-semibold">
-                  Editar
+                  {t('sellerHome.edit')}
                 </Text>
               </View>
             </View>
@@ -343,10 +345,10 @@ export const SellerHomeScreen: React.FC<SellerHomeScreenProps> = ({
         {/* Streams List */}
         <View style={styles.listHeader}>
           <Text variant="h3" className="text-gray-900 font-semibold">
-            Historial de Streams
+            {t('sellerHome.historyTitle')}
           </Text>
           <Text variant="caption" className="text-gray-500">
-            {myStreams.length} transmisiones
+            {t('sellerHome.transmissionsCount', { count: myStreams.length })}
           </Text>
         </View>
 
@@ -364,10 +366,10 @@ export const SellerHomeScreen: React.FC<SellerHomeScreenProps> = ({
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Text variant="body" className="text-gray-500 text-center">
-                No tienes streams aún
+                {t('sellerHome.emptyTitle')}
               </Text>
               <Text variant="caption" className="text-gray-400 text-center mt-2">
-                ¡Inicia tu primer transmisión!
+                {t('sellerHome.emptySubtitle')}
               </Text>
             </View>
           }
@@ -380,7 +382,6 @@ export const SellerHomeScreen: React.FC<SellerHomeScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f9fafb',
   },
   statsContainer: {
     padding: 16,

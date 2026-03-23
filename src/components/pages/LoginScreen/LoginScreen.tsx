@@ -1,30 +1,54 @@
 import React, { useState } from 'react';
-import { View, KeyboardAvoidingView, Platform, ScrollView, Alert, TouchableOpacity } from 'react-native';
+import { useTranslation } from 'react-i18next';
+import {
+  View,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  Alert,
+  TouchableOpacity,
+  TextInput,
+  ActivityIndicator,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Button } from '../../atoms/Button';
-import { Input } from '../../atoms/Input';
+import { ArrowLeft, Eye, EyeOff } from 'lucide-react-native';
 import { Text } from '../../atoms/Text';
 import { useAuth } from '../../../hooks/useAuth';
-import { ApiError, API_BASE_URL } from '../../../api';
+import { ApiError } from '../../../api';
+import { FONT_FAMILY } from '../../../theme/typography';
+import { themeColors } from '../../../theme/colors';
+import { useTheme } from '../../../context/ThemeContext';
+import GoogleIcon from '../../../../assets/icons/google.svg';
+import AppleIcon from '../../../../assets/icons/apple.svg';
+import FacebookIcon from '../../../../assets/icons/facebook.svg';
 
 interface LoginScreenProps {
+  onBack?: () => void;
   onNavigateToRegister?: () => void;
   onNavigateToForgotPassword?: () => void;
 }
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({
+  onBack,
   onNavigateToRegister,
   onNavigateToForgotPassword,
 }) => {
+  const { t } = useTranslation();
+  const { isDark } = useTheme();
+  const c = isDark ? themeColors.dark : themeColors.light;
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
   const { login, isLoading } = useAuth();
 
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert('Error', 'Por favor completa todos los campos');
+      Alert.alert(t('common.error'), t('login.fillAllFields'));
       return;
     }
+
+    setPasswordError(null);
 
     try {
       await login({
@@ -34,15 +58,27 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
       // La navegación se maneja automáticamente en App.tsx
     } catch (error) {
       if (error instanceof ApiError) {
-        Alert.alert('Error', error.message);
+        const isInvalidCredentials =
+          error.status === 400 ||
+          error.status === 401 ||
+          error.status === 403 ||
+          error.message === 'Incorrect username or password' ||
+          /credential|credencial|contrase|password|invalid/i.test(error.message);
+
+        if (isInvalidCredentials) {
+          setPasswordError(t('login.passwordIncorrect'));
+          return;
+        }
+
+        Alert.alert(t('common.error'), error.message);
       } else {
-        Alert.alert('Error', 'No se pudo iniciar sesión. Intenta nuevamente.');
+        Alert.alert(t('common.error'), t('login.loginFailed'));
       }
     }
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
+    <SafeAreaView className="flex-1 bg-[#FEFEFE] dark:bg-night-950">
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         className="flex-1"
@@ -52,76 +88,137 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <View className="flex-1 px-6 pt-8 pb-6 justify-center">
-            {/* Logo / Header Section */}
-            <View className="items-center mb-12">
-              <View className="w-20 h-20 bg-primary-600 rounded-2xl items-center justify-center mb-4 shadow-lg">
-                <Text className="text-white text-3xl font-bold">WY</Text>
-              </View>
-              <Text variant="h1" className="text-primary-600 mb-2">
-                WhatYes!
-              </Text>
-              <Text variant="body" className="text-gray-600 text-center">
-                Inicia sesión para continuar
-              </Text>
+          <View className="flex-1 px-6 pt-4 pb-6">
+            <View className="flex-row items-center justify-between mt-2 mb-10">
+              <TouchableOpacity
+                onPress={onBack}
+                className="w-8 h-8 items-start justify-center"
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <ArrowLeft size={22} color={c.text} />
+              </TouchableOpacity>
+
+              <Text className="text-[20px] font-bold text-[#02050F] dark:text-white">{t('login.title')}</Text>
+              <View className="w-8 h-8" />
             </View>
 
-            {/* Form Section */}
-            <View className="mb-6">
-              <Input
-                label="Correo electrónico"
-                placeholder="tu@email.com"
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoComplete="email"
-                containerClassName="mb-4"
-              />
+            <View className="mb-7 mt-4">
+              <View className="relative">
+                <Text className="text-[10px] text-[#34363E] dark:text-night-muted mb-2">{t('common.email')}</Text>
+                <TextInput
+                  value={email}
+                  onChangeText={(value) => {
+                    setEmail(value);
+                    if (passwordError) {
+                      setPasswordError(null);
+                    }
+                  }}
+                  placeholder={t('common.emailPlaceholder')}
+                  placeholderTextColor={isDark ? themeColors.dark.textMuted : '#7D7E83'}
+                  autoCapitalize="none"
+                  autoComplete="email"
+                  keyboardType="email-address"
+                  editable={!isLoading}
+                  style={{ fontFamily: FONT_FAMILY.regular }}
+                  className="border border-[#D9D9D9] dark:border-[#D9D9D9] rounded-full px-4 py-4 text-[12px] text-[#02050F] dark:text-white dark:bg-night-800 mb-4 min-h-[52px]"
+                />
 
-              <Input
-                label="Contraseña"
-                placeholder="••••••••"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry
-                autoCapitalize="none"
-                autoComplete="password"
-                containerClassName="mb-6"
-              />
+                <Text className="text-[10px] text-[#34363E] dark:text-night-muted mb-2">{t('common.password')}</Text>
+                <View className="relative mb-7">
+                  <TextInput
+                    value={password}
+                    onChangeText={(value) => {
+                      setPassword(value);
+                      if (passwordError) {
+                        setPasswordError(null);
+                      }
+                    }}
+                    placeholder={t('login.passwordPlaceholder')}
+                    placeholderTextColor={isDark ? themeColors.dark.textMuted : '#7D7E83'}
+                    secureTextEntry={!showPassword}
+                    autoCapitalize="none"
+                    autoComplete="password"
+                    editable={!isLoading}
+                    style={{ fontFamily: FONT_FAMILY.regular }}
+                    className={`border rounded-full px-4 py-4 pr-12 text-[12px] text-[#02050F] dark:text-white dark:bg-night-800 min-h-[52px] ${passwordError ? 'border-[#E53935]' : 'border-[#D9D9D9] dark:border-[#D9D9D9]'}`}
+                  />
+                  <TouchableOpacity
+                    onPress={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-0 bottom-0 justify-center"
+                    disabled={isLoading}
+                  >
+                    {showPassword ? (
+                      <EyeOff size={18} color={c.text} />
+                    ) : (
+                      <Eye size={18} color={c.text} />
+                    )}
+                  </TouchableOpacity>
+                </View>
+                {isLoading && (
+                  <View className="absolute inset-0 items-center justify-center bg-[#FEFEFE]/70 dark:bg-night-950/70 rounded-2xl">
+                    <ActivityIndicator color="#685CF0" size="large" />
+                  </View>
+                )}
+              </View>
+              {passwordError && (
+                <Text
+                  className="mt-[-18px] mb-5"
+                  style={{ color: '#E53935', fontSize: 10, lineHeight: 18 }}
+                >
+                  {passwordError}
+                </Text>
+              )}
 
-              <Button
-                title="Iniciar sesión"
+              <TouchableOpacity
                 onPress={handleLogin}
-                loading={isLoading}
+                activeOpacity={0.9}
                 disabled={!email || !password || isLoading}
-                variant="primary"
-                size="large"
-                className="mb-4"
-              />
+                className={`rounded-full min-h-[52px] items-center justify-center px-8 ${!email || !password || isLoading ? 'opacity-60' : 'opacity-100'} bg-primary-600`}
+              >
+                <Text className="text-white text-base leading-6 font-semibold">{t('common.continue')}</Text>
+              </TouchableOpacity>
 
               <TouchableOpacity
                 onPress={onNavigateToForgotPassword}
-                className="items-center mt-4"
+                className="items-center mt-3"
               >
-                <Text variant="caption" className="text-primary-600 underline">
-                  ¿Olvidaste tu contraseña?
-                </Text>
+                <Text className="text-primary-600 text-[12px] font-bold">{t('login.forgotPassword')}</Text>
               </TouchableOpacity>
             </View>
 
-            {/* Footer */}
-            <View className="mt-8 items-center">
-              <TouchableOpacity onPress={onNavigateToRegister} className="items-center">
-                <Text variant="caption" className="text-gray-500">
-                  ¿No tienes una cuenta?{' '}
-                  <Text variant="caption" className="text-primary-600 font-semibold">
-                    Regístrate
-                  </Text>
-                </Text>
+            <View className="flex-row items-center mb-6">
+              <View className="h-px flex-1 bg-[#D9D9D9] dark:bg-night-700" />
+              <Text className="mx-4 text-[#4C4E55] dark:text-night-muted text-[14px] font-bold">{t('common.or')}</Text>
+              <View className="h-px flex-1 bg-[#D9D9D9] dark:bg-night-700" />
+            </View>
+
+            <View className="gap-[18px]">
+              <TouchableOpacity className="border border-[#02050F] dark:border-white rounded-full min-h-[52px] px-6 flex-row items-center justify-center">
+                <View className="w-6 h-6 mr-2 items-center justify-center">
+                  <GoogleIcon width={24} height={24} />
+                </View>
+                <Text className="text-[#02050F] dark:text-white text-base font-semibold">{t('login.continueWithGoogle')}</Text>
               </TouchableOpacity>
-              <Text variant="caption" className="text-gray-400 mt-4">
-                API: {API_BASE_URL}
+              <TouchableOpacity className="border border-[#02050F] dark:border-white rounded-full min-h-[52px] px-6 flex-row items-center justify-center">
+                <View className="w-6 h-6 mr-2 items-center justify-center">
+                  <AppleIcon width={24} height={24} />
+                </View>
+                <Text className="text-[#02050F] dark:text-white text-base font-semibold">{t('login.continueWithApple')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity className="border border-[#02050F] dark:border-white rounded-full min-h-[52px] px-6 flex-row items-center justify-center">
+                <View className="w-6 h-6 mr-2 items-center justify-center">
+                  <FacebookIcon width={24} height={24} />
+                </View>
+                <Text className="text-[#02050F] dark:text-white text-base font-semibold">{t('login.continueWithFacebook')}</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View className="mt-12 items-center">
+              <Text className="text-[#4C4E55] dark:text-night-muted text-[12px]">
+                {t('login.noAccount')}{' '}
+                <Text className="text-primary-600 text-[12px] font-bold" onPress={onNavigateToRegister}>
+                  {t('login.register')}
+                </Text>
               </Text>
             </View>
           </View>

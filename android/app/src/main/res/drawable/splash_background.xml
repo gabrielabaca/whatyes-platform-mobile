@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <color android:color="#685CF0"/>
+    </item>
+    <!-- Logo centrado: 200dp ancho, alto según relación de aspecto 247/282 para no deformar -->
+    <item
+        android:width="200dp"
+        android:height="175dp"
+        android:gravity="center">
+        <bitmap
+            android:src="@drawable/pulpo_live_logo"
+            android:gravity="fill"/>
+    </item>
+</layer-list>

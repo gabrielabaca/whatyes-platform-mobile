@@ -9,6 +9,7 @@ const { withNativeWind } = require('nativewind/metro');
  * @type {import('@react-native/metro-config').MetroConfig}
  */
 const baseConfig = getDefaultConfig(__dirname);
+const { assetExts, sourceExts } = baseConfig.resolver;
 
 // Polyfills Node (http, stream, crypto, etc.) para amazon-kinesis-video-streams-webrtc
 // net/tls no existen en RN; el paquete "ws" se reemplaza por un shim que usa global.WebSocket
@@ -48,5 +49,13 @@ baseConfig.resolver.resolveRequest = (context, moduleName, platform) => {
     ? defaultResolveRequest(context, moduleName, platform)
     : context.resolveRequest(context, moduleName, platform);
 };
+
+// Permite importar SVG locales como componentes React Native
+baseConfig.transformer = {
+  ...baseConfig.transformer,
+  babelTransformerPath: require.resolve('react-native-svg-transformer/expo'),
+};
+baseConfig.resolver.assetExts = assetExts.filter((ext) => ext !== 'svg');
+baseConfig.resolver.sourceExts = [...sourceExts, 'svg'];
 
 module.exports = withNativeWind(baseConfig, { input: './global.css' });

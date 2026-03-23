@@ -5,6 +5,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { View, StyleSheet, FlatList, TouchableOpacity, RefreshControl } from 'react-native';
 import { Text } from '../../atoms/Text';
 import { GeneralLayout } from '../../templates/GeneralLayout';
@@ -15,6 +16,8 @@ import { LayoutGrid, Rows } from 'lucide-react-native';
 import { useAuth } from '../../../hooks/useAuth';
 import { getRooms } from '../../../api/platformApi';
 import { storage } from '../../../utils/storage';
+import { useTheme } from '../../../context/ThemeContext';
+import { themeColors } from '../../../theme/colors';
 
 interface HomeScreenProps {
   onStreamPress?: (stream: StreamData | any) => void;
@@ -23,7 +26,10 @@ interface HomeScreenProps {
 }
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({ onStreamPress, onStartNewStream, onEditDraft }) => {
+  const { t } = useTranslation();
+  const { isDark } = useTheme();
   const { user, logout } = useAuth();
+  const iconColor = isDark ? themeColors.dark.text : '#1f2937';
   const [numColumns, setNumColumns] = useState(2);
   const [liveStreams, setLiveStreams] = useState<StreamData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,9 +46,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onStreamPress, onStartNe
       setLiveStreams(
         rooms.map((r) => ({
           id: r.uuid,
-          sellerName: r.name || r.stream_name || 'Sala en vivo',
+          sellerName: r.name || r.stream_name || t('home.defaultRoomName'),
           viewerCount: 0,
-          streamingTime: 'En vivo',
+          streamingTime: t('home.liveBadge'),
           thumbnail: undefined,
         })),
       );
@@ -52,7 +58,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onStreamPress, onStartNe
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     loadRooms();
@@ -117,54 +123,54 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onStreamPress, onStartNe
   const menuOptions: MenuOption[] = user.user_type === 'seller_user' 
     ? [
         {
-          label: 'Inicio',
+          label: t('home.menuHome'),
           value: 'home',
           onPress: handleNavigateToHome,
         },
         {
-          label: 'Perfil',
+          label: t('home.menuProfile'),
           value: 'profile',
           onPress: handleNavigateToProfile,
         },
         {
-          label: 'Mis Ventas',
+          label: t('home.menuSales'),
           value: 'sales',
           onPress: handleNavigateToSales,
         },
         {
-          label: 'Iniciar Stream',
+          label: t('home.menuStartStream'),
           value: 'start_stream',
           onPress: handleStartStream,
         },
         {
-          label: 'Facturación',
+          label: t('home.menuBilling'),
           value: 'billing',
           onPress: handleNavigateToBilling,
         },
         {
-          label: 'Cerrar Sesión',
+          label: t('home.menuLogout'),
           value: 'logout',
           onPress: handleLogout,
         },
       ]
     : [
         {
-          label: 'Inicio',
+          label: t('home.menuHome'),
           value: 'home',
           onPress: handleNavigateToHome,
         },
         {
-          label: 'Perfil',
+          label: t('home.menuProfile'),
           value: 'profile',
           onPress: handleNavigateToProfile,
         },
         {
-          label: 'Mis Compras',
+          label: t('home.menuPurchases'),
           value: 'purchases',
           onPress: handleNavigateToPurchases,
         },
         {
-          label: 'Cerrar Sesión',
+          label: t('home.menuLogout'),
           value: 'logout',
           onPress: handleLogout,
         },
@@ -186,7 +192,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onStreamPress, onStartNe
     return (
       <View className="flex-1 bg-white p-6">
         <Text variant="h1" className="text-primary-600 mb-2">
-          ¡Bienvenido!
+          {t('home.welcome')}
         </Text>
         <Text variant="body" className="text-gray-600">
           {user.name} {user.last_name}
@@ -196,28 +202,28 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onStreamPress, onStartNe
   }
 
   return (
-    <GeneralLayout title="WhatYes!" menuOptions={menuOptions}>
-      <View style={styles.container}>
+    <GeneralLayout title={t('common.appName')} menuOptions={menuOptions}>
+      <View style={styles.container} className="bg-[#f9fafb] dark:bg-night-950">
         {/* Header Section */}
-        <View style={styles.header}>
-          <View style={styles.headerTop}>
-            <View style={styles.headerText}>
-              <Text variant="h1" className="text-primary-600 mb-2">
-                Streams en Vivo
+        <View className="border-b border-gray-200 bg-white px-4 pb-3 pt-4 dark:border-night-700 dark:bg-night-900">
+          <View className="flex-row items-start justify-between">
+            <View className="flex-1">
+              <Text variant="h1" className="mb-2 text-primary-600 dark:text-primary-400">
+                {t('home.liveStreams')}
               </Text>
-              <Text variant="body" className="text-gray-600">
-                {loading ? 'Cargando...' : `${liveStreams.length} transmisiones activas`}
+              <Text variant="body" className="text-gray-600 dark:text-night-muted">
+                {loading ? t('common.loading') : t('home.activeStreams', { count: liveStreams.length })}
               </Text>
             </View>
             <TouchableOpacity
               onPress={toggleViewMode}
-              style={styles.viewToggleButton}
+              className="mt-1 rounded-lg bg-gray-100 p-2 dark:bg-night-800"
               activeOpacity={0.7}
             >
               {numColumns === 2 ? (
-                <Rows size={24} color="#1f2937" />
+                <Rows size={24} color={iconColor} />
               ) : (
-                <LayoutGrid size={24} color="#1f2937" />
+                <LayoutGrid size={24} color={iconColor} />
               )}
             </TouchableOpacity>
           </View>
@@ -228,12 +234,19 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onStreamPress, onStartNe
           key={`streams-${numColumns}`}
           data={liveStreams}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={themeColors.primary}
+              colors={[themeColors.primary]}
+            />
           }
           ListEmptyComponent={
             !loading ? (
               <View style={{ padding: 24, alignItems: 'center' }}>
-                <Text variant="body" className="text-gray-500">No hay transmisiones en vivo</Text>
+                <Text variant="body" className="text-gray-500 dark:text-night-muted">
+                  {t('home.noLiveStreams')}
+                </Text>
               </View>
             ) : null
           }
@@ -259,29 +272,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onStreamPress, onStartNe
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f9fafb',
-  },
-  header: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 12,
-    backgroundColor: '#ffffff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
-  },
-  headerTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  headerText: {
-    flex: 1,
-  },
-  viewToggleButton: {
-    padding: 8,
-    borderRadius: 8,
-    backgroundColor: '#f9fafb',
-    marginTop: 4,
   },
   listContent: {
     padding: 8,

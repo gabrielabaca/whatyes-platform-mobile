@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { TextInput, TextInputProps, View, TouchableOpacity, StyleSheet } from 'react-native';
 import { Eye, EyeOff } from 'lucide-react-native';
 import { Text } from '../Text';
+import { FONT_FAMILY } from '../../../theme/typography';
 
 export interface InputProps extends TextInputProps {
   label?: string;
@@ -22,7 +23,7 @@ export const Input: React.FC<InputProps> = ({
   const isPasswordField = secureTextEntry;
 
   const inputClasses = [
-    'border rounded-lg px-4 py-3 text-base',
+    'border rounded-lg px-4 py-3 text-base font-mulish',
     error ? 'border-red-500' : 'border-gray-300',
     'bg-white text-gray-900',
     isPasswordField ? 'pr-12' : '',
@@ -41,6 +42,7 @@ export const Input: React.FC<InputProps> = ({
       <View style={styles.inputContainer}>
         <TextInput
           className={inputClasses}
+          style={{ fontFamily: FONT_FAMILY.regular }}
           placeholderTextColor="#9ca3af"
           secureTextEntry={isPasswordField && !showPassword}
           {...props}

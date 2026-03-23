@@ -87,13 +87,15 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace "com.platformmobile"
+    namespace "com.pulpolive"
     defaultConfig {
-        applicationId "com.platformmobile"
+        applicationId "com.pulpolive"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
         versionName "1.0"
+        // Nombre bajo el icono (sobrescribe strings.xml)
+        resValue "string", "app_name", "PulpoLive"
         // Permitir HTTP si las URLs en env son http://
         manifestPlaceholders = [usesCleartextTraffic: "true"]
     }
