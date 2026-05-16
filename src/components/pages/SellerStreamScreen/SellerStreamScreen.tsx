@@ -1,7 +1,6 @@
 /**
  * SellerStreamScreen
- * Pantalla para el streamer: crea room en service-platform, pasa a live (Kinesis),
- * en Android envía video con el Producer SDK; en iOS solo preview (ingest opcional más adelante).
+ * Pantalla para el streamer: crea room, pasa a live (Kinesis) y envía video con WebRTC (master).
  */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';

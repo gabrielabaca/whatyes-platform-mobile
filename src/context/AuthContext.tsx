@@ -16,6 +16,8 @@ interface AuthContextType {
   login: (credentials: LoginRequest) => Promise<void>;
   logout: () => Promise<void>;
   refreshAuth: () => Promise<void>;
+  /** Carga el usuario en contexto desde tokens ya guardados (p. ej. tras onboarding comprador). */
+  activateSessionFromTokens: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -34,6 +36,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       const token = await storage.getAccessToken();
       if (token) {
+        const pendingBuyerOnboarding = await storage.getPendingBuyerOnboarding();
+        if (pendingBuyerOnboarding) {
+          // JWT ya guardado (post-verify) pero el flujo comprador no terminó:
+          // no marcar sesión en contexto para que App no muestre Home y desmonte Register.
+          setUser(null);
+          setIsBootstrapping(false);
+          return;
+        }
+
         // Cargar datos del usuario desde el storage primero (para tener datos inmediatos)
         const storedUserData = await storage.getUserData();
         if (storedUserData) {
@@ -178,6 +189,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
+  const activateSessionFromTokens = async () => {
+    const accessToken = await storage.getAccessToken();
+    if (!accessToken) {
+      return;
+    }
+    const userData = await getCurrentUser(accessToken);
+    if (userData.data) {
+      setUser(userData.data);
+      await storage.setUserData(userData.data);
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -188,6 +211,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         login,
         logout,
         refreshAuth,
+        activateSessionFromTokens,
       }}
     >
       {children}

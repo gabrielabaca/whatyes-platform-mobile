@@ -2,13 +2,13 @@ apply plugin: "com.android.application"
 apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
 
-// react-native-config
-// Forzar env/.env_main como archivo por defecto en builds
-project.ext.defaultEnvFile = "env/.env_main"
-// Usar env/.env_main para builds release (APK) y evitar URLs incorrectas
+// react-native-config (dotenv.gradle): project = :app → rootDir es android/app.
+// Concatena "$rootDir/../$envFile" → si envFile es ".env" busca android/.env (incorrecto).
+// Usar ../.env y ../env/.env_main para que resuelvan siempre a la raíz del repo React Native.
+project.ext.defaultEnvFile = "../.env"
 project.ext.envConfigFiles = [
-    debug: "env/.env_main",
-    release: "env/.env_main",
+    debug: "../.env",
+    release: "../env/.env_main",
 ]
 apply from: project(':react-native-config').projectDir.getPath() + "/dotenv.gradle"
 
@@ -130,8 +130,4 @@ dependencies {
     } else {
         implementation jscFlavor
     }
-
-    // AWS Kinesis Video Streams Producer (cámara → Kinesis)
-    implementation("com.amazonaws:aws-android-sdk-kinesisvideo:2.71.+")
-    implementation("com.amazonaws:aws-android-sdk-core:2.71.+")
 }

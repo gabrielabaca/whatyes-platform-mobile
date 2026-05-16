@@ -14,7 +14,7 @@ module.exports = {
         mulish: ['Mulish'],
       },
       colors: {
-        /** Modo oscuro — MVP Figma (nodo Sign Up / Login dark) */
+        /** Modo oscuro — pantallas registro / login */
         night: {
           950: '#050f2f',
           900: '#0a1738',

@@ -1,23 +1,38 @@
 /**
- * Home Screen
- * Pantalla principal después del login.
- * Lista canales en vivo desde service-platform (GET /rooms, solo estado live).
+ * Home Screen — comprador (categorías, ✨ Para Ti en rejilla 2 col, tab bar).
+ * Lista salas en vivo desde service-platform (GET /rooms).
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View, StyleSheet, FlatList, TouchableOpacity, RefreshControl } from 'react-native';
-import { Text } from '../../atoms/Text';
+import type { TFunction } from 'i18next';
+import {
+  View,
+  ScrollView,
+  RefreshControl,
+  Alert,
+  useWindowDimensions,
+} from 'react-native';
 import { GeneralLayout } from '../../templates/GeneralLayout';
-import { MenuOption } from '../../molecules/UserMenu';
-import { StreamCard, StreamData } from '../../molecules/StreamCard';
+import { Text } from '../../atoms/Text';
+import { StreamData } from '../../molecules/StreamCard';
 import { SellerHomeScreen } from '../SellerHomeScreen';
-import { LayoutGrid, Rows } from 'lucide-react-native';
 import { useAuth } from '../../../hooks/useAuth';
-import { getRooms } from '../../../api/platformApi';
+import { useInterestCategories } from '../../../hooks/useInterestCategories';
+import { getRooms, type PlatformRoom } from '../../../api/platformApi';
 import { storage } from '../../../utils/storage';
-import { useTheme } from '../../../context/ThemeContext';
 import { themeColors } from '../../../theme/colors';
+import type { UserMe } from '../../../api/types';
+import {
+  HomeHeader,
+  CategoryExplorerRow,
+  SectionHeader,
+  LiveStreamPreviewCard,
+  HomeBottomNav,
+  ALL_CATEGORIES_ID,
+  type LiveStreamPreviewModel,
+  type HomeBottomTab,
+} from '../../organisms/home';
 
 interface HomeScreenProps {
   onStreamPress?: (stream: StreamData | any) => void;
@@ -25,35 +40,99 @@ interface HomeScreenProps {
   onEditDraft?: (draft: any) => void;
 }
 
-export const HomeScreen: React.FC<HomeScreenProps> = ({ onStreamPress, onStartNewStream, onEditDraft }) => {
+const GRID_GAP = 12;
+
+/** Espectadores simulados estables por sala hasta que la API exponga el dato */
+function pseudoViewers(uuid: string): number {
+  let h = 0;
+  for (let i = 0; i < uuid.length; i++) {
+    h = (h * 31 + uuid.charCodeAt(i)) >>> 0;
+  }
+  return (h % 4500) + 50;
+}
+
+/**
+ * Mapea `PlatformRoom` (+ `creator` de service-users) al modelo de tarjetas de la Home.
+ */
+function mapPlatformRoomToPreview(r: PlatformRoom, t: TFunction): LiveStreamPreviewModel {
+  const cr = r.creator;
+  const creatorFullName = cr
+    ? `${cr.name ?? ''} ${cr.last_name ?? ''}`.trim() || (cr.name?.trim() ?? '')
+    : '';
+
+  const sellerName =
+    creatorFullName.length > 0
+      ? creatorFullName
+      : (r.name?.trim() || r.stream_name?.trim() || t('home.defaultRoomName'));
+
+  const sellerInitials = cr
+    ? `${(cr.name?.trim()?.[0] ?? '')}${(cr.last_name?.trim()?.[0] ?? '')}`.toUpperCase() ||
+      (cr.name?.trim()?.slice(0, 2).toUpperCase() ?? '')
+    : sellerName.replace(/\s+/g, '').slice(0, 2).toUpperCase();
+
+  const title =
+    (r.name && r.name.trim()) ||
+    (r.stream_name && r.stream_name.trim()) ||
+    t('home.defaultStreamTitle');
+
+  const interestCategories =
+    r.interest_categories && r.interest_categories.length > 0
+      ? r.interest_categories.map((c) => ({
+          uuid: String(c.uuid),
+          slug: String(c.slug ?? ''),
+          label: String(c.label ?? ''),
+        }))
+      : undefined;
+
+  return {
+    id: r.uuid,
+    sellerName,
+    title,
+    viewerCount: pseudoViewers(r.uuid),
+    thumbnail: undefined,
+    rating: 4.2 + (pseudoViewers(r.uuid) % 8) / 10,
+    categoryLabel: interestCategories?.[0]?.label ?? null,
+    interestCategories,
+    sellerAvatarUrl: cr?.profile_picture ?? null,
+    sellerInitials: sellerInitials.length > 0 ? sellerInitials : sellerName.slice(0, 2).toUpperCase(),
+  };
+}
+
+export const HomeScreen: React.FC<HomeScreenProps> = ({
+  onStreamPress,
+  onStartNewStream,
+  onEditDraft,
+}) => {
   const { t } = useTranslation();
-  const { isDark } = useTheme();
+  const { width: windowWidth } = useWindowDimensions();
   const { user, logout } = useAuth();
-  const iconColor = isDark ? themeColors.dark.text : '#1f2937';
-  const [numColumns, setNumColumns] = useState(2);
-  const [liveStreams, setLiveStreams] = useState<StreamData[]>([]);
+  const { categories, loadOnce } = useInterestCategories();
+  const [previews, setPreviews] = useState<LiveStreamPreviewModel[]>([]);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>(ALL_CATEGORIES_ID);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [bottomTab, setBottomTab] = useState<HomeBottomTab>('home');
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
 
-  const loadRooms = useCallback(async () => {
+  const loadData = useCallback(async () => {
     try {
       const token = await storage.getAccessToken();
       if (!token) {
-        setLiveStreams([]);
+        setPreviews([]);
         return;
       }
-      const rooms = await getRooms(token);
-      setLiveStreams(
-        rooms.map((r) => ({
-          id: r.uuid,
-          sellerName: r.name || r.stream_name || t('home.defaultRoomName'),
-          viewerCount: 0,
-          streamingTime: t('home.liveBadge'),
-          thumbnail: undefined,
-        })),
-      );
-    } catch (e) {
-      setLiveStreams([]);
+      try {
+        const rooms = await getRooms(token);
+        const mapped: LiveStreamPreviewModel[] = rooms.map((r) =>
+          mapPlatformRoomToPreview(r, t)
+        );
+        setPreviews(mapped);
+      } catch (e) {
+        console.warn('[HomeScreen] getRooms failed:', e);
+        setPreviews([]);
+      }
+    } catch {
+      setPreviews([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -61,125 +140,78 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onStreamPress, onStartNe
   }, [t]);
 
   useEffect(() => {
-    loadRooms();
-    const interval = setInterval(loadRooms, 15000);
+    if (user?.user_type === 'buyer_user') {
+      void loadOnce();
+    }
+  }, [user?.user_type, loadOnce]);
+
+  useEffect(() => {
+    loadData();
+    const interval = setInterval(loadData, 15000);
     return () => clearInterval(interval);
-  }, [loadRooms]);
+  }, [loadData]);
 
   const onRefresh = () => {
     setRefreshing(true);
-    loadRooms();
+    loadData();
   };
 
-  const handleLogout = async () => {
-    await logout();
-  };
+  /** Filtrado por chip de categoría usando `interest_categories` de cada sala. */
+  const filteredPreviews = useMemo(() => {
+    if (selectedCategoryId === ALL_CATEGORIES_ID) {
+      return previews;
+    }
+    return previews.filter((p) =>
+      (p.interestCategories ?? []).some((c) => c.uuid === selectedCategoryId)
+    );
+  }, [previews, selectedCategoryId]);
 
-  const handleNavigateToProfile = () => {
-    // TODO: Implementar navegación a perfil
-    console.log('Navegar a Perfil');
-  };
+  const profileImageUri =
+    (user as UserMe | null)?.profile_picture ?? user?.profile?.picture ?? null;
+  const profileInitials = useMemo(() => {
+    const a = user?.name?.trim()?.[0] ?? '';
+    const b = user?.last_name?.trim()?.[0] ?? '';
+    const s = `${a}${b}`.toUpperCase();
+    return s || '?';
+  }, [user]);
 
-  const handleNavigateToPurchases = () => {
-    // TODO: Implementar navegación a Mis Compras
-    console.log('Navegar a Mis Compras');
-  };
+  const toStreamData = (p: LiveStreamPreviewModel): StreamData => ({
+    id: p.id,
+    sellerName: p.sellerName,
+    viewerCount: p.viewerCount,
+    streamingTime: t('home.liveBadge'),
+    thumbnail: p.thumbnail ?? p.sellerAvatarUrl ?? undefined,
+  });
 
-  const handleNavigateToSales = () => {
-    // TODO: Implementar navegación a Mis Ventas
-    console.log('Navegar a Mis Ventas');
-  };
-
-  const handleStartStream = () => {
-    // TODO: Implementar navegación a Iniciar Stream
-    console.log('Iniciar Stream');
-  };
-
-  const handleNavigateToBilling = () => {
-    // TODO: Implementar navegación a Facturación
-    console.log('Navegar a Facturación');
-  };
-
-  const handleNavigateToHome = () => {
-    // Ya estamos en inicio, solo cerrar el menú
-    console.log('Ya estás en Inicio');
-  };
-
-  const handleStreamPress = (stream: StreamData) => {
+  const handleStreamPress = (p: LiveStreamPreviewModel) => {
     if (onStreamPress) {
-      onStreamPress(stream);
+      onStreamPress(toStreamData(p));
     }
   };
 
-  const toggleViewMode = () => {
-    setNumColumns(numColumns === 2 ? 1 : 2);
+  const handleBottomTab = (tab: HomeBottomTab) => {
+    setBottomTab(tab);
+    if (tab === 'home') {
+      return;
+    }
+    if (tab === 'purchases') {
+      Alert.alert(t('common.appName'), t('home.placeholderScreen'));
+      return;
+    }
+    if (tab === 'create') {
+      onStartNewStream?.();
+      return;
+    }
+    Alert.alert(t('common.appName'), t('home.placeholderScreen'));
   };
 
   if (!user) {
     return null;
   }
 
-  // Opciones de menú específicas según el tipo de usuario
-  const menuOptions: MenuOption[] = user.user_type === 'seller_user' 
-    ? [
-        {
-          label: t('home.menuHome'),
-          value: 'home',
-          onPress: handleNavigateToHome,
-        },
-        {
-          label: t('home.menuProfile'),
-          value: 'profile',
-          onPress: handleNavigateToProfile,
-        },
-        {
-          label: t('home.menuSales'),
-          value: 'sales',
-          onPress: handleNavigateToSales,
-        },
-        {
-          label: t('home.menuStartStream'),
-          value: 'start_stream',
-          onPress: handleStartStream,
-        },
-        {
-          label: t('home.menuBilling'),
-          value: 'billing',
-          onPress: handleNavigateToBilling,
-        },
-        {
-          label: t('home.menuLogout'),
-          value: 'logout',
-          onPress: handleLogout,
-        },
-      ]
-    : [
-        {
-          label: t('home.menuHome'),
-          value: 'home',
-          onPress: handleNavigateToHome,
-        },
-        {
-          label: t('home.menuProfile'),
-          value: 'profile',
-          onPress: handleNavigateToProfile,
-        },
-        {
-          label: t('home.menuPurchases'),
-          value: 'purchases',
-          onPress: handleNavigateToPurchases,
-        },
-        {
-          label: t('home.menuLogout'),
-          value: 'logout',
-          onPress: handleLogout,
-        },
-      ];
-
-  // Si es seller_user, mostrar SellerHomeScreen
   if (user.user_type === 'seller_user') {
     return (
-      <SellerHomeScreen 
+      <SellerHomeScreen
         onStreamPress={onStreamPress}
         onStartNewStream={onStartNewStream}
         onEditDraft={onEditDraft}
@@ -187,7 +219,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onStreamPress, onStartNe
     );
   }
 
-  // Si no es buyer_user ni seller_user, mostrar pantalla simple
   if (user.user_type !== 'buyer_user') {
     return (
       <View className="flex-1 bg-white p-6">
@@ -201,38 +232,51 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onStreamPress, onStartNe
     );
   }
 
-  return (
-    <GeneralLayout title={t('common.appName')} menuOptions={menuOptions}>
-      <View style={styles.container} className="bg-[#f9fafb] dark:bg-night-950">
-        {/* Header Section */}
-        <View className="border-b border-gray-200 bg-white px-4 pb-3 pt-4 dark:border-night-700 dark:bg-night-900">
-          <View className="flex-row items-start justify-between">
-            <View className="flex-1">
-              <Text variant="h1" className="mb-2 text-primary-600 dark:text-primary-400">
-                {t('home.liveStreams')}
-              </Text>
-              <Text variant="body" className="text-gray-600 dark:text-night-muted">
-                {loading ? t('common.loading') : t('home.activeStreams', { count: liveStreams.length })}
-              </Text>
-            </View>
-            <TouchableOpacity
-              onPress={toggleViewMode}
-              className="mt-1 rounded-lg bg-gray-100 p-2 dark:bg-night-800"
-              activeOpacity={0.7}
-            >
-              {numColumns === 2 ? (
-                <Rows size={24} color={iconColor} />
-              ) : (
-                <LayoutGrid size={24} color={iconColor} />
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
+  const selectedCategoryLabel =
+    selectedCategoryId === ALL_CATEGORIES_ID
+      ? null
+      : categories.find((c) => c.uuid === selectedCategoryId)?.label ?? null;
 
-        {/* Streams Grid/List */}
-        <FlatList
-          key={`streams-${numColumns}`}
-          data={liveStreams}
+  /** Si la API ya trae categorías, no sobrescribir; si no, al filtrar mostrar la etiqueta del chip. */
+  const gridColW = (windowWidth - 32 - GRID_GAP) / 2;
+
+  const previewWithCategory = (p: LiveStreamPreviewModel): LiveStreamPreviewModel => {
+    if (p.interestCategories && p.interestCategories.length > 0) {
+      return p;
+    }
+    if (!selectedCategoryLabel) {
+      return { ...p, categoryLabel: p.categoryLabel };
+    }
+    return { ...p, categoryLabel: selectedCategoryLabel };
+  };
+
+  return (
+    <GeneralLayout
+      hideChrome
+      menuOptions={[]}
+      containerClassName="flex-1"
+      bottomBar={<HomeBottomNav activeTab={bottomTab} onTabPress={handleBottomTab} />}
+    >
+      <View className="flex-1 bg-[transparent] dark:bg-night-950">
+        <HomeHeader
+          profileImageUri={profileImageUri}
+          profileInitials={profileInitials}
+          onPressSearch={() => Alert.alert(t('common.appName'), t('home.searchPlaceholder'))}
+          onPressNotifications={() => Alert.alert(t('common.appName'), t('home.placeholderNotifications'))}
+          accountMenuVisible={accountMenuOpen}
+          onAccountMenuVisibleChange={setAccountMenuOpen}
+          onLogout={() => void logout()}
+        />
+
+        <ScrollView
+          className="flex-1"
+          nestedScrollEnabled
+          contentContainerStyle={{
+            paddingHorizontal: 16,
+            paddingTop: 8,
+            paddingBottom: 24,
+          }}
+          showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -241,51 +285,42 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onStreamPress, onStartNe
               colors={[themeColors.primary]}
             />
           }
-          ListEmptyComponent={
-            !loading ? (
-              <View style={{ padding: 24, alignItems: 'center' }}>
-                <Text variant="body" className="text-gray-500 dark:text-night-muted">
-                  {t('home.noLiveStreams')}
-                </Text>
-              </View>
-            ) : null
-          }
-          renderItem={({ item }) => (
-            <View style={numColumns === 2 ? styles.cardWrapper : styles.cardWrapperFull}>
-              <StreamCard
-                stream={item}
-                onPress={() => handleStreamPress(item)}
+        >
+          <CategoryExplorerRow
+            title={t('home.exploreCategories')}
+            categories={categories}
+            selectedId={selectedCategoryId}
+            onSelect={setSelectedCategoryId}
+          />
+
+          <View className="h-8" />
+
+          {loading ? (
+            <Text className="text-[#4C4E55] mb-4">{t('common.loading')}</Text>
+          ) : filteredPreviews.length === 0 ? (
+            <Text className="text-[#4C4E55] mb-6">{t('home.noLiveStreams')}</Text>
+          ) : (
+            <>
+              <SectionHeader
+                title={t('home.forYou')}
+                actionLabel={t('home.seeAll')}
+                onActionPress={() => Alert.alert(t('common.appName'), t('home.placeholderSeeAll'))}
               />
-            </View>
+              <View className="flex-row flex-wrap" style={{ gap: GRID_GAP }}>
+                {filteredPreviews.map((item) => (
+                  <View key={item.id} style={{ width: gridColW }}>
+                    <LiveStreamPreviewCard
+                      variant="grid"
+                      stream={previewWithCategory(item)}
+                      onPress={() => handleStreamPress(item)}
+                    />
+                  </View>
+                ))}
+              </View>
+            </>
           )}
-          keyExtractor={(item) => item.id}
-          numColumns={numColumns}
-          columnWrapperStyle={numColumns === 2 ? styles.row : undefined}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-        />
+        </ScrollView>
       </View>
     </GeneralLayout>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  listContent: {
-    padding: 8,
-  },
-  row: {
-    justifyContent: 'space-between',
-    paddingHorizontal: 8,
-    gap: 8,
-  },
-  cardWrapper: {
-    flex: 1,
-    maxWidth: '48%',
-  },
-  cardWrapperFull: {
-    width: '100%',
-  },
-});

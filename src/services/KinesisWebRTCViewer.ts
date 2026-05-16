@@ -3,7 +3,9 @@
  * Usa el SDK amazon-kinesis-video-streams-webrtc y react-native-webrtc.
  */
 import { RTCPeerConnection, MediaStream } from 'react-native-webrtc';
+import type { SignalingClient } from 'amazon-kinesis-video-streams-webrtc';
 import type { StreamWebRTCCredentialsResponse } from '../api/platformApi';
+import { formatSignalingError } from './signalingError';
 import { SigV4RequestSigner } from './SigV4RequestSigner';
 
 let signalingClient: SignalingClient | null = null;
@@ -15,7 +17,9 @@ let cleanupRef: (() => void) | null = null;
 const VIEWER_CLIENT_ID_PREFIX = 'viewer-';
 
 function getIceServers(creds: StreamWebRTCCredentialsResponse): RTCConfiguration['iceServers'] {
-  const servers: RTCIceServer[] = [{ urls: 'stun:stun.kinesisvideo.us-east-1.amazonaws.com:443' }];
+  const servers: RTCIceServer[] = [
+    { urls: `stun:stun.kinesisvideo.${creds.region}.amazonaws.com:443` },
+  ];
   if (creds.ice_servers?.length) {
     creds.ice_servers.forEach((s) => {
       servers.push({
@@ -102,11 +106,7 @@ export async function startKinesisWebRTCViewerJS(
     sessionToken: creds.session_token || undefined,
   };
 
-  const requestSigner = new SigV4RequestSigner(creds.region, {
-    accessKeyId: creds.access_key_id,
-    secretAccessKey: creds.secret_access_key,
-    sessionToken: creds.session_token || undefined,
-  });
+  const requestSigner = new SigV4RequestSigner(creds.region, credentials);
 
   const client = new SignalingClient({
     role: Role.VIEWER,
@@ -233,18 +233,11 @@ export async function startKinesisWebRTCViewerJS(
     }
   });
 
-  client.on('error', (err: Error) => {
-    onError?.(err);
-    console.warn('Kinesis SignalingClient error:', err);
-    // Log extra debug to locate "slice of undefined"
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const anyErr = err as any;
-    console.warn('Kinesis SignalingClient error details:', {
-      message: anyErr?.message,
-      stack: anyErr?.stack,
-      name: anyErr?.name,
-      type: typeof anyErr,
-    });
+  client.on('error', (err: unknown) => {
+    const message = formatSignalingError(err);
+    const wrapped = new Error(message);
+    onError?.(wrapped);
+    console.warn('Kinesis SignalingClient error:', message, err);
   });
 
   client.on('close', () => {

@@ -5,6 +5,13 @@
 
 export type UserType = 'buyer_user' | 'seller_user';
 
+/** Categoría de interés (p. ej. en GET /auth/me). */
+export interface InterestCategoryItem {
+  uuid: string;
+  slug: string;
+  label: string;
+}
+
 export interface UserRole {
   uuid: string;
   name: string;
@@ -16,6 +23,8 @@ export interface UserProfile {
   phone?: string;
   location?: any;
   timezone?: any;
+  /** URL de foto (backend: user_profile.picture) */
+  picture?: string;
   avatar?: string;
 }
 
@@ -46,6 +55,11 @@ export interface UserMe extends User {
   customer?: Customer;
   profile?: UserProfile;
   role?: UserRole;
+  /** Misma URL que profile.picture; cómodo para UI */
+  profile_picture?: string | null;
+  interest_categories?: InterestCategoryItem[];
+  identity_kyc_verified?: boolean;
+  identity_kyc_status?: string | null;
 }
 
 export interface Token {
@@ -122,6 +136,15 @@ export interface VerifyUserRequest {
   email: string;
   hash_code: string;
   user_uuid: string;
+}
+
+/** Respuesta de POST /auth/verify_user (incluye sesión tras verificación). */
+export interface VerifyUserResponse {
+  message?: string;
+  status?: string;
+  access_token?: string;
+  refresh_token?: string;
+  token_type?: string;
 }
 
 export interface ResendVerificationCodeRequest {

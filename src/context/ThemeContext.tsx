@@ -20,6 +20,8 @@ interface ThemeContextValue {
   resolvedScheme: 'light' | 'dark';
   isDark: boolean;
   setThemePreference: (preference: ThemePreference) => void;
+  /** Ciclo: sistema → claro → oscuro → sistema */
+  cycleThemePreference: () => void;
   isReady: boolean;
 }
 
@@ -77,6 +79,16 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     void AsyncStorage.setItem(STORAGE_KEY, preference);
   }, []);
 
+  const cycleThemePreference = useCallback(() => {
+    setThemePreferenceState((prev) => {
+      const order: ThemePreference[] = ['system', 'light', 'dark'];
+      const idx = order.indexOf(prev);
+      const next = order[(idx + 1) % order.length] ?? 'system';
+      void AsyncStorage.setItem(STORAGE_KEY, next);
+      return next;
+    });
+  }, []);
+
   const resolvedScheme = resolveScheme(themePreference, deviceScheme);
 
   const value = useMemo<ThemeContextValue>(
@@ -85,9 +97,10 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       resolvedScheme,
       isDark: resolvedScheme === 'dark',
       setThemePreference,
+      cycleThemePreference,
       isReady,
     }),
-    [themePreference, resolvedScheme, setThemePreference, isReady]
+    [themePreference, resolvedScheme, setThemePreference, cycleThemePreference, isReady]
   );
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;

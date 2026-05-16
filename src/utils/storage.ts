@@ -51,6 +51,10 @@ const STORAGE_KEYS = {
   REFRESH_TOKEN: 'refresh_token',
   USER_DATA: 'user_data',
   STREAM_DRAFT: 'stream_draft',
+  /** Registro comprador: hay JWT pero el onboarding (perfil/intereses/pantalla final) aún no terminó */
+  PENDING_BUYER_ONBOARDING: 'pending_buyer_onboarding',
+  /** Paso UI del onboarding: profile | interests | kyc | complete */
+  BUYER_ONBOARDING_UI_STEP: 'buyer_onboarding_ui_step',
 } as const;
 
 /**
@@ -167,8 +171,118 @@ export const storage = {
   },
 
   /**
+   * Elimina solo access y refresh (p. ej. tras verify de vendedor sin iniciar sesión en la app).
+   */
+  async clearAuthTokens(): Promise<void> {
+    try {
+      const storage = getAsyncStorage();
+      if (!storage) {
+        return;
+      }
+      await storage.multiRemove([
+        STORAGE_KEYS.ACCESS_TOKEN,
+        STORAGE_KEYS.REFRESH_TOKEN,
+        STORAGE_KEYS.PENDING_BUYER_ONBOARDING,
+        STORAGE_KEYS.BUYER_ONBOARDING_UI_STEP,
+      ]);
+    } catch (error: any) {
+      const errorMessage = error?.message || String(error);
+      if (!errorMessage.includes('NativeModule') && !errorMessage.includes('null')) {
+        console.error('Error al limpiar tokens:', error);
+      }
+    }
+  },
+
+  /**
    * Limpiar todos los datos de autenticación
    */
+  /**
+   * Solo datos de perfil en caché (p. ej. antes de verify con nuevos tokens).
+   */
+  async clearUserData(): Promise<void> {
+    try {
+      const storage = getAsyncStorage();
+      if (!storage) {
+        return;
+      }
+      await storage.removeItem(STORAGE_KEYS.USER_DATA);
+    } catch (error: any) {
+      const errorMessage = error?.message || String(error);
+      if (!errorMessage.includes('NativeModule') && !errorMessage.includes('null')) {
+        console.error('Error al limpiar user_data:', error);
+      }
+    }
+  },
+
+  async setPendingBuyerOnboarding(value: boolean): Promise<void> {
+    try {
+      const storage = getAsyncStorage();
+      if (!storage) {
+        return;
+      }
+      if (value) {
+        await storage.setItem(STORAGE_KEYS.PENDING_BUYER_ONBOARDING, '1');
+      } else {
+        await storage.removeItem(STORAGE_KEYS.PENDING_BUYER_ONBOARDING);
+      }
+    } catch (error: any) {
+      const errorMessage = error?.message || String(error);
+      if (!errorMessage.includes('NativeModule') && !errorMessage.includes('null')) {
+        console.error('Error al guardar pending buyer onboarding:', error);
+      }
+    }
+  },
+
+  async getPendingBuyerOnboarding(): Promise<boolean> {
+    try {
+      const storage = getAsyncStorage();
+      if (!storage) {
+        return false;
+      }
+      const v = await storage.getItem(STORAGE_KEYS.PENDING_BUYER_ONBOARDING);
+      return v === '1' || v === 'true';
+    } catch {
+      return false;
+    }
+  },
+
+  async setBuyerOnboardingUiStep(
+    step: 'profile' | 'interests' | 'kyc' | 'complete' | null
+  ): Promise<void> {
+    try {
+      const storage = getAsyncStorage();
+      if (!storage) {
+        return;
+      }
+      if (step) {
+        await storage.setItem(STORAGE_KEYS.BUYER_ONBOARDING_UI_STEP, step);
+      } else {
+        await storage.removeItem(STORAGE_KEYS.BUYER_ONBOARDING_UI_STEP);
+      }
+    } catch (error: any) {
+      const errorMessage = error?.message || String(error);
+      if (!errorMessage.includes('NativeModule') && !errorMessage.includes('null')) {
+        console.error('Error al guardar paso onboarding:', error);
+      }
+    }
+  },
+
+  async getBuyerOnboardingUiStep(): Promise<'profile' | 'interests' | 'kyc' | 'complete' | null> {
+    try {
+      const storage = getAsyncStorage();
+      if (!storage) {
+        return null;
+      }
+      const v = await storage.getItem(STORAGE_KEYS.BUYER_ONBOARDING_UI_STEP);
+      if (v === 'profile' || v === 'interests' || v === 'kyc' || v === 'complete') {
+        return v;
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  },
+
   async clearAll(): Promise<void> {
     try {
       const storage = getAsyncStorage();
@@ -179,6 +293,8 @@ export const storage = {
         STORAGE_KEYS.ACCESS_TOKEN,
         STORAGE_KEYS.REFRESH_TOKEN,
         STORAGE_KEYS.USER_DATA,
+        STORAGE_KEYS.PENDING_BUYER_ONBOARDING,
+        STORAGE_KEYS.BUYER_ONBOARDING_UI_STEP,
       ]);
     } catch (error: any) {
       // Silenciar errores relacionados con AsyncStorage no vinculado

@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '../../atoms/Text';
+import { Button } from '../../atoms/Button';
 
 interface OnboardingScreenProps {
   onPressLogin: () => void;
@@ -117,17 +118,23 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({
         className="absolute left-0 right-0 px-8 bg-white dark:bg-night-950"
         style={{ bottom: 0, paddingBottom: insets.bottom + 16, paddingTop: 8 }}
       >
-        <TouchableOpacity
+        <Button
+          title={t('onboarding.start')}
+          variant="primary"
+          size="large"
           onPress={onPressRegister}
-          activeOpacity={0.85}
-          className="mb-5 h-16 rounded-full bg-primary-600 items-center justify-center"
-        >
-          <Text className="text-white font-semibold text-2xl">{t('onboarding.start')}</Text>
-        </TouchableOpacity>
+          titleClassName="text-2xl"
+          className="mb-5 h-16 w-full rounded-full"
+        />
 
-        <TouchableOpacity onPress={onPressLogin} className="items-center">
-          <Text className="text-primary-600 font-semibold text-2xl">{t('onboarding.login')}</Text>
-        </TouchableOpacity>
+        <Button
+          title={t('onboarding.login')}
+          variant="ghost"
+          size="large"
+          onPress={onPressLogin}
+          titleClassName="text-2xl"
+          className="self-center min-h-[48px]"
+        />
       </View>
     </SafeAreaView>
   );

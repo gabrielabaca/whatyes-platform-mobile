@@ -1,14 +1,51 @@
 import React from 'react';
 import { TouchableOpacity, TouchableOpacityProps, ActivityIndicator } from 'react-native';
 import { Text } from '../Text';
-import './Button.css';
+import { themeColors } from '../../../theme/colors';
+
+/** Primario MVP: mismo color en claro y oscuro — Figma nodo 536-14434 */
+const PRIMARY_BG = 'bg-[#685CF0] active:bg-primary-700';
+
+/** Danger: fondo fijo en claro y oscuro */
+const DANGER_BG = 'bg-[#FB2C36] active:opacity-90';
+
+const layoutBase = 'items-center justify-center text-center rounded-full overflow-hidden';
+
+const variantContainer: Record<
+  'primary' | 'danger' | 'secondary' | 'outline' | 'ghost',
+  string
+> = {
+  primary: PRIMARY_BG,
+  danger: DANGER_BG,
+  secondary:
+    'bg-gray-600 active:bg-gray-700 dark:bg-night-700 dark:active:bg-night-600',
+  outline:
+    'bg-transparent border-2 border-primary-600 active:bg-primary-50 dark:border-primary-400 dark:active:bg-night-800',
+  ghost: 'bg-transparent active:opacity-80 dark:active:opacity-70',
+};
+
+/** Tamaños; `large` coincide con CTA del diseño (px 32, py 14, pill). */
+const sizeContainer = {
+  small: 'px-4 py-2 min-h-[40px]',
+  medium: 'px-6 py-3 min-h-[44px]',
+  large: 'px-8 py-[14px] min-h-[52px]',
+} as const;
+
+const textSize = {
+  small: 'text-sm leading-5',
+  medium: 'text-base leading-6',
+  /** Figma: 16 / 24, tracking ~0.08px */
+  large: 'text-base leading-6 tracking-[0.08px]',
+} as const;
 
 export interface ButtonProps extends Omit<TouchableOpacityProps, 'children'> {
   title: string;
-  variant?: 'primary' | 'secondary' | 'outline';
+  variant?: 'primary' | 'danger' | 'secondary' | 'outline' | 'ghost';
   size?: 'small' | 'medium' | 'large';
   loading?: boolean;
   className?: string;
+  /** Clases extra solo para el texto del título (p. ej. enlaces “Omitir” en onboarding). */
+  titleClassName?: string;
 }
 
 export const Button: React.FC<ButtonProps> = ({
@@ -17,55 +54,60 @@ export const Button: React.FC<ButtonProps> = ({
   size = 'medium',
   loading = false,
   className = '',
+  titleClassName = '',
   disabled,
   ...props
 }) => {
-  const variantClasses = {
-    primary: 'btn-primary',
-    secondary: 'btn-secondary',
-    outline: 'btn-outline',
-  };
-
-  const sizeClasses = {
-    small: 'btn-size-small',
-    medium: 'btn-size-medium',
-    large: 'btn-size-large',
-  };
-
-  const textSizeClasses = {
-    small: 'btn-text-small',
-    medium: 'btn-text-medium',
-    large: 'btn-text-large',
-  };
-
   const isDisabled = disabled || loading;
 
   const buttonClasses = [
-    'btn-base',
-    variantClasses[variant],
-    sizeClasses[size],
-    isDisabled ? 'btn-disabled' : '',
+    layoutBase,
+    variantContainer[variant],
+    variant === 'ghost' ? 'min-h-[48px] justify-center' : '',
+    sizeContainer[size],
+    isDisabled ? 'opacity-50' : '',
     className,
   ]
     .filter(Boolean)
     .join(' ');
 
-  const textClasses = [
-    variant === 'outline' ? 'text-primary-600' : 'text-white',
-    textSizeClasses[size],
-    variant === 'primary' ? 'font-bold text-center' : 'font-semibold text-center',
-  ]
-    .filter(Boolean)
-    .join(' ');
+  let coreText = '';
+  if (variant === 'primary' || variant === 'danger') {
+    coreText = [
+      'font-semibold',
+      'text-center',
+      '!text-[#FEFEFE]',
+      textSize[size],
+    ].join(' ');
+  } else if (variant === 'secondary') {
+    coreText = ['font-semibold', 'text-center', '!text-white', textSize[size]].join(' ');
+  } else if (variant === 'outline') {
+    coreText = [
+      'font-semibold',
+      'text-center',
+      '!text-primary-600',
+      'dark:!text-primary-300',
+      textSize[size],
+    ].join(' ');
+  } else {
+    coreText = [
+      'font-semibold',
+      'text-center',
+      '!text-primary-600',
+      'dark:!text-primary-300',
+      textSize[size],
+    ].join(' ');
+  }
+
+  const textClasses = [coreText, titleClassName].filter(Boolean).join(' ');
+
+  const spinnerColor =
+    variant === 'outline' || variant === 'ghost' ? themeColors.primary : '#FEFEFE';
 
   return (
-    <TouchableOpacity
-      className={buttonClasses}
-      disabled={isDisabled}
-      {...props}
-    >
+    <TouchableOpacity className={buttonClasses} disabled={isDisabled} {...props}>
       {loading ? (
-        <ActivityIndicator color={variant === 'outline' ? '#0284c7' : '#ffffff'} />
+        <ActivityIndicator color={spinnerColor} />
       ) : (
         <Text className={textClasses}>{title}</Text>
       )}

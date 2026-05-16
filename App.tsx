@@ -6,11 +6,14 @@
  */
 
 import './global.css';
-import React, { useState } from 'react';
-import { StatusBar } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { StatusBar, Linking } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
+import { InterestCategoriesProvider } from './src/context/InterestCategoriesContext';
+import { storage } from './src/utils/storage';
+import { isBuyerKycReturnUrl, notifyBuyerKycReturn } from './src/utils/buyerKycDeepLink';
 import { LoginScreen } from './src/components/pages/LoginScreen';
 import { RegisterScreen } from './src/components/pages/RegisterScreen';
 import { ForgotPasswordScreen } from './src/components/pages/ForgotPasswordScreen';
@@ -33,6 +36,40 @@ function AppNavigator() {
   const { isAuthenticated, isBootstrapping } = useAuth();
   const [authScreen, setAuthScreen] = useState<AuthScreen>('onboarding');
   const [currentScreen, setCurrentScreen] = useState<AppScreen>('onboarding');
+
+  /** JWT post-verify pero onboarding comprador incompleto: abrir registro para restaurar paso */
+  useEffect(() => {
+    if (isBootstrapping) {
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const token = await storage.getAccessToken();
+      const pending = await storage.getPendingBuyerOnboarding();
+      if (!cancelled && token && pending && !isAuthenticated) {
+        setAuthScreen('register');
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isBootstrapping, isAuthenticated]);
+
+  useEffect(() => {
+    const onUrl = ({ url }: { url: string }) => {
+      if (isBuyerKycReturnUrl(url)) {
+        notifyBuyerKycReturn();
+      }
+    };
+    const sub = Linking.addEventListener('url', onUrl);
+    void Linking.getInitialURL().then((url) => {
+      if (isBuyerKycReturnUrl(url)) {
+        notifyBuyerKycReturn();
+      }
+    });
+    return () => sub.remove();
+  }, []);
+
   const [selectedStream, setSelectedStream] = useState<StreamData | null>(null);
   const [streamDraft, setStreamDraft] = useState<StreamConfig | null>(null);
   const [activeStreamConfig, setActiveStreamConfig] = useState<StreamConfig | null>(null);
@@ -157,7 +194,9 @@ function App() {
     <SafeAreaProvider>
       <ThemeProvider>
         <AuthProvider>
-          <ThemedStatusBarAndApp />
+          <InterestCategoriesProvider>
+            <ThemedStatusBarAndApp />
+          </InterestCategoriesProvider>
         </AuthProvider>
       </ThemeProvider>
     </SafeAreaProvider>

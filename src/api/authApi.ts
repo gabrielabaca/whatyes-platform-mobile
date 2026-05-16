@@ -15,6 +15,7 @@ import type {
   ForgotPasswordRequest,
   ResetPasswordRequest,
   VerifyUserRequest,
+  VerifyUserResponse,
   ResendVerificationCodeRequest,
   LogoutRequest,
   RefreshTokenRequest,
@@ -334,19 +335,120 @@ export async function resetPassword(
 }
 
 /**
- * Verify User - Verificar usuario con código
- * @param request Datos de verificación
+ * Verify User - Verificar usuario con código.
+ * Si el backend devuelve tokens, se guardan en storage (flujo onboarding comprador).
  */
-export async function verifyUser(
-  request: VerifyUserRequest
-): Promise<{ message?: string }> {
-  return fetchApi<{ message?: string }>(
-    API_ENDPOINTS.AUTH.VERIFY_USER,
+export async function verifyUser(request: VerifyUserRequest): Promise<VerifyUserResponse> {
+  const url = `${API_BASE_URL}${API_ENDPOINTS.AUTH.VERIFY_USER}`;
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request),
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    const detail = data?.detail;
+    const message =
+      typeof detail === 'string'
+        ? detail
+        : Array.isArray(detail)
+          ? detail.map((x: any) => x?.msg ?? JSON.stringify(x)).join(', ')
+          : data?.message || 'Error en la verificación';
+    throw new ApiError(response.status, message, data);
+  }
+  if (data.access_token && data.refresh_token) {
+    await storage.clearUserData();
+    await storeTokens({
+      access_token: data.access_token,
+      refresh_token: data.refresh_token,
+    });
+  }
+  return data as VerifyUserResponse;
+}
+
+/**
+ * Guarda nombre, apellido y foto opcional (multipart).
+ */
+export async function uploadBuyerProfile(params: {
+  name?: string;
+  lastName?: string;
+  photo?: { uri: string; type?: string; name?: string };
+}): Promise<{ message?: string; status?: string }> {
+  const token = await storage.getAccessToken();
+  const form = new FormData();
+  if (params.name?.trim()) {
+    form.append('name', params.name.trim());
+  }
+  if (params.lastName?.trim()) {
+    form.append('last_name', params.lastName.trim());
+  }
+  if (params.photo) {
+    form.append('photo', {
+      uri: params.photo.uri,
+      type: params.photo.type || 'image/jpeg',
+      name: params.photo.name || 'photo.jpg',
+    } as any);
+  }
+  const headers: Record<string, string> = {};
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  const response = await fetch(
+    `${API_BASE_URL}${API_ENDPOINTS.AUTH.BUYER_ONBOARDING_PROFILE}`,
     {
       method: 'POST',
-      body: JSON.stringify(request),
+      headers,
+      body: form,
     }
   );
+  const data = await response.json();
+  if (!response.ok) {
+    const detail = data?.detail;
+    const message =
+      typeof detail === 'string'
+        ? detail
+        : Array.isArray(detail)
+          ? detail.map((x: any) => x?.msg ?? JSON.stringify(x)).join(', ')
+          : data?.message || 'Error al guardar el perfil';
+    throw new ApiError(response.status, message, data);
+  }
+  return data;
+}
+
+/**
+ * Reemplaza la selección de categorías de interés del comprador.
+ */
+export async function saveBuyerInterests(
+  categoryUuids: string[]
+): Promise<{ message?: string; status?: string }> {
+  return fetchApi(API_ENDPOINTS.AUTH.BUYER_ONBOARDING_INTERESTS, {
+    method: 'POST',
+    body: JSON.stringify({ category_uuids: categoryUuids }),
+  });
+}
+
+/** Crea sesión Didit KYC (JWT comprador). */
+export async function createBuyerKycSession(): Promise<{
+  verification_url: string;
+  session_id: string;
+  status: string;
+}> {
+  return fetchApi(API_ENDPOINTS.AUTH.BUYER_KYC_SESSION, {
+    method: 'POST',
+    body: JSON.stringify({}),
+  });
+}
+
+/** Estado KYC del usuario autenticado. */
+export async function getBuyerKycStatus(): Promise<{
+  status: string | null;
+  verified: boolean;
+  session_id: string | null;
+  provider: string | null;
+}> {
+  return fetchApi(API_ENDPOINTS.AUTH.BUYER_KYC_STATUS, {
+    method: 'GET',
+  });
 }
 
 /**

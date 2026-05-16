@@ -6,6 +6,10 @@ type Credentials = {
   sessionToken?: string;
 };
 
+/**
+ * Firma SigV4 para el WebSocket de Kinesis Video signaling (misma lógica que shim/kvs-sigv4.js).
+ * Se pasa explícito al SignalingClient para no depender solo del firmador interno del paquete en Metro.
+ */
 export class SigV4RequestSigner {
   static DEFAULT_ALGORITHM = 'AWS4-HMAC-SHA256';
   static DEFAULT_SERVICE = 'kinesisvideo';
@@ -32,7 +36,10 @@ export class SigV4RequestSigner {
       throw new Error(`Endpoint '${endpoint}' should not contain any query parameters.`);
     }
     const pathStartIndex = endpoint.indexOf('/', urlProtocol.length);
-    const host = pathStartIndex < 0 ? endpoint.substring(urlProtocol.length) : endpoint.substring(urlProtocol.length, pathStartIndex);
+    const host =
+      pathStartIndex < 0
+        ? endpoint.substring(urlProtocol.length)
+        : endpoint.substring(urlProtocol.length, pathStartIndex);
     const path = pathStartIndex < 0 ? '/' : endpoint.substring(pathStartIndex);
 
     const signedHeaders = 'host';
@@ -54,7 +61,9 @@ export class SigV4RequestSigner {
     const canonicalQueryString = SigV4RequestSigner.createQueryString(canonicalQueryParams);
     const canonicalHeadersString = `host:${host}\n`;
     const payloadHash = SigV4RequestSigner.sha256('');
-    const canonicalRequest = [method, path, canonicalQueryString, canonicalHeadersString, signedHeaders, payloadHash].join('\n');
+    const canonicalRequest = [method, path, canonicalQueryString, canonicalHeadersString, signedHeaders, payloadHash].join(
+      '\n'
+    );
     const canonicalRequestHash = SigV4RequestSigner.sha256(canonicalRequest);
     const stringToSign = [
       SigV4RequestSigner.DEFAULT_ALGORITHM,
@@ -63,7 +72,12 @@ export class SigV4RequestSigner {
       canonicalRequestHash,
     ].join('\n');
 
-    const signingKey = SigV4RequestSigner.getSignatureKey(dateString, this.region, this.service, this.credentials.secretAccessKey);
+    const signingKey = SigV4RequestSigner.getSignatureKey(
+      dateString,
+      this.region,
+      this.service,
+      this.credentials.secretAccessKey
+    );
     const signature = SigV4RequestSigner.hmac(signingKey, stringToSign);
 
     const signedQueryParams = {

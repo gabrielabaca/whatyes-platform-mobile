@@ -1,0 +1,1 @@
+export { BuyerKycOnboardingScreen } from './BuyerKycOnboardingScreen';

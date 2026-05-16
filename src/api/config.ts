@@ -5,8 +5,8 @@
  * Para desarrollo con dispositivos físicos:
  * 1. Ejecuta: ./scripts/get-network-ip.sh para obtener tu IP
  * 2. Crea un archivo .env en la raíz del proyecto con:
- *    API_BASE_URL_DEV=http://TU_IP:8000
- *    Ejemplo: API_BASE_URL_DEV=http://192.168.1.51:8000
+ *    API_BASE_URL_DEV=http://TU_IP:8000/users
+ *    (Si omites el path, se añade /users automáticamente.)
  * 
  * Para producción:
  * - Usa la variable de entorno API_BASE_URL
@@ -16,6 +16,23 @@
 import Config from 'react-native-config';
 
 /**
+ * service-users monta las rutas bajo `/users` (auth, buyer, etc.).
+ * Si la URL es solo esquema + host + puerto sin path, añade `/users`.
+ */
+function ensureUsersServiceBaseUrl(baseUrl: string): string {
+  const trimmed = baseUrl.trim().replace(/\/$/, '');
+  try {
+    const u = new URL(trimmed);
+    if (u.pathname === '/' || u.pathname === '') {
+      return `${trimmed}/users`;
+    }
+  } catch {
+    return trimmed;
+  }
+  return trimmed;
+}
+
+/**
  * Obtiene la URL base de la API según el entorno
  */
 const getApiBaseUrl = (): string => {
@@ -23,25 +40,23 @@ const getApiBaseUrl = (): string => {
     // Desarrollo: usar IP de red para permitir conexión desde dispositivos físicos
     // Prioridad: Config.API_BASE_URL_DEV > process.env.API_BASE_URL_DEV > IP por defecto
     const devIP = Config.API_BASE_URL_DEV;
-    
+
     if (devIP) {
-      // Si ya incluye http:// o https://, usarlo tal cual
-      if (devIP.startsWith('http://') || devIP.startsWith('https://')) {
-        return devIP;
-      }
-      // Si no, agregar http://
-      return `http://${devIP}`;
+      const full =
+        devIP.startsWith('http://') || devIP.startsWith('https://')
+          ? devIP
+          : `http://${devIP}`;
+      return ensureUsersServiceBaseUrl(full);
     }
-    
-    // IP por defecto (se detecta automáticamente o se puede configurar en .env)
-    // Para obtener tu IP: ejecuta ./scripts/get-network-ip.sh
-    // La IP detectada es: 192.168.1.51 (actualiza si cambia tu red)
+
+    // IP por defecto (ajusta en .env si cambia tu red). Incluye /users como en service-users.
     const defaultNetworkIP = '192.168.1.51';
-    return `http://${defaultNetworkIP}:8000`;
+    return ensureUsersServiceBaseUrl(`http://${defaultNetworkIP}:8000`);
   }
-  
+
   // Producción: usar variable de entorno o valor por defecto
-  return Config.API_BASE_URL || 'https://api.tutoke.app/users';
+  const prod = Config.API_BASE_URL || 'https://api.pulpolive.com/users';
+  return ensureUsersServiceBaseUrl(prod);
 };
 
 export const API_BASE_URL = getApiBaseUrl();
@@ -62,7 +77,7 @@ const getPlatformBaseUrl = (): string => {
     if (match) return `${match[1]}://${match[2]}:8001`;
     return 'http://192.168.1.51:8001';
   }
-  return Config.PLATFORM_HTTP_URL || 'https://api.tutoke.app/platform';
+  return Config.PLATFORM_HTTP_URL || 'https://api.pulpolive.com/platform';
 };
 
 export const PLATFORM_HTTP_URL = getPlatformBaseUrl();
@@ -93,5 +108,9 @@ export const API_ENDPOINTS = {
     RESET_PASSWORD: '/auth/reset_password',
     VERIFY_USER: '/auth/verify_user',
     RESEND_VERIFICATION_CODE: '/auth/resend_verification_code',
+    BUYER_ONBOARDING_PROFILE: '/auth/buyer/onboarding/profile',
+    BUYER_ONBOARDING_INTERESTS: '/auth/buyer/onboarding/interests',
+    BUYER_KYC_SESSION: '/auth/buyer/kyc/session',
+    BUYER_KYC_STATUS: '/auth/buyer/kyc/status',
   },
 } as const;

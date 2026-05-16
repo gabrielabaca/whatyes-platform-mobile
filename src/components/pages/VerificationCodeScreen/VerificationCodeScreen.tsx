@@ -19,6 +19,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft } from 'lucide-react-native';
 import { Text } from '../../atoms/Text';
 import { verifyUser, resendVerificationCode, forgotPasswordRequest, ApiError } from '../../../api';
+import type { VerifyUserResponse } from '../../../api/types';
+import { storage } from '../../../utils/storage';
 import { FONT_FAMILY } from '../../../theme/typography';
 
 export type VerificationOrigin = 'register' | 'forgotPassword';
@@ -29,7 +31,14 @@ interface VerificationCodeScreenProps {
   userUuid?: string;
   /** Origen del flujo (por defecto registro) */
   origin?: VerificationOrigin;
+  /** Perfil en registro: el vendedor no debe conservar tokens (sigue yendo al login). */
+  registrationProfile?: 'buyer' | 'seller';
   onVerificationSuccess: () => void;
+  /**
+   * Si se define (p. ej. comprador), se llama con la respuesta del API sin alert de éxito
+   * (tokens ya guardados en storage salvo que se limpien para vendedor).
+   */
+  onVerifiedRaw?: (result: VerifyUserResponse) => void | Promise<void>;
   /** Solo flujo forgotPassword: código listo para restablecer contraseña */
   onForgotPasswordCodeNext?: (code: string) => void;
   onBack?: () => void;
@@ -39,7 +48,9 @@ export const VerificationCodeScreen: React.FC<VerificationCodeScreenProps> = ({
   email,
   userUuid,
   origin = 'register',
+  registrationProfile,
   onVerificationSuccess,
+  onVerifiedRaw,
   onForgotPasswordCodeNext,
   onBack,
 }) => {
@@ -74,11 +85,24 @@ export const VerificationCodeScreen: React.FC<VerificationCodeScreenProps> = ({
 
     setIsLoading(true);
     try {
-      await verifyUser({
+      const data = await verifyUser({
         email,
         hash_code: code.trim(),
         user_uuid: userUuid,
       });
+
+      if (
+        origin === 'register' &&
+        registrationProfile === 'seller' &&
+        (data.access_token || data.refresh_token)
+      ) {
+        await storage.clearAuthTokens();
+      }
+
+      if (onVerifiedRaw) {
+        await onVerifiedRaw(data);
+        return;
+      }
 
       Alert.alert(
         t('verification.verifiedTitle'),

@@ -21,6 +21,7 @@
   "dependencies": {
     "@peculiar/webcrypto": "^1.5.0",
     "@react-native-async-storage/async-storage": "^2.2.0",
+    "@react-native-community/datetimepicker": "^9.1.0",
     "@react-native-vector-icons/fontawesome6": "^12.4.0",
     "@react-native/new-app-screen": "0.83.1",
     "amazon-kinesis-video-streams-webrtc": "^2.5.0",
@@ -37,15 +38,16 @@
     "react-native-confetti-cannon": "^1.5.2",
     "react-native-config": "^1.6.1",
     "react-native-get-random-values": "^2.0.0",
+    "react-native-image-picker": "^8.2.1",
     "react-native-incall-manager": "^4.2.1",
     "react-native-keep-awake": "^4.0.0",
     "react-native-randombytes": "^3.6.2",
     "react-native-safe-area-context": "^5.5.2",
     "react-native-svg": "^15.15.1",
-    "react-native-video": "^6.19.0",
     "react-native-view-shot": "^4.0.3",
     "react-native-vision-camera": "^4.7.3",
-    "react-native-webrtc": "^124.0.0"
+    "react-native-webrtc": "^124.0.0",
+    "react-native-webview": "^13.16.0"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

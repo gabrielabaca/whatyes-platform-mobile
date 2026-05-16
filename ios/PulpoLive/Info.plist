@@ -26,6 +26,17 @@
 	<string>????</string>
 	<key>CFBundleVersion</key>
 	<string>3</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.pulpolive.deeplink</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>pulpolive</string>
+			</array>
+		</dict>
+	</array>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSAppTransportSecurity</key>
@@ -49,6 +60,8 @@
 	<string>Necesitamos acceso a tu cámara para transmitir en vivo</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Necesitamos acceso a tu micrófono para transmitir audio en vivo</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Necesitamos acceso a tus fotos para elegir una imagen de perfil</string>
 	<key>RCTNewArchEnabled</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>
