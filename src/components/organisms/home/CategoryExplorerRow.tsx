@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Text } from '../../atoms/Text';
 import { FONT_FAMILY } from '../../../theme/typography';
 import type { InterestCategoryItem } from '../../../api/types';
-import { interestCategoryEmojiFromSlug } from '../../../utils/interestCategoryEmoji';
+import { displayInterestCategoryIcon } from '../../../utils/interestCategoryEmoji';
 import { ALL_CATEGORIES_ID } from './types';
 
 /** Icono del chip "Todas" (rayo) */
@@ -29,7 +29,7 @@ export const CategoryExplorerRow: React.FC<CategoryExplorerRowProps> = ({
     ...categories.map((c) => ({
       id: c.uuid,
       label: c.label,
-      emoji: interestCategoryEmojiFromSlug(c.slug),
+      emoji: displayInterestCategoryIcon(c),
     })),
   ];
 
@@ -46,6 +46,7 @@ export const CategoryExplorerRow: React.FC<CategoryExplorerRowProps> = ({
         nestedScrollEnabled
         removeClippedSubviews={false}
         showsHorizontalScrollIndicator={false}
+        // eslint-disable-next-line react-native/no-inline-styles
         contentContainerStyle={{
           flexDirection: 'row',
           alignItems: 'center',

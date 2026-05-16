@@ -11,7 +11,7 @@ import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import { IconEye, IconStar } from '../../icons';
 import { Text } from '../../atoms/Text';
 import { FONT_FAMILY } from '../../../theme/typography';
-import { interestCategoryEmojiFromSlug } from '../../../utils/interestCategoryEmoji';
+import { displayInterestCategoryIcon } from '../../../utils/interestCategoryEmoji';
 import type { LiveStreamPreviewModel } from './types';
 
 export type LiveStreamPreviewVariant = 'large' | 'compact' | 'grid';
@@ -58,7 +58,7 @@ export const LiveStreamPreviewCard: React.FC<LiveStreamPreviewCardProps> = ({
 
   const categoryEmoji =
     stream.interestCategories && stream.interestCategories.length > 0
-      ? interestCategoryEmojiFromSlug(stream.interestCategories[0].slug)
+      ? displayInterestCategoryIcon(stream.interestCategories[0])
       : stream.categoryLabel
         ? '📦'
         : null;

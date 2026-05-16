@@ -20,6 +20,9 @@ import { ArrowLeft } from 'lucide-react-native';
 import { Text } from '../../atoms/Text';
 import { forgotPasswordRequest, resetPassword, ApiError } from '../../../api';
 import { FONT_FAMILY } from '../../../theme/typography';
+import { themeColors } from '../../../theme/colors';
+import { useTheme } from '../../../context/ThemeContext';
+import { isValidEmail, passwordMeetsPolicy } from '../../../utils/formValidation';
 import { VerificationCodeScreen } from '../VerificationCodeScreen';
 
 /** Mismo largo que `origin="forgotPassword"` en VerificationCodeScreen */
@@ -35,6 +38,8 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
   onBackToLogin,
 }) => {
   const { t } = useTranslation();
+  const { isDark } = useTheme();
+  const c = isDark ? themeColors.dark : themeColors.light;
   const [step, setStep] = useState<Step>('request');
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
@@ -42,13 +47,21 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showVerification, setShowVerification] = useState(false);
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [newPasswordError, setNewPasswordError] = useState<string | null>(null);
+  const [confirmPasswordError, setConfirmPasswordError] = useState<string | null>(null);
 
   const forgotPasswordCodeDigits = code.slice(0, FORGOT_PASSWORD_OTP_LENGTH).split('');
 
   // Paso 1: Solicitar código
   const handleRequestCode = async () => {
-    if (!email) {
-      Alert.alert(t('common.error'), t('forgotPassword.enterEmail'));
+    setEmailError(null);
+    if (!email.trim()) {
+      setEmailError(t('forgotPassword.enterEmail'));
+      return;
+    }
+    if (!isValidEmail(email.trim())) {
+      setEmailError(t('common.invalidEmail'));
       return;
     }
 
@@ -69,18 +82,21 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
 
   // Paso 2: Restablecer contraseña con código
   const handleResetPassword = async () => {
+    setNewPasswordError(null);
+    setConfirmPasswordError(null);
+
     if (!code || !newPassword || !confirmPassword) {
       Alert.alert(t('common.error'), t('forgotPassword.fillAll'));
       return;
     }
 
-    if (newPassword !== confirmPassword) {
-      Alert.alert(t('common.error'), t('forgotPassword.passwordsMismatch'));
+    if (!passwordMeetsPolicy(newPassword)) {
+      setNewPasswordError(t('register.passwordPolicyError'));
       return;
     }
 
-    if (newPassword.length < 6) {
-      Alert.alert(t('common.error'), t('forgotPassword.passwordMin'));
+    if (newPassword !== confirmPassword) {
+      setConfirmPasswordError(t('forgotPassword.passwordsMismatch'));
       return;
     }
 
@@ -160,9 +176,9 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
                 className="w-8 h-8 items-start justify-center"
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
-                <ArrowLeft size={22} color="#02050F" />
+                <ArrowLeft size={22} color={c.text} />
               </TouchableOpacity>
-              <Text className="text-[20px] font-bold text-[#02050F]">
+              <Text className="text-[20px] font-bold text-[#02050F] dark:text-white">
                 {step === 'request' ? t('forgotPassword.titleRequest') : t('forgotPassword.titleReset')}
               </Text>
               <View className="w-8 h-8" />
@@ -170,31 +186,43 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
 
             {step === 'request' && (
               <>
-                <Text className="text-center text-[#4C4E55] text-[14px] leading-[22px] mb-6">
+                <Text className="text-center text-[#4C4E55] dark:text-night-muted text-[14px] leading-[22px] mb-6">
                   {t('forgotPassword.subtitleRequest')}
                 </Text>
 
                 <View className="mb-7">
-                  <Text className="text-[10px] text-[#34363E] mb-2">{t('forgotPassword.emailLabel')}</Text>
+                  <Text className="text-[10px] text-[#34363E] dark:text-night-muted mb-2">
+                    {t('forgotPassword.emailLabel')}
+                  </Text>
                   <TextInput
                     value={email}
-                    onChangeText={setEmail}
+                    onChangeText={(v) => {
+                      setEmail(v);
+                      if (emailError) setEmailError(null);
+                    }}
                     placeholder={t('forgotPassword.emailPlaceholder')}
-                    placeholderTextColor="#7D7E83"
+                    placeholderTextColor={isDark ? themeColors.dark.textMuted : '#7D7E83'}
                     keyboardType="email-address"
                     autoCapitalize="none"
                     autoComplete="email"
                     editable={!isLoading}
                     style={{ fontFamily: FONT_FAMILY.regular }}
-                    className="border border-[#D9D9D9] rounded-full px-4 py-4 text-[12px] text-[#02050F] min-h-[52px]"
+                    className={`rounded-full px-4 py-4 text-[12px] text-[#02050F] dark:text-white dark:bg-night-800 min-h-[52px] border ${
+                      emailError ? 'border-[#E53935]' : 'border-[#D9D9D9] dark:border-[#D9D9D9]'
+                    }`}
                   />
+                  {emailError ? (
+                    <Text className="mt-1 text-[10px] leading-[18px]" style={{ color: '#E53935' }}>
+                      {emailError}
+                    </Text>
+                  ) : null}
                 </View>
 
                 <TouchableOpacity
                   onPress={handleRequestCode}
                   activeOpacity={0.9}
-                  disabled={!email || isLoading}
-                  className={`rounded-full min-h-[52px] items-center justify-center px-8 bg-primary-600 ${!email || isLoading ? 'opacity-60' : 'opacity-100'}`}
+                  disabled={!email.trim() || isLoading}
+                  className={`rounded-full min-h-[52px] items-center justify-center px-8 bg-primary-600 ${!email.trim() || isLoading ? 'opacity-60' : 'opacity-100'}`}
                 >
                   {isLoading ? (
                     <ActivityIndicator color="#FFFFFF" />
@@ -207,12 +235,12 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
 
             {step === 'reset' && (
               <View className="mb-6">
-                <Text className="text-center text-[#4C4E55] text-[14px] leading-[22px] mb-6">
+                <Text className="text-center text-[#4C4E55] dark:text-night-muted text-[14px] leading-[22px] mb-6">
                   {t('forgotPassword.subtitleReset', { email })}
                 </Text>
 
                 <View className="mb-6">
-                  <Text className="text-[10px] text-[#34363E] mb-3 text-center">
+                  <Text className="text-[10px] text-[#34363E] dark:text-night-muted mb-3 text-center">
                     {t('forgotPassword.verificationCodeLabel')}
                   </Text>
                   <View className="flex-row items-center justify-center flex-wrap gap-2">
@@ -223,10 +251,10 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
                           <View
                             key={index}
                             pointerEvents="none"
-                            className="h-[48px] w-[44px] items-center justify-center rounded-full border border-[#D9D9D9]"
+                            className="h-[48px] w-[44px] items-center justify-center rounded-full border border-[#D9D9D9] dark:border-night-700"
                           >
                             <Text
-                              className={`text-[20px] font-bold ${hasValue ? 'text-[#02050F]' : 'text-[#7D7E83]'}`}
+                              className={`text-[20px] font-bold ${hasValue ? 'text-[#02050F] dark:text-white' : 'text-[#7D7E83] dark:text-night-muted'}`}
                             >
                               {hasValue ? forgotPasswordCodeDigits[index] : '_'}
                             </Text>
@@ -236,28 +264,50 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
                     )}
                   </View>
                 </View>
-                <TextInput
-                  value={newPassword}
-                  onChangeText={setNewPassword}
-                  placeholder={t('forgotPassword.newPassword')}
-                  placeholderTextColor="#7D7E83"
-                  secureTextEntry
-                  autoCapitalize="none"
-                  editable={!isLoading}
-                  style={{ fontFamily: FONT_FAMILY.regular }}
-                  className="border border-[#D9D9D9] rounded-full px-4 py-4 text-[12px] text-[#02050F] min-h-[52px] mb-4"
-                />
-                <TextInput
-                  value={confirmPassword}
-                  onChangeText={setConfirmPassword}
-                  placeholder={t('forgotPassword.confirmPassword')}
-                  placeholderTextColor="#7D7E83"
-                  secureTextEntry
-                  autoCapitalize="none"
-                  editable={!isLoading}
-                  style={{ fontFamily: FONT_FAMILY.regular }}
-                  className="border border-[#D9D9D9] rounded-full px-4 py-4 text-[12px] text-[#02050F] min-h-[52px] mb-6"
-                />
+                <View className="mb-6">
+                  <TextInput
+                    value={newPassword}
+                    onChangeText={(v) => {
+                      setNewPassword(v);
+                      if (newPasswordError) setNewPasswordError(null);
+                    }}
+                    placeholder={t('forgotPassword.newPassword')}
+                    placeholderTextColor={isDark ? themeColors.dark.textMuted : '#7D7E83'}
+                    secureTextEntry
+                    autoCapitalize="none"
+                    editable={!isLoading}
+                    style={{ fontFamily: FONT_FAMILY.regular }}
+                    className={`rounded-full px-4 py-4 text-[12px] text-[#02050F] dark:text-white dark:bg-night-800 min-h-[52px] border ${
+                      newPasswordError ? 'border-[#E53935]' : 'border-[#D9D9D9] dark:border-[#D9D9D9]'
+                    }`}
+                  />
+                  {newPasswordError ? (
+                    <Text className="mt-1 text-[10px] leading-[18px]" style={{ color: '#E53935' }}>
+                      {newPasswordError}
+                    </Text>
+                  ) : null}
+                  <TextInput
+                    value={confirmPassword}
+                    onChangeText={(v) => {
+                      setConfirmPassword(v);
+                      if (confirmPasswordError) setConfirmPasswordError(null);
+                    }}
+                    placeholder={t('forgotPassword.confirmPassword')}
+                    placeholderTextColor={isDark ? themeColors.dark.textMuted : '#7D7E83'}
+                    secureTextEntry
+                    autoCapitalize="none"
+                    editable={!isLoading}
+                    style={{ fontFamily: FONT_FAMILY.regular }}
+                    className={`mt-3 rounded-full px-4 py-4 text-[12px] text-[#02050F] dark:text-white dark:bg-night-800 min-h-[52px] border ${
+                      confirmPasswordError ? 'border-[#E53935]' : 'border-[#D9D9D9] dark:border-[#D9D9D9]'
+                    }`}
+                  />
+                  {confirmPasswordError ? (
+                    <Text className="mt-1 text-[10px] leading-[18px]" style={{ color: '#E53935' }}>
+                      {confirmPasswordError}
+                    </Text>
+                  ) : null}
+                </View>
 
                 <TouchableOpacity
                   onPress={handleResetPassword}
@@ -282,7 +332,7 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
               <View className="flex-1" />
             )}
             <View className="items-center mt-6">
-              <Text className="text-[#4C4E55] text-[12px]">
+              <Text className="text-[#4C4E55] dark:text-night-muted text-[12px]">
                 {step === 'request' ? t('forgotPassword.footerRemember') : t('forgotPassword.footerBackLogin')}
                 <Text className="text-primary-600 text-[12px] font-bold" onPress={onBackToLogin}>
                   {t('forgotPassword.signIn')}

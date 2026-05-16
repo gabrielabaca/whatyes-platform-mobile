@@ -20,7 +20,7 @@ import {
   Pressable,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { ArrowLeft, CalendarDays, Check, Eye, EyeOff } from 'lucide-react-native';
 import Svg, { Defs, LinearGradient, Stop, Text as SvgText } from 'react-native-svg';
 import { Input } from '../../atoms/Input';
@@ -48,6 +48,7 @@ import { FONT_FAMILY } from '../../../theme/typography';
 import { themeColors } from '../../../theme/colors';
 import { useTheme } from '../../../context/ThemeContext';
 import { storage } from '../../../utils/storage';
+import { isValidEmail, passwordMeetsPolicy } from '../../../utils/formValidation';
 
 /** Nombre para API cuando el registro comprador solo pide email. */
 function nameFromEmail(email: string): string {
@@ -58,14 +59,6 @@ function nameFromEmail(email: string): string {
   return words
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
     .join(' ');
-}
-
-function passwordMeetsPolicy(p: string): boolean {
-  if (p.length < 8) return false;
-  if (!/[a-z]/.test(p)) return false;
-  if (!/[A-Z]/.test(p)) return false;
-  if (!/[^A-Za-z0-9]/.test(p)) return false;
-  return true;
 }
 
 /** Formato MM/DD/AAAA (mismo criterio que el diseño). */
@@ -151,6 +144,13 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
   const [buyerFocus, setBuyerFocus] = useState<'email' | 'birthday' | 'password' | 'confirm' | null>(null);
   const [showBuyerPw, setShowBuyerPw] = useState(false);
   const [showBuyerPw2, setShowBuyerPw2] = useState(false);
+  const [buyerEmailError, setBuyerEmailError] = useState<string | null>(null);
+  const [buyerPasswordError, setBuyerPasswordError] = useState<string | null>(null);
+  const [buyerConfirmError, setBuyerConfirmError] = useState<string | null>(null);
+  type SellerFieldErrors = Partial<
+    Record<'email' | 'name' | 'lastName' | 'password' | 'confirm' | 'customerName', string>
+  >;
+  const [sellerErrors, setSellerErrors] = useState<SellerFieldErrors>({});
 
   const goToStep2 = () => {
     if (!userType) {
@@ -162,18 +162,6 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
 
   const maxBirthday = new Date();
   const minBirthday = new Date(1900, 0, 1);
-
-  const onBirthdayChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
-    if (Platform.OS === 'android') {
-      setShowBirthdayPicker(false);
-    }
-    if (event.type === 'dismissed') {
-      return;
-    }
-    if (selectedDate) {
-      setBirthdayDate(selectedDate);
-    }
-  };
 
   const renderProfileLabel = (
     label: string,
@@ -212,18 +200,32 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
   };
 
   const validateBuyerForm = (): boolean => {
-    if (!email.trim() || !password || !repeatPassword) {
-      Alert.alert(t('common.error'), t('register.fillRequired'));
+    setBuyerEmailError(null);
+    setBuyerPasswordError(null);
+    setBuyerConfirmError(null);
+
+    if (!email.trim()) {
+      setBuyerEmailError(t('register.fillRequired'));
+      return false;
+    }
+    if (!isValidEmail(email)) {
+      setBuyerEmailError(t('common.invalidEmail'));
+      return false;
+    }
+
+    if (!password || !repeatPassword) {
+      if (!password) setBuyerPasswordError(t('register.fillRequired'));
+      if (!repeatPassword) setBuyerConfirmError(t('register.fillRequired'));
       return false;
     }
 
     if (password !== repeatPassword) {
-      Alert.alert(t('common.error'), t('register.passwordsMismatch'));
+      setBuyerConfirmError(t('register.passwordsMismatch'));
       return false;
     }
 
     if (!passwordMeetsPolicy(password)) {
-      Alert.alert(t('common.error'), t('register.passwordPolicyError'));
+      setBuyerPasswordError(t('register.passwordPolicyError'));
       return false;
     }
 
@@ -231,26 +233,27 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
   };
 
   const validateSellerForm = (): boolean => {
-    if (!email || !name || !password || !repeatPassword) {
-      Alert.alert(t('common.error'), t('register.fillRequired'));
+    const next: SellerFieldErrors = {};
+
+    if (!email.trim()) next.email = t('register.fillRequired');
+    else if (!isValidEmail(email)) next.email = t('common.invalidEmail');
+
+    if (!name.trim()) next.name = t('register.fillRequired');
+    if (!lastName.trim()) next.lastName = t('register.fillRequired');
+
+    if (!password) next.password = t('register.fillRequired');
+    else if (!passwordMeetsPolicy(password)) next.password = t('register.passwordPolicyError');
+
+    if (!repeatPassword) next.confirm = t('register.fillRequired');
+    else if (password !== repeatPassword) next.confirm = t('register.passwordsMismatch');
+
+    if (!customerName.trim()) next.customerName = t('register.customerNameRequired');
+
+    if (Object.keys(next).length) {
+      setSellerErrors(next);
       return false;
     }
-
-    if (password !== repeatPassword) {
-      Alert.alert(t('common.error'), t('register.passwordsMismatch'));
-      return false;
-    }
-
-    if (password.length < 6) {
-      Alert.alert(t('common.error'), t('register.passwordMin'));
-      return false;
-    }
-
-    if (!customerName) {
-      Alert.alert(t('common.error'), t('register.customerNameRequired'));
-      return false;
-    }
-
+    setSellerErrors({});
     return true;
   };
 
@@ -565,7 +568,10 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                   </Text>
                   <TextInput
                     value={email}
-                    onChangeText={setEmail}
+                    onChangeText={(v) => {
+                      setEmail(v);
+                      if (buyerEmailError) setBuyerEmailError(null);
+                    }}
                     onFocus={() => setBuyerFocus('email')}
                     onBlur={() => setBuyerFocus(null)}
                     placeholder={t('common.emailPlaceholder')}
@@ -576,9 +582,18 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                     editable={!isLoading}
                     style={{ fontFamily: FONT_FAMILY.bold }}
                     className={`rounded-full px-4 py-4 text-[12px] text-[#02050F] dark:text-white dark:bg-night-800 min-h-[52px] border ${
-                      buyerFocus === 'email' ? 'border-[#49A9E1]' : 'border-[#D9D9D9]'
+                      buyerEmailError
+                        ? 'border-[#E53935]'
+                        : buyerFocus === 'email'
+                          ? 'border-[#49A9E1]'
+                          : 'border-[#D9D9D9]'
                     }`}
                   />
+                  {buyerEmailError ? (
+                    <Text className="mt-1 text-[10px] leading-[18px]" style={{ color: '#E53935' }}>
+                      {buyerEmailError}
+                    </Text>
+                  ) : null}
                 </View>
 
                 <View>
@@ -605,49 +620,38 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                     <CalendarDays size={18} color={c.text} />
                   </TouchableOpacity>
 
-                  {Platform.OS === 'android' && showBirthdayPicker && (
-                    <DateTimePicker
-                      value={birthdayDate}
-                      mode="date"
-                      display="default"
-                      onChange={onBirthdayChange}
-                      maximumDate={maxBirthday}
-                      minimumDate={minBirthday}
-                    />
-                  )}
-
-                  {Platform.OS === 'ios' && (
-                    <Modal
-                      visible={showBirthdayPicker}
-                      transparent
-                      animationType="slide"
-                      onRequestClose={() => setShowBirthdayPicker(false)}
-                    >
-                      <View className="flex-1 justify-end">
-                        <Pressable
-                          className="flex-1 bg-black/40"
-                          onPress={() => setShowBirthdayPicker(false)}
-                        />
-                        <View
-                          className="rounded-t-3xl bg-[#FEFEFE] dark:bg-night-900"
-                          style={{ paddingBottom: Math.max(insets.bottom, 12) }}
-                        >
-                          <View className="flex-row items-center justify-between border-b border-gray-200 px-4 py-3 dark:border-night-700">
-                            <TouchableOpacity onPress={() => setShowBirthdayPicker(false)}>
-                              <Text className="text-[16px] font-semibold text-primary-600">
-                                {t('common.cancel')}
-                              </Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity onPress={() => setShowBirthdayPicker(false)}>
-                              <Text className="text-[16px] font-semibold text-primary-600">
-                                {t('common.done')}
-                              </Text>
-                            </TouchableOpacity>
-                          </View>
+                  <Modal
+                    visible={showBirthdayPicker}
+                    transparent
+                    animationType="slide"
+                    onRequestClose={() => setShowBirthdayPicker(false)}
+                  >
+                    <View className="flex-1 justify-end">
+                      <Pressable
+                        className="flex-1 bg-black/40"
+                        onPress={() => setShowBirthdayPicker(false)}
+                      />
+                      <View
+                        className="rounded-t-3xl bg-[#FEFEFE] dark:bg-night-900"
+                        style={{ paddingBottom: Math.max(insets.bottom, 12) }}
+                      >
+                        <View className="flex-row items-center justify-between border-b border-gray-200 px-4 py-3 dark:border-night-700">
+                          <TouchableOpacity onPress={() => setShowBirthdayPicker(false)}>
+                            <Text className="text-[16px] font-semibold text-primary-600">
+                              {t('common.cancel')}
+                            </Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity onPress={() => setShowBirthdayPicker(false)}>
+                            <Text className="text-[16px] font-semibold text-primary-600">
+                              {t('common.done')}
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
+                        <View className="items-center py-2">
                           <DateTimePicker
                             value={birthdayDate}
                             mode="date"
-                            display="inline"
+                            display="spinner"
                             themeVariant={isDark ? 'dark' : 'light'}
                             onChange={(_e, d) => {
                               if (d) setBirthdayDate(d);
@@ -657,8 +661,8 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                           />
                         </View>
                       </View>
-                    </Modal>
-                  )}
+                    </View>
+                  </Modal>
                 </View>
 
                 <View>
@@ -668,7 +672,10 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                   <View className="relative">
                     <TextInput
                       value={password}
-                      onChangeText={setPassword}
+                      onChangeText={(v) => {
+                        setPassword(v);
+                        if (buyerPasswordError) setBuyerPasswordError(null);
+                      }}
                       onFocus={() => setBuyerFocus('password')}
                       onBlur={() => setBuyerFocus(null)}
                       placeholder={t('login.passwordPlaceholder')}
@@ -679,7 +686,11 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                       editable={!isLoading}
                       style={{ fontFamily: FONT_FAMILY.regular }}
                       className={`rounded-full px-4 py-4 pr-12 text-[12px] text-[#02050F] dark:text-white dark:bg-night-800 min-h-[52px] border ${
-                        buyerFocus === 'password' ? 'border-[#49A9E1]' : 'border-[#D9D9D9]'
+                        buyerPasswordError
+                          ? 'border-[#E53935]'
+                          : buyerFocus === 'password'
+                            ? 'border-[#49A9E1]'
+                            : 'border-[#D9D9D9]'
                       }`}
                     />
                     <TouchableOpacity
@@ -694,6 +705,11 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                       )}
                     </TouchableOpacity>
                   </View>
+                  {buyerPasswordError ? (
+                    <Text className="mt-1 text-[10px] leading-[18px]" style={{ color: '#E53935' }}>
+                      {buyerPasswordError}
+                    </Text>
+                  ) : null}
                 </View>
 
                 <View>
@@ -703,7 +719,10 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                   <View className="relative">
                     <TextInput
                       value={repeatPassword}
-                      onChangeText={setRepeatPassword}
+                      onChangeText={(v) => {
+                        setRepeatPassword(v);
+                        if (buyerConfirmError) setBuyerConfirmError(null);
+                      }}
                       onFocus={() => setBuyerFocus('confirm')}
                       onBlur={() => setBuyerFocus(null)}
                       placeholder={t('login.passwordPlaceholder')}
@@ -713,7 +732,11 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                       editable={!isLoading}
                       style={{ fontFamily: FONT_FAMILY.regular }}
                       className={`rounded-full px-4 py-4 pr-12 text-[12px] text-[#02050F] dark:text-white dark:bg-night-800 min-h-[52px] border ${
-                        buyerFocus === 'confirm' ? 'border-[#49A9E1]' : 'border-[#D9D9D9]'
+                        buyerConfirmError
+                          ? 'border-[#E53935]'
+                          : buyerFocus === 'confirm'
+                            ? 'border-[#49A9E1]'
+                            : 'border-[#D9D9D9]'
                       }`}
                     />
                     <TouchableOpacity
@@ -728,6 +751,11 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                       )}
                     </TouchableOpacity>
                   </View>
+                  {buyerConfirmError ? (
+                    <Text className="mt-1 text-[10px] leading-[18px]" style={{ color: '#E53935' }}>
+                      {buyerConfirmError}
+                    </Text>
+                  ) : null}
                 </View>
 
                 <View className="flex-row gap-2 mt-1">
@@ -777,10 +805,14 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                   label={t('register.email')}
                   placeholder={t('register.emailPh')}
                   value={email}
-                  onChangeText={setEmail}
+                  onChangeText={(v) => {
+                    setEmail(v);
+                    setSellerErrors((e) => ({ ...e, email: undefined }));
+                  }}
                   keyboardType="email-address"
                   autoCapitalize="none"
                   autoComplete="email"
+                  error={sellerErrors.email}
                   containerClassName="mb-4"
                 />
 
@@ -788,8 +820,12 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                   label={t('register.firstName')}
                   placeholder={t('register.firstNamePh')}
                   value={name}
-                  onChangeText={setName}
+                  onChangeText={(v) => {
+                    setName(v);
+                    setSellerErrors((e) => ({ ...e, name: undefined }));
+                  }}
                   autoCapitalize="words"
+                  error={sellerErrors.name}
                   containerClassName="mb-4"
                 />
 
@@ -797,8 +833,12 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                   label={t('register.lastName')}
                   placeholder={t('register.lastNamePh')}
                   value={lastName}
-                  onChangeText={setLastName}
+                  onChangeText={(v) => {
+                    setLastName(v);
+                    setSellerErrors((e) => ({ ...e, lastName: undefined }));
+                  }}
                   autoCapitalize="words"
+                  error={sellerErrors.lastName}
                   containerClassName="mb-4"
                 />
 
@@ -806,10 +846,14 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                   label={t('register.password')}
                   placeholder={t('register.passwordDots')}
                   value={password}
-                  onChangeText={setPassword}
+                  onChangeText={(v) => {
+                    setPassword(v);
+                    setSellerErrors((e) => ({ ...e, password: undefined }));
+                  }}
                   secureTextEntry
                   autoCapitalize="none"
                   autoComplete="password"
+                  error={sellerErrors.password}
                   containerClassName="mb-4"
                 />
 
@@ -817,11 +861,24 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                   label={t('register.confirmPassword')}
                   placeholder={t('register.passwordDots')}
                   value={repeatPassword}
-                  onChangeText={setRepeatPassword}
+                  onChangeText={(v) => {
+                    setRepeatPassword(v);
+                    setSellerErrors((e) => ({ ...e, confirm: undefined }));
+                  }}
                   secureTextEntry
                   autoCapitalize="none"
-                  containerClassName="mb-6"
+                  error={sellerErrors.confirm}
+                  containerClassName="mb-4"
                 />
+
+                <View className="flex-row gap-2 mb-4">
+                  <View className="mt-0.5">
+                    <Check size={14} color="#00C566" strokeWidth={3} />
+                  </View>
+                  <Text className="flex-1 text-[10px] leading-[18px] text-[#4C4E55] dark:text-night-muted tracking-[0.05px]">
+                    {t('register.passwordPolicyHint')}
+                  </Text>
+                </View>
 
                 <Text variant="h3" className="mb-4 text-gray-800 dark:text-white mt-2">
                   {t('register.clientInfo')}
@@ -831,8 +888,12 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                   label={t('register.customerName')}
                   placeholder={t('register.customerNamePh')}
                   value={customerName}
-                  onChangeText={setCustomerName}
+                  onChangeText={(v) => {
+                    setCustomerName(v);
+                    setSellerErrors((e) => ({ ...e, customerName: undefined }));
+                  }}
                   autoCapitalize="words"
+                  error={sellerErrors.customerName}
                   containerClassName="mb-4"
                 />
 

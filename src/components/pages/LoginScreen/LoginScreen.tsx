@@ -18,6 +18,7 @@ import { ApiError } from '../../../api';
 import { FONT_FAMILY } from '../../../theme/typography';
 import { themeColors } from '../../../theme/colors';
 import { useTheme } from '../../../context/ThemeContext';
+import { isValidEmail } from '../../../utils/formValidation';
 import GoogleIcon from '../../../../assets/icons/google.svg';
 import AppleIcon from '../../../../assets/icons/apple.svg';
 import FacebookIcon from '../../../../assets/icons/facebook.svg';
@@ -40,15 +41,22 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [emailError, setEmailError] = useState<string | null>(null);
   const { login, isLoading } = useAuth();
 
   const handleLogin = async () => {
-    if (!email || !password) {
+    setPasswordError(null);
+    setEmailError(null);
+
+    if (!email.trim() || !password) {
       Alert.alert(t('common.error'), t('login.fillAllFields'));
       return;
     }
 
-    setPasswordError(null);
+    if (!isValidEmail(email.trim())) {
+      setEmailError(t('common.invalidEmail'));
+      return;
+    }
 
     try {
       await login({
@@ -105,23 +113,31 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
             <View className="mb-7 mt-4">
               <View className="relative">
                 <Text className="text-[10px] text-[#34363E] dark:text-night-muted mb-2">{t('common.email')}</Text>
-                <TextInput
-                  value={email}
-                  onChangeText={(value) => {
-                    setEmail(value);
-                    if (passwordError) {
-                      setPasswordError(null);
-                    }
-                  }}
-                  placeholder={t('common.emailPlaceholder')}
-                  placeholderTextColor={isDark ? themeColors.dark.textMuted : '#7D7E83'}
-                  autoCapitalize="none"
-                  autoComplete="email"
-                  keyboardType="email-address"
-                  editable={!isLoading}
-                  style={{ fontFamily: FONT_FAMILY.regular }}
-                  className="border border-[#D9D9D9] dark:border-[#D9D9D9] rounded-full px-4 py-4 text-[12px] text-[#02050F] dark:text-white dark:bg-night-800 mb-4 min-h-[52px]"
-                />
+                <View className="mb-4">
+                  <TextInput
+                    value={email}
+                    onChangeText={(value) => {
+                      setEmail(value);
+                      if (passwordError) setPasswordError(null);
+                      if (emailError) setEmailError(null);
+                    }}
+                    placeholder={t('common.emailPlaceholder')}
+                    placeholderTextColor={isDark ? themeColors.dark.textMuted : '#7D7E83'}
+                    autoCapitalize="none"
+                    autoComplete="email"
+                    keyboardType="email-address"
+                    editable={!isLoading}
+                    style={{ fontFamily: FONT_FAMILY.regular }}
+                    className={`rounded-full px-4 py-4 text-[12px] text-[#02050F] dark:text-white dark:bg-night-800 min-h-[52px] border ${
+                      emailError ? 'border-[#E53935]' : 'border-[#D9D9D9] dark:border-[#D9D9D9]'
+                    }`}
+                  />
+                  {emailError ? (
+                    <Text className="mt-1 text-[10px] leading-[18px]" style={{ color: '#E53935' }}>
+                      {emailError}
+                    </Text>
+                  ) : null}
+                </View>
 
                 <Text className="text-[10px] text-[#34363E] dark:text-night-muted mb-2">{t('common.password')}</Text>
                 <View className="relative mb-7">
@@ -129,9 +145,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                     value={password}
                     onChangeText={(value) => {
                       setPassword(value);
-                      if (passwordError) {
-                        setPasswordError(null);
-                      }
+                      if (passwordError) setPasswordError(null);
+                      if (emailError) setEmailError(null);
                     }}
                     placeholder={t('login.passwordPlaceholder')}
                     placeholderTextColor={isDark ? themeColors.dark.textMuted : '#7D7E83'}

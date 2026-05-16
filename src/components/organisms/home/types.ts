@@ -21,6 +21,8 @@ export interface LiveStreamPreviewModel {
   sellerAvatarUrl?: string | null;
   /** Iniciales para avatar sin foto (derivadas del creador cuando existe). */
   sellerInitials?: string;
+  /** Epoch segundos (GET /rooms) para ordenar por recientes. */
+  createdAt?: number;
 }
 
 /** Chip sintético "Todas" en el explorador de categorías */

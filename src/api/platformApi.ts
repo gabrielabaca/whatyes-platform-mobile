@@ -71,9 +71,17 @@ function authHeaders(accessToken: string): HeadersInit {
 
 /**
  * Lista salas en estado live (disponibles para ver).
+ * @param interestCategoryUuid Si se indica, solo salas que incluyen esa categoría (service-platform).
  */
-export async function getRooms(accessToken: string): Promise<PlatformRoom[]> {
-  const res = await fetch(`${PLATFORM_HTTP_URL}/rooms`, {
+export async function getRooms(
+  accessToken: string,
+  options?: { interestCategoryUuid?: string }
+): Promise<PlatformRoom[]> {
+  const q =
+    options?.interestCategoryUuid != null && options.interestCategoryUuid.length > 0
+      ? `?interest_category_uuid=${encodeURIComponent(options.interestCategoryUuid)}`
+      : '';
+  const res = await fetch(`${PLATFORM_HTTP_URL}/rooms${q}`, {
     headers: authHeaders(accessToken),
   });
   if (!res.ok) throw new Error(`getRooms: ${res.status}`);
@@ -109,6 +117,7 @@ function normalizeInterestCategoriesResponse(raw: unknown): InterestCategoryItem
       uuid: String(uuidVal),
       slug: String(slugVal),
       label: String(labelVal),
+      icon: String(o.icon ?? ''),
     });
   }
   return out;
@@ -152,6 +161,71 @@ export async function getInterestCategories(): Promise<InterestCategoryItem[]> {
   }
 
   return normalizeInterestCategoriesResponse(parsed);
+}
+
+/**
+ * Categorías más visitadas por el usuario (Explorar — "Tus categorías").
+ */
+export async function getFrequentInterestCategories(limit = 9): Promise<InterestCategoryItem[]> {
+  const token = await storage.getAccessToken();
+  if (!token) {
+    throw new ApiError(401, 'No access token');
+  }
+  const q = limit !== 9 ? `?limit=${encodeURIComponent(String(limit))}` : '';
+  const response = await fetch(`${PLATFORM_HTTP_URL}/interest-categories/me/frequent${q}`, {
+    method: 'GET',
+    headers: authHeaders(token),
+  });
+  const text = await response.text();
+  let parsed: unknown;
+  try {
+    parsed = text.length ? JSON.parse(text) : [];
+  } catch {
+    if (!response.ok) {
+      throw new ApiError(response.status, text.slice(0, 200) || 'Error en la petición');
+    }
+    throw new ApiError(500, 'Respuesta no es JSON válido');
+  }
+  if (!response.ok) {
+    const d =
+      parsed && typeof parsed === 'object' && parsed !== null && 'detail' in parsed
+        ? (parsed as { detail: unknown }).detail
+        : undefined;
+    const msg = typeof d === 'string' ? d : 'Error en la petición';
+    throw new ApiError(response.status, msg, parsed);
+  }
+  return normalizeInterestCategoriesResponse(parsed);
+}
+
+/**
+ * Registra una visita a una categoría (ranking frecuentes).
+ */
+export async function recordInterestCategoryVisit(categoryUuid: string): Promise<void> {
+  const token = await storage.getAccessToken();
+  if (!token) {
+    throw new ApiError(401, 'No access token');
+  }
+  const response = await fetch(
+    `${PLATFORM_HTTP_URL}/interest-categories/${encodeURIComponent(categoryUuid)}/visit`,
+    {
+      method: 'POST',
+      headers: authHeaders(token),
+    }
+  );
+  if (!response.ok) {
+    let parsed: unknown;
+    try {
+      parsed = await response.json();
+    } catch {
+      parsed = undefined;
+    }
+    const d =
+      parsed && typeof parsed === 'object' && parsed !== null && 'detail' in parsed
+        ? (parsed as { detail: unknown }).detail
+        : undefined;
+    const msg = typeof d === 'string' ? d : `recordInterestCategoryVisit: ${response.status}`;
+    throw new ApiError(response.status, msg, parsed);
+  }
 }
 
 /**

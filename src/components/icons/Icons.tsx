@@ -203,3 +203,15 @@ export function IconStar({ size = 24, color = '#fbbf24' }: SvgIconProps) {
     </Svg>
   );
 }
+
+/** Filter Icon */
+export function IconFilter({ size = 24, color = '#000' }: SvgIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M13 9V7H16V3H18V7H21V9H13ZM16 21V11H18V21H16ZM6 21V17H3V15H11V17H8V21H6ZM6 13V3H8V13H6Z"
+        fill={color}
+      />
+    </Svg>
+  );
+}

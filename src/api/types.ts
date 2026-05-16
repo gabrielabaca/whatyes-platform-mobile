@@ -10,6 +10,8 @@ export interface InterestCategoryItem {
   uuid: string;
   slug: string;
   label: string;
+  /** Emoji o glifo desde service-platform; vacío → fallback por slug en cliente. */
+  icon?: string;
 }
 
 export interface UserRole {

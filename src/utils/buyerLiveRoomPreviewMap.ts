@@ -1,0 +1,61 @@
+import type { TFunction } from 'i18next';
+import type { PlatformRoom } from '../api/platformApi';
+import type { LiveStreamPreviewModel } from '../components/organisms/home/types';
+
+/** Espectadores simulados estables por sala hasta que la API exponga el dato */
+export function pseudoViewers(uuid: string): number {
+  let h = 0;
+  for (let i = 0; i < uuid.length; i++) {
+    h = Math.abs((h * 31 + uuid.charCodeAt(i)) % 100000);
+  }
+  return (h % 4500) + 50;
+}
+
+/**
+ * Mapea `PlatformRoom` (+ `creator` de service-users) al modelo de tarjetas de la Home.
+ */
+export function mapPlatformRoomToPreview(r: PlatformRoom, t: TFunction): LiveStreamPreviewModel {
+  const cr = r.creator;
+  const creatorFullName = cr
+    ? `${cr.name ?? ''} ${cr.last_name ?? ''}`.trim() || (cr.name?.trim() ?? '')
+    : '';
+
+  const sellerName =
+    creatorFullName.length > 0
+      ? creatorFullName
+      : (r.name?.trim() || r.stream_name?.trim() || t('home.defaultRoomName'));
+
+  const sellerInitials = cr
+    ? `${(cr.name?.trim()?.[0] ?? '')}${(cr.last_name?.trim()?.[0] ?? '')}`.toUpperCase() ||
+      (cr.name?.trim()?.slice(0, 2).toUpperCase() ?? '')
+    : sellerName.replace(/\s+/g, '').slice(0, 2).toUpperCase();
+
+  const title =
+    (r.name && r.name.trim()) ||
+    (r.stream_name && r.stream_name.trim()) ||
+    t('home.defaultStreamTitle');
+
+  const interestCategories =
+    r.interest_categories && r.interest_categories.length > 0
+      ? r.interest_categories.map((c) => ({
+          uuid: String(c.uuid),
+          slug: String(c.slug ?? ''),
+          label: String(c.label ?? ''),
+          icon: String(c.icon ?? ''),
+        }))
+      : undefined;
+
+  return {
+    id: r.uuid,
+    sellerName,
+    title,
+    viewerCount: pseudoViewers(r.uuid),
+    thumbnail: undefined,
+    rating: 4.2 + (pseudoViewers(r.uuid) % 8) / 10,
+    categoryLabel: interestCategories?.[0]?.label ?? null,
+    interestCategories,
+    sellerAvatarUrl: cr?.profile_picture ?? null,
+    sellerInitials: sellerInitials.length > 0 ? sellerInitials : sellerName.slice(0, 2).toUpperCase(),
+    createdAt: r.created_at,
+  };
+}

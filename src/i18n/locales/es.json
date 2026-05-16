@@ -18,7 +18,8 @@
     "loading": "Cargando...",
     "email": "Email",
     "password": "Contraseña",
-    "emailPlaceholder": "Ejemplo@example.com"
+    "emailPlaceholder": "Ejemplo@example.com",
+    "invalidEmail": "Introduce un correo electrónico válido."
   },
   "loading": {
     "message": "Cargando..."
@@ -215,5 +216,24 @@
     "themeLight": "Claro",
     "themeDark": "Oscuro",
     "themeCycleHint": "Toca para cambiar (automático, claro u oscuro)"
+  },
+  "explore": {
+    "yourCategoriesTitle": "Tus categorías",
+    "yourCategoriesEmpty": "Cuando visites categorías, aparecerán aquí tus más frecuentes.",
+    "allCategoriesTitle": "Todas las categorías",
+    "catalogEmpty": "No hay categorías disponibles.",
+    "frequentLoadError": "No se pudieron cargar tus categorías frecuentes.",
+    "back": "Atrás",
+    "sortPopular": "Más populares",
+    "sortRecent": "Más recientes",
+    "follow": "Seguir",
+    "following": "Siguiendo",
+    "filters": "Filtros",
+    "filtersComingSoon": "Filtros próximamente",
+    "recommended": "Recomendados",
+    "bestSellers": "Mejores vendedores",
+    "popularSection": "🙌 Popular",
+    "livesSection": "▶️ Lives",
+    "noLivesInCategory": "No hay transmisiones en vivo en esta categoría."
   }
 }

@@ -55,6 +55,7 @@ interface HomeHeaderProps {
   onAccountMenuVisibleChange: (visible: boolean) => void;
   onLogout: () => void;
   hasNotificationDot?: boolean;
+  showProfile?: boolean;
 }
 
 function ThemeMenuIcon({
@@ -78,13 +79,14 @@ function ThemeMenuIcon({
 
 export const HomeHeader: React.FC<HomeHeaderProps> = ({
   profileImageUri,
-  profileInitials,
+  profileInitials: _profileInitials,
   onPressSearch,
   onPressNotifications,
   accountMenuVisible,
   onAccountMenuVisibleChange,
   onLogout,
   hasNotificationDot = true,
+  showProfile = true,
 }) => {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
@@ -147,6 +149,7 @@ export const HomeHeader: React.FC<HomeHeaderProps> = ({
                 <View
                   style={[
                     styles.bellDot,
+                    // eslint-disable-next-line react-native/no-inline-styles
                     {
                       backgroundColor: HEADER_METRICS.bellDot,
                       borderColor: isDark ? '#050f2f' : '#E7E7FF',
@@ -157,46 +160,49 @@ export const HomeHeader: React.FC<HomeHeaderProps> = ({
             </View>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            onPress={() => onAccountMenuVisibleChange(true)}
-            style={[
-              styles.profileOuter,
-              {
-                width: HEADER_METRICS.profileSize,
-                height: HEADER_METRICS.profileSize,
-                borderRadius: HEADER_METRICS.profileSize / 2,
-                backgroundColor: profileImageUri ? 'transparent' : HEADER_METRICS.profileCircle,
-              },
-            ]}
-            activeOpacity={0.85}
-            accessibilityRole="button"
-            accessibilityLabel={t('home.tabProfile')}
-          >
-            {profileImageUri ? (
-              <Image
-                source={{ uri: profileImageUri }}
-                style={styles.profileImage}
-                resizeMode="cover"
-              />
-            ) : (
-              <View
-                style={[
-                  styles.profileFallback,
-                  {
-                    width: HEADER_METRICS.profileSize,
-                    height: HEADER_METRICS.profileSize,
-                    borderRadius: HEADER_METRICS.profileSize / 2,
-                  },
-                ]}
-              >
-                <IconUser
-                  size={HEADER_METRICS.profileIconInner}
-                  color={HEADER_METRICS.profileIcon}
-                  strokeWidth={2.2}
+          {showProfile ? (
+            <TouchableOpacity
+              onPress={() => onAccountMenuVisibleChange(true)}
+              style={[
+                styles.profileOuter,
+                // eslint-disable-next-line react-native/no-inline-styles
+                {
+                  width: HEADER_METRICS.profileSize,
+                  height: HEADER_METRICS.profileSize,
+                  borderRadius: HEADER_METRICS.profileSize / 2,
+                  backgroundColor: profileImageUri ? 'transparent' : HEADER_METRICS.profileCircle,
+                },
+              ]}
+              activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel={t('home.tabProfile')}
+            >
+              {profileImageUri ? (
+                <Image
+                  source={{ uri: profileImageUri }}
+                  style={styles.profileImage}
+                  resizeMode="cover"
                 />
-              </View>
-            )}
-          </TouchableOpacity>
+              ) : (
+                <View
+                  style={[
+                    styles.profileFallback,
+                    {
+                      width: HEADER_METRICS.profileSize,
+                      height: HEADER_METRICS.profileSize,
+                      borderRadius: HEADER_METRICS.profileSize / 2,
+                    },
+                  ]}
+                >
+                  <IconUser
+                    size={HEADER_METRICS.profileIconInner}
+                    color={HEADER_METRICS.profileIcon}
+                    strokeWidth={2.2}
+                  />
+                </View>
+              )}
+            </TouchableOpacity>
+          ) : null}
         </View>
       </View>
 

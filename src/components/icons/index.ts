@@ -10,5 +10,6 @@ export {
   IconPlus,
   IconEye,
   IconStar,
+  IconFilter,
   type SvgIconProps,
 } from './Icons';
