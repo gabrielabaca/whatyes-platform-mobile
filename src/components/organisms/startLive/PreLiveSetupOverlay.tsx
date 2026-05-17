@@ -3,7 +3,10 @@ import { useTranslation } from 'react-i18next';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import ConfettiCannon from 'react-native-confetti-cannon';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { launchCamera, launchImageLibrary, type ImagePickerResponse } from 'react-native-image-picker';
 import {
+  Alert,
+  ActivityIndicator,
   Dimensions,
   KeyboardAvoidingView,
   Modal,
@@ -16,6 +19,7 @@ import {
   TouchableOpacity,
   useColorScheme,
   View,
+  Image,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
@@ -32,9 +36,12 @@ import {
   X,
 } from 'lucide-react-native';
 import type { StreamConfig } from '../../pages/StreamConfigScreen';
+import { uploadRoomCover } from '../../../api/platformApi';
+import { ApiError } from '../../../api/authApi';
 import { useInterestCategories } from '../../../hooks/useInterestCategories';
 import { FONT_FAMILY } from '../../../theme/typography';
 import { StreamBottomSheet } from '../stream/StreamBottomSheet';
+import { AddProductPhotoSourceDrawer } from '../addProduct/AddProductPhotoSourceDrawer';
 import { StartLiveCategoriesDrawer } from './StartLiveCategoriesDrawer';
 import { StartLivePrimaryButton } from './StartLivePrimitives';
 import { START_LIVE_COLORS, startLivePanelStyle } from './startLiveStyles';
@@ -42,7 +49,7 @@ import { START_LIVE_COLORS, startLivePanelStyle } from './startLiveStyles';
 type Frequency = NonNullable<StreamConfig['recurrence']>;
 type SaleFormat = NonNullable<StreamConfig['saleFormat']>;
 type Privacy = NonNullable<StreamConfig['privacy']>;
-type Drawer = 'none' | 'frequency' | 'moderators' | 'categories' | 'saleFormat' | 'blockedWords';
+type Drawer = 'none' | 'frequency' | 'moderators' | 'categories' | 'saleFormat' | 'blockedWords' | 'coverSource';
 
 const FREQUENCY_OPTIONS: Array<{ id: Frequency; label: string }> = [
   { id: 'none', label: 'No repetir' },
@@ -117,6 +124,25 @@ function normalizeModeratorEmail(raw: string): string {
 
 function looksLikeEmail(value: string): boolean {
   return LOOKS_LIKE_EMAIL.test(normalizeModeratorEmail(value));
+}
+
+function coverPhotoFromPicker(response: ImagePickerResponse): {
+  uri: string;
+  type?: string;
+  name?: string;
+} | null {
+  if (response.didCancel || response.errorMessage) {
+    return null;
+  }
+  const a = response.assets?.[0];
+  if (!a?.uri) {
+    return null;
+  }
+  return {
+    uri: a.uri,
+    type: a.type ?? 'image/jpeg',
+    name: a.fileName ?? `live-cover-${Date.now()}.jpg`,
+  };
 }
 
 const FieldLabel: React.FC<{ children: React.ReactNode }> = ({ children }) => (
@@ -400,6 +426,9 @@ export const PreLiveSetupOverlay: React.FC<{
   const [blockedWords, setBlockedWords] = useState<string[]>(initialConfig.blockedWords ?? []);
   const [privacy, setPrivacy] = useState<Privacy>(initialConfig.privacy ?? 'public');
   const [countdown, setCountdown] = useState<number | null>(null);
+  const [liveCoverUrl, setLiveCoverUrl] = useState<string | null>(initialConfig.coverUrl ?? null);
+  const [coverStagingUri, setCoverStagingUri] = useState<string | null>(null);
+  const [coverUploading, setCoverUploading] = useState(false);
 
   const clearLaunchTimers = useCallback(() => {
     if (countdownIntervalRef.current) {
@@ -415,11 +444,19 @@ export const PreLiveSetupOverlay: React.FC<{
     setScheduleAt(scheduleFromEpoch(initialConfig.scheduledAt));
   }, [visible, initialConfig.scheduledAt]);
 
+  useEffect(() => {
+    if (!visible) return;
+    setLiveCoverUrl(initialConfig.coverUrl ?? null);
+    setCoverStagingUri(null);
+    setCoverUploading(false);
+  }, [visible, initialConfig.coverUrl]);
+
   const handleLeavePreLive = useCallback(() => {
     clearLaunchTimers();
     setCountdown(null);
     setShowScheduleDatePicker(false);
     setShowScheduleTimePicker(false);
+    setDrawer('none');
     onCancel();
   }, [clearLaunchTimers, onCancel]);
 
@@ -440,6 +477,46 @@ export const PreLiveSetupOverlay: React.FC<{
   const scheduledDateDisplay = formatDate(scheduleEpochSeconds);
   const scheduledTimeDisplay = formatTime(scheduleEpochSeconds);
 
+  const submitCoverPhoto = useCallback(
+    async (photo: { uri: string; type?: string; name?: string }) => {
+      setCoverStagingUri(photo.uri);
+      setCoverUploading(true);
+      try {
+        const url = await uploadRoomCover(photo);
+        setLiveCoverUrl(url);
+        setCoverStagingUri(null);
+      } catch (e) {
+        setCoverStagingUri(null);
+        const msg =
+          e instanceof ApiError
+            ? e.message
+            : e instanceof Error
+              ? e.message
+              : 'No se pudo subir la imagen.';
+        Alert.alert(t('common.error'), msg);
+      } finally {
+        setCoverUploading(false);
+      }
+    },
+    [t],
+  );
+
+  const handleCoverFromGallery = useCallback(() => {
+    setDrawer('none');
+    launchImageLibrary({ mediaType: 'photo', selectionLimit: 1 }, (response) => {
+      const p = coverPhotoFromPicker(response);
+      if (p) void submitCoverPhoto(p);
+    });
+  }, [submitCoverPhoto]);
+
+  const handleCoverFromCamera = useCallback(() => {
+    setDrawer('none');
+    launchCamera({ mediaType: 'photo', cameraType: 'back', saveToPhotos: true }, (response) => {
+      const p = coverPhotoFromPicker(response);
+      if (p) void submitCoverPhoto(p);
+    });
+  }, [submitCoverPhoto]);
+
   const buildConfig = (): StreamConfig => ({
     ...initialConfig,
     title: title.trim() || initialConfig.title || 'Mi show',
@@ -452,6 +529,7 @@ export const PreLiveSetupOverlay: React.FC<{
     blockedWordsEnabled,
     blockedWords: sanitizeWords(blockedWords),
     privacy,
+    coverUrl: liveCoverUrl ?? null,
   });
 
   const startCountdown = () => {
@@ -540,10 +618,48 @@ export const PreLiveSetupOverlay: React.FC<{
               <RNText style={styles.sectionBody}>Agrega contenido multimedia para que tu live sea mas atractivo</RNText>
             </View>
             <View style={styles.mediaRow}>
-              <TouchableOpacity style={styles.mediaCard} activeOpacity={0.85}>
-                <ImagePlus size={24} color="#CBCEFF" />
-                <RNText style={styles.mediaText}>Agregar un Cover</RNText>
-              </TouchableOpacity>
+              <View style={[styles.mediaCard, !!(liveCoverUrl || coverStagingUri) && styles.mediaCardHasCover]}>
+                <TouchableOpacity
+                  style={[styles.coverCardTouch, !!(liveCoverUrl || coverStagingUri) && styles.coverCardTouchFilled]}
+                  onPress={() => !coverUploading && setDrawer('coverSource')}
+                  activeOpacity={0.85}
+                  disabled={coverUploading}
+                  accessibilityRole="button"
+                  accessibilityLabel="Agregar cover del live"
+                >
+                  {liveCoverUrl || coverStagingUri ? (
+                    <Image
+                      source={{ uri: coverStagingUri ?? liveCoverUrl! }}
+                      style={styles.coverThumb}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <>
+                      <ImagePlus size={24} color="#CBCEFF" />
+                      <RNText style={styles.mediaText}>Agregar un Cover</RNText>
+                    </>
+                  )}
+                  {coverUploading ? (
+                    <View style={styles.coverUploadingOverlay}>
+                      <ActivityIndicator size="large" color="#FFFFFF" />
+                    </View>
+                  ) : null}
+                </TouchableOpacity>
+                {(liveCoverUrl || coverStagingUri) && !coverUploading ? (
+                  <TouchableOpacity
+                    style={styles.coverClearBtn}
+                    onPress={() => {
+                      setLiveCoverUrl(null);
+                      setCoverStagingUri(null);
+                    }}
+                    hitSlop={10}
+                    accessibilityRole="button"
+                    accessibilityLabel="Quitar imagen de cover"
+                  >
+                    <X size={16} color="#FFFFFF" strokeWidth={2.5} />
+                  </TouchableOpacity>
+                ) : null}
+              </View>
               <TouchableOpacity style={styles.mediaCard} activeOpacity={0.85}>
                 <Video size={24} color="#CBCEFF" />
                 <RNText style={styles.mediaText}>Agregar un video</RNText>
@@ -580,7 +696,11 @@ export const PreLiveSetupOverlay: React.FC<{
             ))}
           </View>
 
-          <StartLivePrimaryButton label="Guardar" onPress={startCountdown} disabled={!title.trim() || !categoryUuids.length} />
+          <StartLivePrimaryButton
+            label="Guardar"
+            onPress={startCountdown}
+            disabled={!title.trim() || !categoryUuids.length || coverUploading}
+          />
           <TouchableOpacity style={styles.cancelButton} onPress={handleLeavePreLive} activeOpacity={0.85}>
             <RNText style={styles.cancelText}>Cancelar</RNText>
           </TouchableOpacity>
@@ -630,6 +750,15 @@ export const PreLiveSetupOverlay: React.FC<{
             setCategoryUuids(uuids);
             setDrawer('none');
           }}
+        />
+
+        <AddProductPhotoSourceDrawer
+          visible={drawer === 'coverSource'}
+          photoCount={0}
+          maxPhotos={1}
+          onClose={() => setDrawer('none')}
+          onTakePhoto={handleCoverFromCamera}
+          onChooseGallery={handleCoverFromGallery}
         />
 
         <Modal
@@ -861,6 +990,43 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 12,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  mediaCardHasCover: {
+    paddingHorizontal: 0,
+    gap: 0,
+  },
+  coverCardTouch: {
+    width: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 12,
+    minHeight: 160,
+  },
+  coverCardTouchFilled: {
+    minHeight: 160,
+  },
+  coverThumb: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  coverUploadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.35)',
+  },
+  coverClearBtn: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: 'rgba(2,5,15,0.72)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 4,
   },
   mediaText: {
     fontFamily: FONT_FAMILY.bold,

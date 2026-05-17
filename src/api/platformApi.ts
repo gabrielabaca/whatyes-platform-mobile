@@ -99,6 +99,42 @@ function authHeaders(accessToken: string): HeadersInit {
 }
 
 /**
+ * Sube una portada para el vivo; devuelve la URL pública en S3 (campo `cover_url` del POST /rooms).
+ */
+export async function uploadRoomCover(photo: {
+  uri: string;
+  type?: string;
+  name?: string;
+}): Promise<string> {
+  const token = await storage.getAccessToken();
+  if (!token) {
+    throw new ApiError(401, 'No access token');
+  }
+  const form = new FormData();
+  form.append('cover', {
+    uri: photo.uri,
+    type: photo.type || 'image/jpeg',
+    name: photo.name || 'live-cover.jpg',
+  } as unknown as Blob);
+
+  const res = await fetch(`${PLATFORM_HTTP_URL}/me/rooms/cover`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: form,
+  });
+  const data = (await res.json().catch(() => ({}))) as { detail?: unknown; cover_url?: string };
+  if (!res.ok) {
+    const d = data.detail;
+    const msg = typeof d === 'string' ? d : `uploadRoomCover: ${res.status}`;
+    throw new ApiError(res.status, msg, data);
+  }
+  if (!data.cover_url?.trim()) {
+    throw new ApiError(res.status, 'Sin URL de imagen');
+  }
+  return data.cover_url.trim();
+}
+
+/**
  * Lista salas en estado live (disponibles para ver).
  * @param interestCategoryUuid Si se indica, solo salas que incluyen esa categoría (service-platform).
  */
