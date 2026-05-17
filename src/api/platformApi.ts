@@ -327,6 +327,94 @@ export async function getWebRTCCredentials(
   return res.json();
 }
 
+export interface LiveCommerceSellerPayload {
+  user_id: string;
+}
+
+export interface LiveCommerceActiveProductPayload {
+  uuid: string;
+  title: string;
+  currency: string;
+  base_price_cents: number;
+  image_urls: string[];
+  quantity_on_hand: number;
+  scope: string;
+}
+
+export interface LiveCommerceActiveAuctionPayload {
+  uuid: string;
+  room_id: string;
+  product_id: string | null;
+  duration_seconds: number;
+  status: string;
+  started_at: number;
+  ends_at: number;
+}
+
+export interface LiveCommerceCatalogPreview {
+  total_products_in_room: number;
+}
+
+export interface LiveCommerceResponse {
+  seller: LiveCommerceSellerPayload;
+  active_product: LiveCommerceActiveProductPayload | null;
+  active_auction: LiveCommerceActiveAuctionPayload | null;
+  catalog_preview: LiveCommerceCatalogPreview | null;
+}
+
+/**
+ * Producto activo + subasta + catálogo para el viewer (service-platform).
+ */
+export async function getRoomLiveCommerce(
+  accessToken: string,
+  roomId: string
+): Promise<LiveCommerceResponse> {
+  const res = await fetch(
+    `${PLATFORM_HTTP_URL}/rooms/${encodeURIComponent(roomId)}/live-commerce`,
+    { headers: authHeaders(accessToken) }
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    const raw = (err as { detail?: unknown }).detail;
+    const msg = formatPlatformErrorDetail(raw) || `getRoomLiveCommerce: ${res.status}`;
+    throw new Error(msg);
+  }
+  return res.json() as Promise<LiveCommerceResponse>;
+}
+
+export interface RoomCatalogProductItem {
+  uuid: string;
+  title: string;
+  currency: string;
+  base_price_cents: number;
+  image_url: string | null;
+  quantity_on_hand: number;
+}
+
+export interface RoomCatalogResponse {
+  items: RoomCatalogProductItem[];
+}
+
+/**
+ * Catálogo de productos publicados en el vivo.
+ */
+export async function getRoomCatalog(
+  accessToken: string,
+  roomId: string
+): Promise<RoomCatalogResponse> {
+  const res = await fetch(
+    `${PLATFORM_HTTP_URL}/rooms/${encodeURIComponent(roomId)}/catalog`,
+    { headers: authHeaders(accessToken) }
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    const raw = (err as { detail?: unknown }).detail;
+    const msg = formatPlatformErrorDetail(raw) || `getRoomCatalog: ${res.status}`;
+    throw new Error(msg);
+  }
+  return res.json() as Promise<RoomCatalogResponse>;
+}
+
 export interface UserShowItem {
   room_uuid: string;
   name: string | null;

@@ -7,17 +7,24 @@ import { STREAM_COLORS, STREAM_RADIUS } from './streamTokens';
 export interface StreamProductStackProps {
   imageUrls?: string[];
   extraCount?: number;
+  /** Si viene definido, reemplaza el aviso "próximamente" al tocar el stack. */
+  onPress?: () => void;
 }
 
 export const StreamProductStack: React.FC<StreamProductStackProps> = ({
   imageUrls = [],
   extraCount = 0,
+  onPress,
 }) => {
   const { t } = useTranslation();
   const urls = imageUrls.filter(Boolean).slice(0, 3);
   const overflow = extraCount > 0 ? extraCount : Math.max(0, imageUrls.length - 3);
 
   const handlePress = () => {
+    if (onPress) {
+      onPress();
+      return;
+    }
     Alert.alert(t('common.appName'), t('stream.comingSoon'));
   };
 

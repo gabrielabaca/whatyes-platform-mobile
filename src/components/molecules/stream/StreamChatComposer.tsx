@@ -14,6 +14,7 @@ export interface StreamChatComposerProps {
   onLike: () => void;
   productImageUrls?: string[];
   productExtraCount?: number;
+  onProductStackPress?: () => void;
 }
 
 export const StreamChatComposer: React.FC<StreamChatComposerProps> = ({
@@ -23,6 +24,7 @@ export const StreamChatComposer: React.FC<StreamChatComposerProps> = ({
   onLike,
   productImageUrls,
   productExtraCount,
+  onProductStackPress,
 }) => {
   const { t } = useTranslation();
 
@@ -43,7 +45,11 @@ export const StreamChatComposer: React.FC<StreamChatComposerProps> = ({
           <Heart size={22} color="#FB2C36" fill="#FB2C36" />
         </StreamIconButton>
       </View>
-      <StreamProductStack imageUrls={productImageUrls} extraCount={productExtraCount} />
+      <StreamProductStack
+        imageUrls={productImageUrls}
+        extraCount={productExtraCount}
+        onPress={onProductStackPress}
+      />
     </View>
   );
 };

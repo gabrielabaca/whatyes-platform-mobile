@@ -1,7 +1,7 @@
 /**
  * Stream Screen — viewer en vivo (buyer) — Figma 536-18831
  */
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   StyleSheet,
@@ -15,7 +15,13 @@ import HeaderLogo from '../../../../assets/images/header_logo.svg';
 import { Text } from '../../atoms/Text';
 import type { StreamData } from '../../molecules/StreamCard';
 import { storage } from '../../../utils/storage';
-import { getWebRTCCredentials } from '../../../api/platformApi';
+import {
+  getWebRTCCredentials,
+  getRoomLiveCommerce,
+  getRoomCatalog,
+  type LiveCommerceResponse,
+  type RoomCatalogProductItem,
+} from '../../../api/platformApi';
 import { startKinesisWebRTCViewer, stopKinesisWebRTCViewer } from '../../../native/KinesisWebRTCNative';
 import type { MediaStream } from 'react-native-webrtc';
 import { useStreamChat } from '../../../hooks/useStreamChat';
@@ -24,6 +30,7 @@ import { useFloatingHearts, FloatingHeartsLayer } from '../../molecules/Floating
 import { enableSpeakerphone, disableSpeakerphone } from '../../../utils/audioRoute';
 import KeepAwake from 'react-native-keep-awake';
 import { StreamBuyerOverlay } from '../../organisms/stream/StreamBuyerOverlay';
+import { StreamRoomProductsDrawer } from '../../organisms/stream/StreamRoomProductsDrawer';
 import { StreamVideoScrim } from '../../organisms/stream/StreamVideoScrim';
 import { useLiveScreenRecording } from '../../../hooks/useLiveScreenRecording';
 import { useStreamWalletFlow } from '../../../hooks/useStreamWalletFlow';
@@ -50,6 +57,11 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({ stream, onClose }) =
   const [streamError, setStreamError] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(true);
   const [chatToken, setChatToken] = useState<string | null>(null);
+  const [liveCommerce, setLiveCommerce] = useState<LiveCommerceResponse | null>(null);
+  const [productCatalogVisible, setProductCatalogVisible] = useState(false);
+  const [catalogItems, setCatalogItems] = useState<RoomCatalogProductItem[]>([]);
+  const [catalogLoading, setCatalogLoading] = useState(false);
+  const [catalogError, setCatalogError] = useState<string | null>(null);
   const viewerCleanupRef = useRef<(() => void) | null>(null);
   const { likeEvents, handleLikeDone, handleLikeEvent } = useFloatingHearts();
   const { isRecording, recordingTimeLabel, toggleRecording } = useLiveScreenRecording();
@@ -82,8 +94,53 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({ stream, onClose }) =
     storage.getAccessToken().then((token) => {
       if (!cancelled && token) setChatToken(token);
     });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!chatToken || !roomId) return;
+    getRoomLiveCommerce(chatToken, roomId)
+      .then((data) => {
+        if (!cancelled) setLiveCommerce(data);
+      })
+      .catch(() => {
+        if (!cancelled) setLiveCommerce(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [chatToken, roomId]);
+
+  const closeProductCatalog = useCallback(() => {
+    setProductCatalogVisible(false);
+  }, []);
+
+  const openProductCatalog = useCallback(() => {
+    setProductCatalogVisible(true);
+    setCatalogLoading(true);
+    setCatalogError(null);
+    void (async () => {
+      try {
+        const token = await storage.getAccessToken();
+        if (!token) {
+          setCatalogError(t('common.error'));
+          setCatalogItems([]);
+          return;
+        }
+        const data = await getRoomCatalog(token, roomId);
+        setCatalogItems(data.items);
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : t('common.error');
+        setCatalogError(msg);
+        setCatalogItems([]);
+      } finally {
+        setCatalogLoading(false);
+      }
+    })();
+  }, [roomId, t]);
 
   useEffect(() => {
     let cancelled = false;
@@ -146,7 +203,16 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({ stream, onClose }) =
     }
   };
 
-  const productTitle = stream.title?.trim() || stream.sellerName;
+  const productTitle =
+    liveCommerce?.active_product?.title?.trim() ||
+    stream.title?.trim() ||
+    stream.sellerName;
+  const productImageUrlsForStack =
+    liveCommerce?.active_product?.image_urls?.filter((u) => Boolean(u?.trim())) ??
+    (stream.productImageUrl ? [stream.productImageUrl] : []);
+  const itemStockCount =
+    liveCommerce?.active_product?.quantity_on_hand ?? stream.productCount ?? 1;
+  const productBasePriceCents = liveCommerce?.active_product?.base_price_cents ?? 0;
   const displayViewerCount = isChatConnected ? viewerCount : stream.viewerCount;
 
   if (streamError) {
@@ -230,8 +296,9 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({ stream, onClose }) =
         sellerAvatarUrl={stream.sellerAvatarUrl}
         sellerRating={stream.sellerRating}
         productTitle={productTitle}
-        productImageUrl={stream.productImageUrl ?? stream.thumbnail}
-        productCount={stream.productCount ?? 1}
+        productImageUrls={productImageUrlsForStack}
+        itemCount={itemStockCount}
+        productBasePriceCents={productBasePriceCents}
         viewerCount={displayViewerCount}
         messages={messages}
         messageText={messageText}
@@ -250,6 +317,15 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({ stream, onClose }) =
         auctionSecondsRemaining={auctionSecondsRemaining}
         auctionBids={auctionBids}
         auctionWinnerUsername={auctionWinner?.username ?? null}
+        onOpenProductCatalog={openProductCatalog}
+      />
+
+      <StreamRoomProductsDrawer
+        visible={productCatalogVisible}
+        onClose={closeProductCatalog}
+        loading={catalogLoading}
+        items={catalogItems}
+        errorMessage={catalogError}
       />
 
       <StreamWalletIntroDrawer

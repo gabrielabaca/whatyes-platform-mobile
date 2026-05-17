@@ -14,6 +14,8 @@ export interface StreamAuctionPanelProps {
   currentPrice: number;
   secondsRemaining: number | null;
   isAuctionActive: boolean;
+  /** Tocar la fila "N artículos" (misma acción que el stack de fotos). */
+  onPressItemsRow?: () => void;
 }
 
 export const StreamAuctionPanel: React.FC<StreamAuctionPanelProps> = ({
@@ -23,10 +25,15 @@ export const StreamAuctionPanel: React.FC<StreamAuctionPanelProps> = ({
   currentPrice,
   secondsRemaining,
   isAuctionActive,
+  onPressItemsRow,
 }) => {
   const { t } = useTranslation();
 
   const handleItemsPress = () => {
+    if (onPressItemsRow) {
+      onPressItemsRow();
+      return;
+    }
     Alert.alert(t('common.appName'), t('stream.comingSoon'));
   };
 

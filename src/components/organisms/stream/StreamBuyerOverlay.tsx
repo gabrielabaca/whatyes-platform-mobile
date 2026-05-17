@@ -19,8 +19,12 @@ export interface StreamBuyerOverlayProps {
   sellerAvatarUrl?: string | null;
   sellerRating?: number | null;
   productTitle: string;
-  productImageUrl?: string;
-  productCount?: number;
+  /** URLs para el stack de miniaturas (Figma); vacío oculta el stack. */
+  productImageUrls?: string[];
+  /** Stock u “N artículos” en el panel de subasta */
+  itemCount?: number;
+  /** Precio base del producto (centavos); la oferta visible es max(puja, base). */
+  productBasePriceCents?: number;
   viewerCount: number;
   messages: ChatMessage[];
   messageText: string;
@@ -37,6 +41,8 @@ export interface StreamBuyerOverlayProps {
   auctionSecondsRemaining: number | null;
   auctionBids: AuctionBid[];
   auctionWinnerUsername?: string | null;
+  /** Abre el listado de productos del vivo (stack de fotos / "N artículos"). */
+  onOpenProductCatalog?: () => void;
 }
 
 export const StreamBuyerOverlay: React.FC<StreamBuyerOverlayProps> = ({
@@ -44,8 +50,9 @@ export const StreamBuyerOverlay: React.FC<StreamBuyerOverlayProps> = ({
   sellerAvatarUrl,
   sellerRating,
   productTitle,
-  productImageUrl,
-  productCount = 1,
+  productImageUrls: productImageUrlsProp,
+  itemCount = 1,
+  productBasePriceCents = 0,
   viewerCount,
   messages,
   messageText,
@@ -62,11 +69,15 @@ export const StreamBuyerOverlay: React.FC<StreamBuyerOverlayProps> = ({
   auctionSecondsRemaining,
   auctionBids,
   auctionWinnerUsername,
+  onOpenProductCatalog,
 }) => {
   const insets = useSafeAreaInsets();
 
   const lastBid = auctionBids.length > 0 ? auctionBids[auctionBids.length - 1] : null;
-  const currentPrice = lastBid?.amount ?? 0;
+  const bidAmount = lastBid?.amount ?? 0;
+  /** API en centavos; pujas WS en pesos enteros (misma unidad que DEFAULT_BID). */
+  const floorMajor = Math.round((productBasePriceCents ?? 0) / 100);
+  const currentPrice = Math.max(bidAmount, floorMajor);
   const winningUsername =
     auctionWinnerUsername ?? (lastBid ? lastBid.username : null);
 
@@ -74,15 +85,15 @@ export const StreamBuyerOverlay: React.FC<StreamBuyerOverlayProps> = ({
     if (lastBid) {
       return lastBid.amount + BID_INCREMENT;
     }
-    return DEFAULT_BID;
-  }, [lastBid?.amount]);
-
-  const productImages = useMemo(() => {
-    if (!productImageUrl) {
-      return [];
+    if (floorMajor > 0) {
+      return floorMajor + BID_INCREMENT;
     }
-    return [productImageUrl, productImageUrl, productImageUrl];
-  }, [productImageUrl]);
+    return DEFAULT_BID;
+  }, [lastBid?.amount, productBasePriceCents]);
+
+  const stackUrls = productImageUrlsProp?.filter(Boolean) ?? [];
+  const stackExtra =
+    stackUrls.length > 3 ? stackUrls.length - 3 : 0;
 
   return (
     <KeyboardAvoidingView
@@ -114,17 +125,19 @@ export const StreamBuyerOverlay: React.FC<StreamBuyerOverlayProps> = ({
         onChangeText={onMessageChange}
         onSubmit={onSendMessage}
         onLike={onLike}
-        productImageUrls={productImages}
-        productExtraCount={productCount > 3 ? productCount - 3 : 0}
+        productImageUrls={stackUrls}
+        productExtraCount={stackExtra}
+        onProductStackPress={onOpenProductCatalog}
       />
 
       <StreamAuctionPanel
         productTitle={productTitle}
-        itemCount={productCount}
+        itemCount={itemCount}
         winningUsername={winningUsername}
         currentPrice={currentPrice}
         secondsRemaining={auctionSecondsRemaining}
         isAuctionActive={isAuctionActive}
+        onPressItemsRow={onOpenProductCatalog}
       />
 
       <StreamBidBar
