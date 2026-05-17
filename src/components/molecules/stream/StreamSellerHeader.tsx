@@ -5,6 +5,7 @@ import {
   Text as RNText,
   StyleSheet,
   Alert,
+  TouchableOpacity,
 } from 'react-native';
 import { Star, Eye } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
@@ -20,6 +21,8 @@ export interface StreamSellerHeaderProps {
   viewerCount: number;
   isFollowing?: boolean;
   onFollowPress?: () => void;
+  /** Tocar avatar o nombre → perfil del vendedor. */
+  onSellerPress?: () => void;
 }
 
 export const StreamSellerHeader: React.FC<StreamSellerHeaderProps> = ({
@@ -29,9 +32,11 @@ export const StreamSellerHeader: React.FC<StreamSellerHeaderProps> = ({
   viewerCount,
   isFollowing = false,
   onFollowPress,
+  onSellerPress,
 }) => {
   const { t } = useTranslation();
   const displayRating = rating ?? 4.9;
+  const displayName = sellerName.trim() || t('home.defaultRoomName');
 
   const handleFollow = () => {
     if (onFollowPress) {
@@ -41,29 +46,48 @@ export const StreamSellerHeader: React.FC<StreamSellerHeaderProps> = ({
     Alert.alert(t('common.appName'), t('stream.comingSoon'));
   };
 
+  const identity = (
+    <>
+      <View style={styles.avatarWrap}>
+        {avatarUrl ? (
+          <Image source={{ uri: avatarUrl }} style={styles.avatar} />
+        ) : (
+          <View style={[styles.avatar, styles.avatarPlaceholder]}>
+            <RNText style={styles.avatarInitial}>
+              {displayName.charAt(0).toUpperCase() || '?'}
+            </RNText>
+          </View>
+        )}
+      </View>
+      <View style={styles.info}>
+        <RNText style={styles.name} numberOfLines={1}>
+          {displayName}
+        </RNText>
+        <View style={styles.ratingRow}>
+          <Star size={12} color={STREAM_COLORS.priceGold} fill={STREAM_COLORS.priceGold} />
+          <RNText style={styles.ratingText}>{displayRating.toFixed(1)}</RNText>
+        </View>
+      </View>
+    </>
+  );
+
   return (
     <StreamGlassPill style={styles.pill}>
       <View style={styles.row}>
-        <View style={styles.avatarWrap}>
-          {avatarUrl ? (
-            <Image source={{ uri: avatarUrl }} style={styles.avatar} />
-          ) : (
-            <View style={[styles.avatar, styles.avatarPlaceholder]}>
-              <RNText style={styles.avatarInitial}>
-                {sellerName.trim().charAt(0).toUpperCase() || '?'}
-              </RNText>
-            </View>
-          )}
-        </View>
-        <View style={styles.info}>
-          <RNText style={styles.name} numberOfLines={1}>
-            {sellerName}
-          </RNText>
-          <View style={styles.ratingRow}>
-            <Star size={12} color={STREAM_COLORS.priceGold} fill={STREAM_COLORS.priceGold} />
-            <RNText style={styles.ratingText}>{displayRating.toFixed(1)}</RNText>
-          </View>
-        </View>
+        {onSellerPress ? (
+          <TouchableOpacity
+            style={styles.sellerIdentity}
+            onPress={onSellerPress}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel={displayName}
+          >
+            {identity}
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.sellerIdentity}>{identity}</View>
+        )}
+
         <View style={styles.actions}>
           <StreamGlassPill style={styles.viewerPill}>
             <View style={styles.viewerRow}>
@@ -77,7 +101,7 @@ export const StreamSellerHeader: React.FC<StreamSellerHeaderProps> = ({
             <StreamGradientButton
               label={isFollowing ? t('stream.following') : t('stream.follow')}
               onPress={handleFollow}
-              variant="follow"
+              variant={isFollowing ? 'following' : 'follow'}
               minWidth={72}
             />
           </View>
@@ -99,7 +123,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
+  sellerIdentity: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    minWidth: 0,
+    marginRight: 4,
+  },
   avatarWrap: {
+    flexShrink: 0,
     borderWidth: 1.4,
     borderColor: STREAM_COLORS.primary,
     borderRadius: 9999,
@@ -146,6 +179,7 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
   },
   actions: {
+    flexShrink: 0,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,

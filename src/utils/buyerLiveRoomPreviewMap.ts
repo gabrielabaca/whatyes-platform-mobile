@@ -55,6 +55,7 @@ export function mapPlatformRoomToPreview(r: PlatformRoom, t: TFunction): LiveStr
     categoryLabel: interestCategories?.[0]?.label ?? null,
     interestCategories,
     sellerAvatarUrl: cr?.profile_picture ?? null,
+    sellerUserId: cr?.uuid ?? r.created_by_user_id,
     sellerInitials: sellerInitials.length > 0 ? sellerInitials : sellerName.slice(0, 2).toUpperCase(),
     createdAt: r.created_at,
   };

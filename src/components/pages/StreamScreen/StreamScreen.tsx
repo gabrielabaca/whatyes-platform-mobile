@@ -8,6 +8,7 @@ import {
   StatusBar,
   ActivityIndicator,
   TouchableOpacity,
+  Alert,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { RTCView } from 'react-native-webrtc';
@@ -19,6 +20,7 @@ import {
   getWebRTCCredentials,
   getRoomLiveCommerce,
   getRoomCatalog,
+  getRooms,
   type LiveCommerceResponse,
   type RoomCatalogProductItem,
 } from '../../../api/platformApi';
@@ -32,6 +34,10 @@ import KeepAwake from 'react-native-keep-awake';
 import { StreamBuyerOverlay } from '../../organisms/stream/StreamBuyerOverlay';
 import { StreamRoomProductsDrawer } from '../../organisms/stream/StreamRoomProductsDrawer';
 import { StreamVideoScrim } from '../../organisms/stream/StreamVideoScrim';
+import { UserProfileScreen } from '../UserProfileScreen';
+import { useSellerFollow } from '../../../hooks/useSellerFollow';
+import { FollowSuccessCelebration } from '../../molecules/profile';
+import { getUserPublicProfile } from '../../../api/profileApi';
 import { useLiveScreenRecording } from '../../../hooks/useLiveScreenRecording';
 import { useStreamWalletFlow } from '../../../hooks/useStreamWalletFlow';
 import { ShippingAddressModal } from '../../organisms/account/ShippingAddressModal';
@@ -62,10 +68,27 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({ stream, onClose }) =
   const [catalogItems, setCatalogItems] = useState<RoomCatalogProductItem[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [catalogError, setCatalogError] = useState<string | null>(null);
+  const [sellerProfileUserId, setSellerProfileUserId] = useState<string | null>(null);
+  const [resolvedSellerUserId, setResolvedSellerUserId] = useState<string | null>(
+    stream.sellerUserId ?? null
+  );
   const viewerCleanupRef = useRef<(() => void) | null>(null);
   const { likeEvents, handleLikeDone, handleLikeEvent } = useFloatingHearts();
   const { isRecording, recordingTimeLabel, toggleRecording } = useLiveScreenRecording();
   const wallet = useStreamWalletFlow();
+  const [sellerFollowInitial, setSellerFollowInitial] = useState(false);
+
+  const {
+    isFollowing: isFollowingSeller,
+    celebrationVisible: followCelebrationVisible,
+    toggleFollow: toggleSellerFollow,
+    dismissCelebration: dismissFollowCelebration,
+    setIsFollowing: setIsFollowingSeller,
+  } = useSellerFollow({
+    sellerUserId: resolvedSellerUserId,
+    sellerName: stream.sellerName,
+    initialFollowing: sellerFollowInitial,
+  });
 
   const roomId = stream.id;
   const {
@@ -114,9 +137,92 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({ stream, onClose }) =
     };
   }, [chatToken, roomId]);
 
+  useEffect(() => {
+    if (stream.sellerUserId) {
+      setResolvedSellerUserId(stream.sellerUserId);
+    }
+  }, [stream.sellerUserId]);
+
+  useEffect(() => {
+    const fromCommerce = liveCommerce?.seller?.user_id;
+    if (fromCommerce) {
+      setResolvedSellerUserId(fromCommerce);
+    }
+  }, [liveCommerce?.seller?.user_id]);
+
+  useEffect(() => {
+    if (resolvedSellerUserId || !chatToken || !roomId) return;
+    let cancelled = false;
+    getRooms(chatToken)
+      .then((rooms) => {
+        if (cancelled) return;
+        const room = rooms.find((r) => r.uuid === roomId);
+        const id = room?.creator?.uuid ?? room?.created_by_user_id ?? null;
+        if (id) setResolvedSellerUserId(id);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [chatToken, roomId, resolvedSellerUserId]);
+
+  useEffect(() => {
+    if (!resolvedSellerUserId || !chatToken) return;
+    let cancelled = false;
+    getUserPublicProfile(resolvedSellerUserId, chatToken)
+      .then((p) => {
+        if (!cancelled) setSellerFollowInitial(p.is_following ?? false);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [resolvedSellerUserId, chatToken]);
+
   const closeProductCatalog = useCallback(() => {
     setProductCatalogVisible(false);
   }, []);
+
+  const openSellerProfile = useCallback(async () => {
+    let sellerId =
+      liveCommerce?.seller?.user_id ?? resolvedSellerUserId ?? stream.sellerUserId ?? null;
+
+    if (!sellerId && chatToken) {
+      try {
+        const rooms = await getRooms(chatToken);
+        const room = rooms.find((r) => r.uuid === roomId);
+        sellerId = room?.creator?.uuid ?? room?.created_by_user_id ?? null;
+        if (sellerId) setResolvedSellerUserId(sellerId);
+      } catch {
+        // ignore
+      }
+    }
+
+    if (!sellerId) {
+      Alert.alert(t('common.appName'), t('profile.loadError'));
+      return;
+    }
+    setSellerProfileUserId(sellerId);
+  }, [
+    liveCommerce?.seller?.user_id,
+    resolvedSellerUserId,
+    stream.sellerUserId,
+    chatToken,
+    roomId,
+    t,
+  ]);
+
+  const closeSellerProfile = useCallback(() => {
+    setSellerProfileUserId(null);
+    if (resolvedSellerUserId && chatToken) {
+      getUserPublicProfile(resolvedSellerUserId, chatToken)
+        .then((p) => {
+          setSellerFollowInitial(p.is_following ?? false);
+          setIsFollowingSeller(p.is_following ?? false);
+        })
+        .catch(() => {});
+    }
+  }, [resolvedSellerUserId, chatToken, setIsFollowingSeller]);
 
   const openProductCatalog = useCallback(() => {
     setProductCatalogVisible(true);
@@ -290,6 +396,11 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({ stream, onClose }) =
 
       <AuctionWinnerOverlay winner={auctionWinner} />
       <FloatingHeartsLayer likeEvents={likeEvents} onLikeDone={handleLikeDone} />
+      <FollowSuccessCelebration
+        visible={followCelebrationVisible}
+        sellerName={stream.sellerName}
+        onDismiss={dismissFollowCelebration}
+      />
 
       <StreamBuyerOverlay
         sellerName={stream.sellerName}
@@ -318,7 +429,24 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({ stream, onClose }) =
         auctionBids={auctionBids}
         auctionWinnerUsername={auctionWinner?.username ?? null}
         onOpenProductCatalog={openProductCatalog}
+        onSellerPress={() => {
+          void openSellerProfile();
+        }}
+        isFollowingSeller={isFollowingSeller}
+        onFollowSeller={() => {
+          void toggleSellerFollow();
+        }}
       />
+
+      {sellerProfileUserId ? (
+        <View style={styles.sellerProfileOverlay}>
+          <UserProfileScreen
+            userId={sellerProfileUserId}
+            variant="sellerPublic"
+            onBack={closeSellerProfile}
+          />
+        </View>
+      ) : null}
 
       <StreamRoomProductsDrawer
         visible={productCatalogVisible}
@@ -454,5 +582,11 @@ const styles = StyleSheet.create({
     padding: 12,
     backgroundColor: '#333',
     borderRadius: 8,
+  },
+  sellerProfileOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 300,
+    elevation: 300,
+    backgroundColor: '#FFFFFF',
   },
 });

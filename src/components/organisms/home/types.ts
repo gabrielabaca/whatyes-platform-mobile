@@ -19,6 +19,8 @@ export interface LiveStreamPreviewModel {
   /** Categorías de la sala (GET /rooms → interest_categories) */
   interestCategories?: InterestCategoryItem[];
   sellerAvatarUrl?: string | null;
+  /** UUID del creador / vendedor de la sala. */
+  sellerUserId?: string;
   /** Iniciales para avatar sin foto (derivadas del creador cuando existe). */
   sellerInitials?: string;
   /** Epoch segundos (GET /rooms) para ordenar por recientes. */

@@ -15,6 +15,7 @@ import {
   Platform,
 } from 'react-native';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
+import { BadgeCheck } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -25,11 +26,18 @@ import {
   IconStar,
   IconTag,
   IconChat,
+  IconBell,
 } from '../icons';
 import { ProfileShowCard } from '../organisms/profile/ProfileShowCard';
 import { EditProfileDrawer } from '../organisms/profile/EditProfileDrawer';
 import { useUserProfile } from '../../hooks/useUserProfile';
 import { useUserShows } from '../../hooks/useUserShows';
+import { useUserProfileProducts } from '../../hooks/useUserProfileProducts';
+import { ProfileProductRow } from '../organisms/profile/ProfileProductRow';
+import { ProfileReviewsSection } from '../organisms/profile/ProfileReviewsSection';
+import { useUserReviews } from '../../hooks/useUserReviews';
+import { useSellerFollow } from '../../hooks/useSellerFollow';
+import { FollowSuccessCelebration } from '../molecules/profile';
 import { formatCompactCount } from '../../utils/formatCount';
 import { FONT_FAMILY } from '../../theme/typography';
 import type { UserShowItem } from '../../api/platformApi';
@@ -59,12 +67,15 @@ export interface UserProfileScreenProps {
   userId?: string;
   onBack: () => void;
   onShowPress?: (show: UserShowItem) => void;
+  /** Figma 536-20602 — perfil de vendedor visto por otro usuario (p. ej. desde un live). */
+  variant?: 'default' | 'sellerPublic';
 }
 
 export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   userId,
   onBack,
   onShowPress,
+  variant = 'default',
 }) => {
   const { t } = useTranslation();
   const { width } = useWindowDimensions();
@@ -74,6 +85,14 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   const [editDrawerOpen, setEditDrawerOpen] = useState(false);
   const { profile, loading, error, resolvedId, reload } = useUserProfile(userId);
   const { shows, loading: showsLoading } = useUserShows(resolvedId, tab === 'shows');
+  const { items: profileProducts, loading: productsLoading } = useUserProfileProducts(
+    resolvedId,
+    tab === 'products'
+  );
+  const { data: reviewsData, loading: reviewsLoading } = useUserReviews(
+    resolvedId,
+    tab === 'reviews'
+  );
 
   const placeholder = () => Alert.alert(t('common.appName'), t('home.placeholderScreen'));
 
@@ -91,6 +110,15 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
 
   const reviewsLabelText = `${formatCompactCount(profile?.reviews_count ?? 0)} ${t('profile.reviewsLabel')}`;
 
+  const isSellerType =
+    profile?.user_type === 'seller_user' ||
+    (profile?.user_type?.toLowerCase().includes('seller') ?? false);
+
+  const showSellerPublicUi =
+    Boolean(profile) &&
+    !profile!.is_own_profile &&
+    (variant === 'sellerPublic' || isSellerType);
+
   const bioText = profile?.bio?.trim() ?? '';
   const bioIsLong = bioText.length > BIO_SEE_MORE_MIN_LENGTH;
   const bioDisplayText =
@@ -99,6 +127,28 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   useEffect(() => {
     setBioExpanded(false);
   }, [bioText]);
+
+  const sellerDisplayName =
+    profile?.display_name?.trim() ||
+    [profile?.name, profile?.last_name].filter(Boolean).join(' ').trim() ||
+    '';
+
+  const {
+    isFollowing,
+    followLoading,
+    celebrationVisible,
+    toggleFollow,
+    dismissCelebration,
+  } = useSellerFollow({
+    sellerUserId: resolvedId,
+    sellerName: sellerDisplayName,
+    initialFollowing: profile?.is_following ?? false,
+  });
+
+  const handleFollowToggle = async () => {
+    await toggleFollow();
+    await reload().catch(() => {});
+  };
 
   const showRows = useMemo(() => {
     const rows: UserShowItem[][] = [];
@@ -132,6 +182,11 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
 
   return (
     <View style={styles.root}>
+      <FollowSuccessCelebration
+        visible={celebrationVisible}
+        sellerName={sellerDisplayName}
+        onDismiss={dismissCelebration}
+      />
       {editDrawerOpen ? (
         <EditProfileDrawer
           visible={editDrawerOpen}
@@ -187,22 +242,54 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                 </View>
               )}
               <View style={styles.coverNameCol}>
-                <RNText style={styles.coverName} numberOfLines={1}>
-                  {profile.display_name}
-                </RNText>
+                <View style={styles.coverNameRow}>
+                  <RNText style={styles.coverName} numberOfLines={1}>
+                    {profile.display_name}
+                  </RNText>
+                  {showSellerPublicUi && profile.is_verified ? (
+                    <BadgeCheck
+                      size={16}
+                      color="#FB2C36"
+                      fill="#FB2C36"
+                      style={styles.verifiedBadge}
+                    />
+                  ) : null}
+                </View>
                 {profile.subtitle ? (
                   <RNText style={styles.coverSubtitle} numberOfLines={1}>
                     {profile.subtitle}
                   </RNText>
                 ) : null}
               </View>
-              <TouchableOpacity
-                style={styles.messageBtn}
-                onPress={placeholder}
-                accessibilityRole="button"
-              >
-                <IconChat size={24} color={PRIMARY} strokeWidth={1.75} />
-              </TouchableOpacity>
+              {showSellerPublicUi ? (
+                <View style={styles.coverSellerActions}>
+                  <TouchableOpacity
+                    style={styles.coverActionBtn}
+                    onPress={placeholder}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('profile.notifySeller')}
+                  >
+                    <IconBell size={24} color={PRIMARY} strokeWidth={1.75} />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.coverActionBtn}
+                    onPress={placeholder}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('profile.messageSeller')}
+                  >
+                    <IconChat size={24} color={PRIMARY} strokeWidth={1.75} />
+                  </TouchableOpacity>
+                </View>
+              ) : !profile.is_own_profile ? (
+                <TouchableOpacity
+                  style={styles.coverActionBtn}
+                  onPress={placeholder}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('profile.messageSeller')}
+                >
+                  <IconChat size={24} color={PRIMARY} strokeWidth={1.75} />
+                </TouchableOpacity>
+              ) : null}
             </View>
           </View>
         </View>
@@ -267,11 +354,41 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
 
               {profile.is_own_profile ? (
                 <TouchableOpacity
-                  style={styles.editBtn}
+                  style={styles.primaryCtaBtn}
                   onPress={() => setEditDrawerOpen(true)}
                   activeOpacity={0.88}
                 >
-                  <RNText style={styles.editBtnText}>{t('profile.editProfile')}</RNText>
+                  <RNText style={styles.primaryCtaBtnText}>{t('profile.editProfile')}</RNText>
+                </TouchableOpacity>
+              ) : !profile.is_own_profile ? (
+                <TouchableOpacity
+                  style={[
+                    styles.primaryCtaBtn,
+                    isFollowing && styles.primaryCtaBtnFollowing,
+                    followLoading && styles.primaryCtaBtnDisabled,
+                  ]}
+                  onPress={() => {
+                    void handleFollowToggle();
+                  }}
+                  disabled={followLoading}
+                  activeOpacity={0.88}
+                  accessibilityRole="button"
+                  accessibilityLabel={
+                    isFollowing ? t('stream.following') : t('stream.follow')
+                  }
+                >
+                  {followLoading ? (
+                    <ActivityIndicator color={isFollowing ? '#71717B' : '#FFFFFF'} />
+                  ) : (
+                    <RNText
+                      style={[
+                        styles.primaryCtaBtnText,
+                        isFollowing && styles.primaryCtaBtnTextFollowing,
+                      ]}
+                    >
+                      {isFollowing ? t('stream.following') : t('stream.follow')}
+                    </RNText>
+                  )}
                 </TouchableOpacity>
               ) : null}
             </View>
@@ -292,8 +409,8 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                     key={key}
                     style={[styles.tab, active && styles.tabActive]}
                     onPress={() => {
-                      if (key === 'shows') {
-                        setTab('shows');
+                      if (key === 'shows' || key === 'products' || key === 'reviews') {
+                        setTab(key);
                       } else {
                         placeholder();
                       }
@@ -330,6 +447,38 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                   ))}
                 </View>
               )
+            ) : null}
+
+            {tab === 'products' ? (
+              productsLoading && profileProducts.length === 0 ? (
+                <ActivityIndicator color={PRIMARY} style={styles.showsLoader} />
+              ) : profileProducts.length === 0 ? (
+                <RNText style={styles.emptyShows}>{t('profile.noProducts')}</RNText>
+              ) : (
+                <View style={styles.productsList}>
+                  {profileProducts.map((product) => (
+                    <ProfileProductRow
+                      key={product.room_uuid}
+                      item={product}
+                      onPress={
+                        product.status === 'live'
+                          ? () =>
+                              onShowPress?.({
+                                room_uuid: product.room_uuid,
+                                name: product.title,
+                                status: 'live',
+                                created_at: product.scheduled_at ?? 0,
+                              } as UserShowItem)
+                          : undefined
+                      }
+                    />
+                  ))}
+                </View>
+              )
+            ) : null}
+
+            {tab === 'reviews' ? (
+              <ProfileReviewsSection data={reviewsData} loading={reviewsLoading} />
             ) : null}
           </View>
         </View>
@@ -503,12 +652,22 @@ const styles = StyleSheet.create({
     gap: 4,
     justifyContent: 'center',
   },
+  coverNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    minWidth: 0,
+  },
   coverName: {
     fontFamily: FONT_FAMILY.bold,
     fontSize: 16,
     lineHeight: 20,
     color: '#FFFFFF',
     includeFontPadding: false,
+    flexShrink: 1,
+  },
+  verifiedBadge: {
+    flexShrink: 0,
   },
   coverSubtitle: {
     fontFamily: FONT_FAMILY.regular,
@@ -517,7 +676,13 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     includeFontPadding: false,
   },
-  messageBtn: {
+  coverSellerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flexShrink: 0,
+  },
+  coverActionBtn: {
     width: 40,
     height: 40,
     borderRadius: 1000,
@@ -638,7 +803,8 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     includeFontPadding: false,
   },
-  editBtn: {
+  primaryCtaBtn: {
+    width: '100%',
     backgroundColor: PRIMARY,
     height: 40,
     borderRadius: 1000,
@@ -647,12 +813,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 4,
   },
-  editBtnText: {
+  /** Figma 536-21428 */
+  primaryCtaBtnFollowing: {
+    backgroundColor: '#D7D7D9',
+  },
+  primaryCtaBtnDisabled: {
+    opacity: 0.7,
+  },
+  primaryCtaBtnText: {
     fontFamily: FONT_FAMILY.bold,
     fontSize: 14,
     lineHeight: 20,
     color: '#FFFFFF',
     includeFontPadding: false,
+  },
+  primaryCtaBtnTextFollowing: {
+    color: '#71717B',
   },
   tabsRow: {
     flexDirection: 'row',
@@ -692,6 +868,10 @@ const styles = StyleSheet.create({
   },
   showsGrid: {
     gap: 12,
+  },
+  productsList: {
+    gap: 0,
+    width: '100%',
   },
   showGridRow: {
     flexDirection: 'row',

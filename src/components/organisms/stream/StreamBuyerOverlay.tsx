@@ -43,6 +43,10 @@ export interface StreamBuyerOverlayProps {
   auctionWinnerUsername?: string | null;
   /** Abre el listado de productos del vivo (stack de fotos / "N artículos"). */
   onOpenProductCatalog?: () => void;
+  /** Tocar avatar o nombre del vendedor en el header. */
+  onSellerPress?: () => void;
+  isFollowingSeller?: boolean;
+  onFollowSeller?: () => void;
 }
 
 export const StreamBuyerOverlay: React.FC<StreamBuyerOverlayProps> = ({
@@ -70,6 +74,9 @@ export const StreamBuyerOverlay: React.FC<StreamBuyerOverlayProps> = ({
   auctionBids,
   auctionWinnerUsername,
   onOpenProductCatalog,
+  onSellerPress,
+  isFollowingSeller,
+  onFollowSeller,
 }) => {
   const insets = useSafeAreaInsets();
 
@@ -97,7 +104,13 @@ export const StreamBuyerOverlay: React.FC<StreamBuyerOverlayProps> = ({
 
   return (
     <KeyboardAvoidingView
-      style={[styles.root, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 32 }]}
+      style={[
+        styles.root,
+        {
+          paddingTop: Math.max(insets.top, Platform.OS === 'android' ? 36 : 16) + 8,
+          paddingBottom: insets.bottom + 32,
+        },
+      ]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       pointerEvents="box-none"
       keyboardVerticalOffset={0}
@@ -107,6 +120,9 @@ export const StreamBuyerOverlay: React.FC<StreamBuyerOverlayProps> = ({
         avatarUrl={sellerAvatarUrl}
         rating={sellerRating}
         viewerCount={viewerCount}
+        onSellerPress={onSellerPress}
+        isFollowing={isFollowingSeller}
+        onFollowPress={onFollowSeller}
       />
 
       <View style={styles.midRow}>

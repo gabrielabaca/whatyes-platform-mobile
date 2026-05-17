@@ -478,6 +478,14 @@
     "tabReviews": "Reviews",
     "tabClips": "Clips",
     "noShows": "Aún no hay shows para mostrar.",
+    "noProducts": "Aún no hay productos para mostrar.",
+    "productLive": "Live",
+    "productArticles": "{{count}} artículos",
+    "startsSoon": "Comienza pronto",
+    "noReviews": "Aún no hay reseñas para mostrar.",
+    "reviewCategoryGeneral": "General",
+    "reviewCategoryShipping": "Envíos",
+    "reviewCategoryProduct": "Producto",
     "loadError": "No se pudo cargar el perfil.",
     "editName": "Nombre",
     "editEmail": "Email",
@@ -485,6 +493,11 @@
     "editSave": "Guardar",
     "editCancel": "Cancelar",
     "editNameRequired": "El nombre es obligatorio.",
-    "editSaveError": "No se pudo guardar el perfil."
+    "editSaveError": "No se pudo guardar el perfil.",
+    "notifySeller": "Notificaciones del vendedor",
+    "messageSeller": "Mensaje al vendedor",
+    "followError": "No se pudo actualizar el seguimiento. Intenta de nuevo.",
+    "followSuccessTitle": "¡Listo!",
+    "followSuccessBody": "Te avisaremos cuando {{name}} publique un nuevo show."
   }
 }

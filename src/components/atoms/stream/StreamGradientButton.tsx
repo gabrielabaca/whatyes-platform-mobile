@@ -13,12 +13,18 @@ import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { FONT_FAMILY } from '../../../theme/typography';
 import { STREAM_COLORS, STREAM_RADIUS } from '../../molecules/stream/streamTokens';
 
-export type StreamGradientVariant = 'follow' | 'bid';
+export type StreamGradientVariant = 'follow' | 'following' | 'bid';
 
-const GRADIENTS: Record<StreamGradientVariant, { start: string; end: string }> = {
+const GRADIENTS: Record<Exclude<StreamGradientVariant, 'following'>, { start: string; end: string }> = {
   follow: { start: STREAM_COLORS.primary, end: STREAM_COLORS.primaryDark },
   bid: { start: STREAM_COLORS.primary, end: STREAM_COLORS.bidGradientEnd },
 };
+
+/** Figma 536-21428 — estado “Siguiendo”. */
+const FOLLOWING_STYLE = {
+  background: '#D7D7D9',
+  label: '#71717B',
+} as const;
 
 export interface StreamGradientButtonProps {
   label: string;
@@ -42,7 +48,8 @@ export const StreamGradientButton: React.FC<StreamGradientButtonProps> = ({
   minWidth,
 }) => {
   const gradId = useId().replace(/:/g, '');
-  const colors = GRADIENTS[variant];
+  const isFollowingVariant = variant === 'following';
+  const colors = isFollowingVariant ? null : GRADIENTS[variant];
   const [layoutW, setLayoutW] = useState(0);
 
   const onLayout = (e: LayoutChangeEvent) => {
@@ -61,27 +68,51 @@ export const StreamGradientButton: React.FC<StreamGradientButtonProps> = ({
     >
       <View style={styles.inner} onLayout={onLayout}>
         {layoutW > 0 ? (
-          <Svg
-            pointerEvents="none"
-            style={StyleSheet.absoluteFill}
-            width={layoutW}
-            height={40}
-          >
-            <Defs>
-              <LinearGradient id={gradId} x1="0" y1="0" x2="1" y2="0">
-                <Stop offset="0" stopColor={colors.start} />
-                <Stop offset="1" stopColor={colors.end} />
-              </LinearGradient>
-            </Defs>
-            <Rect width={layoutW} height={40} rx={20} fill={`url(#${gradId})`} />
-          </Svg>
+          isFollowingVariant ? (
+            <View
+              pointerEvents="none"
+              style={[
+                StyleSheet.absoluteFill,
+                styles.followingBg,
+                { width: layoutW },
+              ]}
+            />
+          ) : (
+            <Svg
+              pointerEvents="none"
+              style={StyleSheet.absoluteFill}
+              width={layoutW}
+              height={40}
+            >
+              <Defs>
+                <LinearGradient id={gradId} x1="0" y1="0" x2="1" y2="0">
+                  <Stop offset="0" stopColor={colors!.start} />
+                  <Stop offset="1" stopColor={colors!.end} />
+                </LinearGradient>
+              </Defs>
+              <Rect width={layoutW} height={40} rx={20} fill={`url(#${gradId})`} />
+            </Svg>
+          )
         ) : null}
         {loading ? (
-          <ActivityIndicator color={variant === 'bid' ? '#18181b' : '#FFFFFF'} size="small" />
+          <ActivityIndicator
+            color={
+              variant === 'bid'
+                ? '#18181b'
+                : isFollowingVariant
+                  ? FOLLOWING_STYLE.label
+                  : '#FFFFFF'
+            }
+            size="small"
+          />
         ) : (
           <>
             <RNText
-              style={[styles.label, variant === 'bid' && styles.labelBid]}
+              style={[
+                styles.label,
+                variant === 'bid' && styles.labelBid,
+                isFollowingVariant && styles.labelFollowing,
+              ]}
               numberOfLines={1}
             >
               {label}
@@ -120,6 +151,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     color: '#18181b',
+  },
+  labelFollowing: {
+    color: FOLLOWING_STYLE.label,
+  },
+  followingBg: {
+    backgroundColor: FOLLOWING_STYLE.background,
+    borderRadius: STREAM_RADIUS.pill,
   },
   disabled: {
     opacity: 0.5,

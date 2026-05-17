@@ -96,6 +96,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     title: p.title,
     sellerAvatarUrl: p.sellerAvatarUrl,
     sellerRating: p.rating ?? null,
+    sellerUserId: p.sellerUserId,
     productImageUrl: p.thumbnail ?? p.sellerAvatarUrl ?? undefined,
     productCount: 1,
   });
@@ -119,6 +120,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       thumbnail: show.thumbnail_url ?? undefined,
       title: show.name ?? undefined,
       sellerAvatarUrl: seller?.profile_picture ?? null,
+      sellerUserId: seller?.uuid,
       productImageUrl: show.thumbnail_url ?? undefined,
       productCount: 1,
     });

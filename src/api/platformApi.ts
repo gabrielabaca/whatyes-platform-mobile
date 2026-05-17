@@ -430,6 +430,37 @@ export interface UserShowItem {
   creator?: PlatformRoomCreator | null;
 }
 
+export interface UserProfileProductItem {
+  room_uuid: string;
+  status: 'draft' | 'live' | 'ended' | string;
+  title: string;
+  thumbnail_url?: string | null;
+  article_count: number;
+  price_cents: number;
+  currency: string;
+  scheduled_at?: number | null;
+  starts_soon?: boolean;
+  auction_seconds_remaining?: number | null;
+}
+
+export async function getUserProfileProducts(
+  accessToken: string,
+  userId: string,
+  options?: { limit?: number; offset?: number }
+): Promise<UserProfileProductItem[]> {
+  const params = new URLSearchParams();
+  if (options?.limit != null) params.set('limit', String(options.limit));
+  if (options?.offset != null) params.set('offset', String(options.offset));
+  const q = params.toString() ? `?${params.toString()}` : '';
+  const res = await fetch(
+    `${PLATFORM_HTTP_URL}/users/${encodeURIComponent(userId)}/profile-products${q}`,
+    { headers: authHeaders(accessToken) }
+  );
+  if (!res.ok) throw new Error(`getUserProfileProducts: ${res.status}`);
+  const data = (await res.json()) as UserProfileProductItem[];
+  return Array.isArray(data) ? data : [];
+}
+
 export async function getUserShows(
   accessToken: string,
   userId: string,

@@ -18,6 +18,8 @@ export interface StreamData {
   title?: string;
   sellerAvatarUrl?: string | null;
   sellerRating?: number | null;
+  /** UUID del vendedor (creador de la sala) para abrir su perfil público. */
+  sellerUserId?: string;
   productImageUrl?: string;
   productCount?: number;
 }

@@ -479,6 +479,14 @@ export default {
     "tabReviews": "Reviews",
     "tabClips": "Clips",
     "noShows": "No shows to display yet.",
+    "noProducts": "No products to display yet.",
+    "productLive": "Live",
+    "productArticles": "{{count}} items",
+    "startsSoon": "Starting soon",
+    "noReviews": "No reviews to display yet.",
+    "reviewCategoryGeneral": "Overall",
+    "reviewCategoryShipping": "Shipping",
+    "reviewCategoryProduct": "Product",
     "loadError": "Could not load profile.",
     "editName": "Name",
     "editEmail": "Email",
@@ -486,6 +494,11 @@ export default {
     "editSave": "Save",
     "editCancel": "Cancel",
     "editNameRequired": "Name is required.",
-    "editSaveError": "Could not save profile."
+    "editSaveError": "Could not save profile.",
+    "notifySeller": "Seller notifications",
+    "messageSeller": "Message seller",
+    "followError": "Could not update follow status. Please try again.",
+    "followSuccessTitle": "You're all set!",
+    "followSuccessBody": "We'll notify you when {{name}} publishes a new show."
   }
 } as const;
