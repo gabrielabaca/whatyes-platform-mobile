@@ -93,6 +93,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     viewerCount: p.viewerCount,
     streamingTime: t('home.liveBadge'),
     thumbnail: p.thumbnail ?? p.sellerAvatarUrl ?? undefined,
+    title: p.title,
+    sellerAvatarUrl: p.sellerAvatarUrl,
+    sellerRating: p.rating ?? null,
+    productImageUrl: p.thumbnail ?? p.sellerAvatarUrl ?? undefined,
+    productCount: 1,
   });
 
   const handleStreamPress = (p: LiveStreamPreviewModel) => {
@@ -112,6 +117,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       viewerCount: show.viewer_count ?? 0,
       streamingTime: t('home.liveBadge'),
       thumbnail: show.thumbnail_url ?? undefined,
+      title: show.name ?? undefined,
+      sellerAvatarUrl: seller?.profile_picture ?? null,
+      productImageUrl: show.thumbnail_url ?? undefined,
+      productCount: 1,
     });
   };
 

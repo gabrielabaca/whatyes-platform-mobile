@@ -55,7 +55,11 @@ const STORAGE_KEYS = {
   PENDING_BUYER_ONBOARDING: 'pending_buyer_onboarding',
   /** Paso UI del onboarding: profile | interests | kyc | complete */
   BUYER_ONBOARDING_UI_STEP: 'buyer_onboarding_ui_step',
+  WALLET_INTRO_SEEN: 'wallet_intro_seen',
+  PREFERRED_PAYMENT_ORIGIN: 'preferred_payment_origin',
 } as const;
+
+export type PreferredPaymentOrigin = 'PLATFORM_CARD' | 'MP_WALLET';
 
 /**
  * Verificar si AsyncStorage está disponible
@@ -347,6 +351,49 @@ export const storage = {
   /**
    * Eliminar borrador de stream
    */
+  async getWalletIntroSeen(): Promise<boolean> {
+    try {
+      const s = getAsyncStorage();
+      if (!s) return false;
+      const v = await s.getItem(STORAGE_KEYS.WALLET_INTRO_SEEN);
+      return v === '1' || v === 'true';
+    } catch {
+      return false;
+    }
+  },
+
+  async setWalletIntroSeen(seen: boolean): Promise<void> {
+    try {
+      const s = getAsyncStorage();
+      if (!s) return;
+      await s.setItem(STORAGE_KEYS.WALLET_INTRO_SEEN, seen ? '1' : '0');
+    } catch {
+      // ignore
+    }
+  },
+
+  async getPreferredPaymentOrigin(): Promise<PreferredPaymentOrigin | null> {
+    try {
+      const s = getAsyncStorage();
+      if (!s) return null;
+      const v = await s.getItem(STORAGE_KEYS.PREFERRED_PAYMENT_ORIGIN);
+      if (v === 'PLATFORM_CARD' || v === 'MP_WALLET') return v;
+      return null;
+    } catch {
+      return null;
+    }
+  },
+
+  async setPreferredPaymentOrigin(origin: PreferredPaymentOrigin): Promise<void> {
+    try {
+      const s = getAsyncStorage();
+      if (!s) return;
+      await s.setItem(STORAGE_KEYS.PREFERRED_PAYMENT_ORIGIN, origin);
+    } catch {
+      // ignore
+    }
+  },
+
   async deleteStreamDraft(): Promise<void> {
     try {
       const storage = getAsyncStorage();

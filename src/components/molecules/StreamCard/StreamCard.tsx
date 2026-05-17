@@ -15,6 +15,11 @@ export interface StreamData {
   streamingTime: string; // Formato: "2h 30m" o "45m"
   thumbnail?: string;
   streamUrl?: string; // URL del stream en vivo
+  title?: string;
+  sellerAvatarUrl?: string | null;
+  sellerRating?: number | null;
+  productImageUrl?: string;
+  productCount?: number;
 }
 
 interface StreamCardProps {

@@ -94,6 +94,41 @@ const getPlatformWsUrl = (): string => {
 
 export const PLATFORM_WS_URL = getPlatformWsUrl();
 
+/**
+ * URL base de service-payments (tarjetas vault, config MP).
+ * Dev: PAYMENTS_HTTP_URL_DEV (ej. http://192.168.1.51:4003/payments).
+ */
+function ensurePaymentsServiceBaseUrl(baseUrl: string): string {
+  const trimmed = baseUrl.trim().replace(/\/$/, '');
+  try {
+    const u = new URL(trimmed);
+    if (u.pathname === '/' || u.pathname === '') {
+      return `${trimmed}/payments`;
+    }
+  } catch {
+    return trimmed;
+  }
+  return trimmed;
+}
+
+const getPaymentsBaseUrl = (): string => {
+  if (__DEV__) {
+    const dev = Config.PAYMENTS_HTTP_URL_DEV;
+    if (dev && (dev.startsWith('http://') || dev.startsWith('https://'))) {
+      return ensurePaymentsServiceBaseUrl(dev);
+    }
+    if (dev) return ensurePaymentsServiceBaseUrl(`http://${dev}`);
+    const apiUrl = getApiBaseUrl();
+    const match = apiUrl.match(/^(https?):\/\/([^:/]+)(:\d+)?/);
+    if (match) return `${match[1]}://${match[2]}:4003/payments`;
+    return 'http://192.168.1.51:4003/payments';
+  }
+  const prod = Config.PAYMENTS_HTTP_URL || 'https://api.pulpolive.com/payments';
+  return ensurePaymentsServiceBaseUrl(prod);
+};
+
+export const PAYMENTS_HTTP_URL = getPaymentsBaseUrl();
+
 export const API_ENDPOINTS = {
   AUTH: {
     LOGIN: '/auth/login',

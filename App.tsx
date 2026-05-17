@@ -14,6 +14,7 @@ import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { InterestCategoriesProvider } from './src/context/InterestCategoriesContext';
 import { storage } from './src/utils/storage';
 import { isBuyerKycReturnUrl, notifyBuyerKycReturn } from './src/utils/buyerKycDeepLink';
+import { isMpWalletReturnUrl, notifyMpWalletReturn } from './src/utils/mpWalletDeepLink';
 import { LoginScreen } from './src/components/pages/LoginScreen';
 import { RegisterScreen } from './src/components/pages/RegisterScreen';
 import { ForgotPasswordScreen } from './src/components/pages/ForgotPasswordScreen';
@@ -59,12 +60,20 @@ function AppNavigator() {
     const onUrl = ({ url }: { url: string }) => {
       if (isBuyerKycReturnUrl(url)) {
         notifyBuyerKycReturn();
+        return;
+      }
+      if (isMpWalletReturnUrl(url)) {
+        notifyMpWalletReturn(url);
       }
     };
     const sub = Linking.addEventListener('url', onUrl);
     void Linking.getInitialURL().then((url) => {
       if (isBuyerKycReturnUrl(url)) {
         notifyBuyerKycReturn();
+        return;
+      }
+      if (url && isMpWalletReturnUrl(url)) {
+        notifyMpWalletReturn(url);
       }
     });
     return () => sub.remove();

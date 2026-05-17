@@ -13,6 +13,7 @@ import {
   Modal,
   FlatList,
   Switch,
+  Platform,
 } from 'react-native';
 import { X, ChevronDown, ChevronRight } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
@@ -23,6 +24,12 @@ import { useTheme, type ThemePreference } from '../../../context/ThemeContext';
 import type { AppLanguage } from '../../../i18n/languagePreference';
 import { persistLanguage } from '../../../i18n/languagePreference';
 import i18n from '../../../i18n';
+import {
+  getRecordingDirectoryDisplay,
+  openRecordingDirectory,
+  pickRecordingDirectory,
+  resetRecordingDirectoryToDefault,
+} from '../../../native/recordingStorage';
 
 const PRIMARY = '#685CF0';
 const CANCEL_GOLD = '#FDC700';
@@ -54,10 +61,13 @@ export const PreferencesModal: React.FC<PreferencesModalProps> = ({
   );
   const [themePickerVisible, setThemePickerVisible] = useState(false);
   const [languagePickerVisible, setLanguagePickerVisible] = useState(false);
+  const [recordingFolderPath, setRecordingFolderPath] = useState('');
+
   useEffect(() => {
     if (!visible) {
       return;
     }
+    getRecordingDirectoryDisplay().then(setRecordingFolderPath).catch(() => {});
     slideAnim.setValue(1);
     Animated.spring(slideAnim, {
       toValue: 0,
@@ -106,6 +116,34 @@ export const PreferencesModal: React.FC<PreferencesModalProps> = ({
   const handleSignOut = () => {
     handleClose();
     onLogout?.();
+  };
+
+  const handlePickRecordingFolder = async () => {
+    if (Platform.OS !== 'android') {
+      Alert.alert(t('common.appName'), t('account.preferencesModal.recordingFolderIosHint'));
+      return;
+    }
+    try {
+      const prefs = await pickRecordingDirectory();
+      if (prefs) {
+        setRecordingFolderPath(prefs.displayPath);
+      }
+    } catch {
+      Alert.alert(t('common.appName'), t('account.preferencesModal.recordingFolderPickError'));
+    }
+  };
+
+  const handleOpenRecordingFolder = async () => {
+    try {
+      await openRecordingDirectory();
+    } catch {
+      Alert.alert(t('common.appName'), t('account.preferencesModal.recordingFolderOpenError'));
+    }
+  };
+
+  const handleResetRecordingFolder = async () => {
+    const prefs = await resetRecordingDirectoryToDefault();
+    setRecordingFolderPath(prefs.displayPath);
   };
 
   if (!visible) {
@@ -164,6 +202,28 @@ export const PreferencesModal: React.FC<PreferencesModalProps> = ({
             <PickerRow
               value={languageLabel(draftLanguage)}
               onPress={() => setLanguagePickerVisible(true)}
+            />
+          </View>
+
+          <View style={[styles.section, styles.sectionBorder]}>
+            <RNText style={styles.sectionTitle}>
+              {t('account.preferencesModal.recordings')}
+            </RNText>
+            <FieldLabel text={t('account.preferencesModal.recordingSavePath')} />
+            <RNText style={styles.pathPreview} numberOfLines={2}>
+              {recordingFolderPath || t('account.preferencesModal.recordingDefaultPath')}
+            </RNText>
+            <ActionRow
+              label={t('account.preferencesModal.chooseRecordingFolder')}
+              onPress={handlePickRecordingFolder}
+            />
+            <ActionRow
+              label={t('account.preferencesModal.openRecordingFolder')}
+              onPress={handleOpenRecordingFolder}
+            />
+            <ActionRow
+              label={t('account.preferencesModal.resetRecordingFolder')}
+              onPress={handleResetRecordingFolder}
             />
           </View>
 
@@ -382,6 +442,15 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: '#FFFFFF',
     letterSpacing: 0.07,
+    includeFontPadding: false,
+  },
+  pathPreview: {
+    fontFamily: FONT_FAMILY.regular,
+    fontSize: 12,
+    lineHeight: 18,
+    color: 'rgba(255,255,255,0.75)',
+    paddingHorizontal: 4,
+    marginBottom: 4,
     includeFontPadding: false,
   },
   accountActions: {

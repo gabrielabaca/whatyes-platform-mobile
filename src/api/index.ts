@@ -7,4 +7,5 @@ export * from './config';
 export * from './types';
 export * from './authApi';
 export * from './platformApi';
+export * from './paymentsApi';
 export { ApiError } from './authApi';

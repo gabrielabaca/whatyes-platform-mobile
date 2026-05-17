@@ -75,6 +75,7 @@ export function useStreamChat({ roomId, accessToken, enabled = true, onLike }: U
   const [auctionBids, setAuctionBids] = useState<AuctionBid[]>([]);
   const [auctionWinner, setAuctionWinner] = useState<AuctionWinner | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
+  const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const send = useCallback((payload: Record<string, any>) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -112,110 +113,126 @@ export function useStreamChat({ roomId, accessToken, enabled = true, onLike }: U
 
   useEffect(() => {
     if (!enabled || !roomId || !accessToken) return;
-    setError(null);
-    const wsUrl = `${PLATFORM_WS_URL}/ws/rooms/${roomId}?token=${encodeURIComponent(accessToken)}`;
-    const ws = new WebSocket(wsUrl);
-    wsRef.current = ws;
 
-    ws.onopen = () => setIsConnected(true);
-    ws.onclose = () => {
-      wsRef.current = null;
-      setIsConnected(false);
-    };
-    ws.onerror = () => setError('Error de conexión');
-    ws.onmessage = (event) => {
-      try {
-        const msg = JSON.parse(event.data) as any;
-        if (msg.type === 'init' && msg.payload) {
-          const list = Array.isArray(msg.payload.messages) ? msg.payload.messages : [];
-          setMessages(list.map((item: WsPayloadMessage) => toChatMessage(item)));
-          if (typeof msg.payload.viewer_count === 'number') {
-            setViewerCount(msg.payload.viewer_count);
+    let destroyed = false;
+
+    const connect = () => {
+      if (destroyed) return;
+      setError(null);
+      const wsUrl = `${PLATFORM_WS_URL}/ws/rooms/${roomId}?token=${encodeURIComponent(accessToken)}`;
+      const ws = new WebSocket(wsUrl);
+      wsRef.current = ws;
+
+      ws.onopen = () => { if (!destroyed) setIsConnected(true); };
+      ws.onclose = () => {
+        wsRef.current = null;
+        if (!destroyed) {
+          setIsConnected(false);
+          reconnectTimer.current = setTimeout(connect, 3000);
+        }
+      };
+      ws.onerror = () => { if (!destroyed) setError('Error de conexión'); };
+      ws.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data) as any;
+          if (msg.type === 'init' && msg.payload) {
+            const list = Array.isArray(msg.payload.messages) ? msg.payload.messages : [];
+            setMessages(list.map((item: WsPayloadMessage) => toChatMessage(item)));
+            if (typeof msg.payload.viewer_count === 'number') {
+              setViewerCount(msg.payload.viewer_count);
+            }
+            if (typeof msg.payload.likes_count === 'number') {
+              setLikesCount(msg.payload.likes_count);
+            }
+            const a = msg.payload.auction;
+            if (a && a.id && typeof a.ends_at === 'number' && a.ends_at > Math.floor(Date.now() / 1000)) {
+              setAuction({
+                id: a.id,
+                durationSeconds: a.duration_seconds ?? 10,
+                startedAt: a.started_at ?? 0,
+                endsAt: a.ends_at,
+              });
+              const bids = Array.isArray(a.bids) ? a.bids : [];
+              setAuctionBids(bids.map((b: any) => ({
+                id: b.id || `${b.username}-${b.created_at}`,
+                username: b.username || 'Usuario',
+                amount: b.amount ?? 0,
+                created_at: b.created_at ?? 0,
+              })));
+            } else {
+              setAuction(null);
+              setAuctionBids([]);
+            }
+            return;
           }
-          if (typeof msg.payload.likes_count === 'number') {
-            setLikesCount(msg.payload.likes_count);
+          if (msg.type === 'auction_start' && msg.payload) {
+            const a = msg.payload;
+            if (a.id && typeof a.ends_at === 'number') {
+              setAuction({
+                id: a.id,
+                durationSeconds: a.duration_seconds ?? 10,
+                startedAt: a.started_at ?? 0,
+                endsAt: a.ends_at,
+              });
+              setAuctionBids([]);
+            }
+            return;
           }
-          const a = msg.payload.auction;
-          if (a && a.id && typeof a.ends_at === 'number' && a.ends_at > Math.floor(Date.now() / 1000)) {
-            setAuction({
-              id: a.id,
-              durationSeconds: a.duration_seconds ?? 10,
-              startedAt: a.started_at ?? 0,
-              endsAt: a.ends_at,
-            });
-            const bids = Array.isArray(a.bids) ? a.bids : [];
-            setAuctionBids(bids.map((b: any) => ({
+          if (msg.type === 'auction_end') {
+            const winner = msg.payload?.winner;
+            if (winner?.username) {
+              setAuctionWinner({ username: winner.username, amount: winner.amount ?? 0 });
+            }
+            setAuction(null);
+            setAuctionBids([]);
+            return;
+          }
+          if (msg.type === 'auction_bid' && msg.payload) {
+            const b = msg.payload;
+            setAuctionBids(prev => [...prev, {
               id: b.id || `${b.username}-${b.created_at}`,
               username: b.username || 'Usuario',
               amount: b.amount ?? 0,
               created_at: b.created_at ?? 0,
-            })));
-          } else {
-            setAuction(null);
-            setAuctionBids([]);
+            }]);
+            return;
           }
-          return;
-        }
-        if (msg.type === 'auction_start' && msg.payload) {
-          const a = msg.payload;
-          if (a.id && typeof a.ends_at === 'number') {
-            setAuction({
-              id: a.id,
-              durationSeconds: a.duration_seconds ?? 10,
-              startedAt: a.started_at ?? 0,
-              endsAt: a.ends_at,
-            });
-            setAuctionBids([]);
+          if (msg.type === 'chat' && msg.payload) {
+            setMessages(prev => [...prev, toChatMessage(msg.payload as WsPayloadMessage)]);
+            return;
           }
-          return;
-        }
-        if (msg.type === 'auction_end') {
-          const winner = msg.payload?.winner;
-          if (winner?.username) {
-            setAuctionWinner({ username: winner.username, amount: winner.amount ?? 0 });
+          if (msg.type === 'viewers' && msg.payload && typeof msg.payload.count === 'number') {
+            setViewerCount(msg.payload.count);
+            return;
           }
-          setAuction(null);
-          setAuctionBids([]);
-          return;
-        }
-        if (msg.type === 'auction_bid' && msg.payload) {
-          const b = msg.payload;
-          setAuctionBids(prev => [...prev, {
-            id: b.id || `${b.username}-${b.created_at}`,
-            username: b.username || 'Usuario',
-            amount: b.amount ?? 0,
-            created_at: b.created_at ?? 0,
-          }]);
-          return;
-        }
-        if (msg.type === 'chat' && msg.payload) {
-          setMessages(prev => [...prev, toChatMessage(msg.payload as WsPayloadMessage)]);
-          return;
-        }
-        if (msg.type === 'viewers' && msg.payload && typeof msg.payload.count === 'number') {
-          setViewerCount(msg.payload.count);
-          return;
-        }
-        if (msg.type === 'like' && msg.payload) {
-          if (typeof msg.payload.count === 'number') {
-            setLikesCount(msg.payload.count);
+          if (msg.type === 'like' && msg.payload) {
+            if (typeof msg.payload.count === 'number') {
+              setLikesCount(msg.payload.count);
+            }
+            if (onLike) {
+              const user = msg.payload.user || {};
+              onLike({
+                count: msg.payload.count,
+                userId: user.id || msg.payload.user_id,
+                username: user.username || msg.payload.username,
+              });
+            }
           }
-          if (onLike) {
-            const user = msg.payload.user || {};
-            onLike({
-              count: msg.payload.count,
-              userId: user.id || msg.payload.user_id,
-              username: user.username || msg.payload.username,
-            });
-          }
+        } catch {
+          setError('Mensaje inválido');
         }
-      } catch {
-        setError('Mensaje inválido');
-      }
+      };
     };
 
+    connect();
+
     return () => {
-      ws.close();
+      destroyed = true;
+      if (reconnectTimer.current) {
+        clearTimeout(reconnectTimer.current);
+        reconnectTimer.current = null;
+      }
+      wsRef.current?.close();
       wsRef.current = null;
       setIsConnected(false);
     };
