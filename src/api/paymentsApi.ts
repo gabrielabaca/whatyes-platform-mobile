@@ -132,6 +132,63 @@ export async function createMpWalletConnectSession(
   return data as MpWalletConnectSession;
 }
 
+export interface PayoutAccount {
+  uuid: string;
+  account_holder: string;
+  tax_id: string;
+  bank_name: string | null;
+  cbu: string;
+  created_at: number;
+  updated_at: number;
+}
+
+export interface PayoutAccountUpsertPayload {
+  account_holder: string;
+  tax_id: string;
+  bank_name?: string | null;
+  cbu: string;
+}
+
+export async function getPayoutAccount(accessToken?: string): Promise<PayoutAccount | null> {
+  const headers = await authHeaders(accessToken);
+  const res = await fetch(`${PAYMENTS_HTTP_URL}/api/me/payout-account`, { headers });
+  const data = await res.json().catch(() => null);
+  if (!res.ok) {
+    throw new ApiError(
+      res.status,
+      (data as { detail?: string })?.detail ||
+        (data as { message?: string })?.message ||
+        'Error al cargar cuenta bancaria',
+      data
+    );
+  }
+  if (data == null) {
+    return null;
+  }
+  return data as PayoutAccount;
+}
+
+export async function upsertPayoutAccount(
+  payload: PayoutAccountUpsertPayload,
+  accessToken?: string
+): Promise<PayoutAccount> {
+  const headers = await authHeaders(accessToken);
+  const res = await fetch(`${PAYMENTS_HTTP_URL}/api/me/payout-account`, {
+    method: 'PUT',
+    headers,
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new ApiError(
+      res.status,
+      data.detail || data.message || 'Error al guardar cuenta bancaria',
+      data
+    );
+  }
+  return data as PayoutAccount;
+}
+
 export async function deleteSavedCard(
   cardUuid: string,
   accessToken?: string

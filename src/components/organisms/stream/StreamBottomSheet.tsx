@@ -10,6 +10,7 @@ import {
   Text as RNText,
   Animated,
   ScrollView,
+  useWindowDimensions,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
@@ -26,8 +27,10 @@ export interface StreamBottomSheetProps {
   title: string;
   onClose: () => void;
   children: React.ReactNode;
-  /** Panel inferior (intro/hub wallet). Por defecto true. */
+  /** Panel inferior (intro/bienvenida). Por defecto true. */
   bottomPanel?: boolean;
+  /** Panel desde safe area superior hasta abajo (wizard). */
+  fullHeight?: boolean;
   panelStyle?: StyleProp<ViewStyle>;
   contentContainerStyle?: StyleProp<ViewStyle>;
   footer?: React.ReactNode;
@@ -43,6 +46,7 @@ export const StreamBottomSheet: React.FC<StreamBottomSheetProps> = ({
   onClose,
   children,
   bottomPanel = true,
+  fullHeight = false,
   panelStyle,
   contentContainerStyle,
   footer,
@@ -51,7 +55,9 @@ export const StreamBottomSheet: React.FC<StreamBottomSheetProps> = ({
   scrollEnabled = true,
 }) => {
   const insets = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
   const slideAnim = useRef(new Animated.Value(1)).current;
+  const useFullPanel = fullHeight || !bottomPanel;
 
   useEffect(() => {
     if (!visible) return;
@@ -97,7 +103,9 @@ export const StreamBottomSheet: React.FC<StreamBottomSheetProps> = ({
         </TouchableOpacity>
       </View>
 
-      <View style={[styles.body, contentContainerStyle]}>{children}</View>
+      <View style={[styles.body, useFullPanel && styles.bodyFull, contentContainerStyle]}>
+        {children}
+      </View>
 
       {footer}
 
@@ -140,14 +148,22 @@ export const StreamBottomSheet: React.FC<StreamBottomSheetProps> = ({
           bounces={false}
           contentContainerStyle={[
             styles.scrollContent,
-            bottomPanel && styles.scrollContentBottom,
-            { paddingBottom: insets.bottom },
+            useFullPanel ? styles.scrollContentFull : styles.scrollContentBottom,
+            { paddingBottom: insets.bottom, minHeight: useFullPanel ? windowHeight : undefined },
           ]}
         >
-          {bottomPanel ? (
-            <View style={[styles.panel, panelStyle]}>{panelBody}</View>
+          {useFullPanel ? (
+            <View
+              style={[
+                styles.fullPanel,
+                panelStyle,
+                { paddingTop: insets.top + 16, minHeight: windowHeight - insets.bottom },
+              ]}
+            >
+              {panelBody}
+            </View>
           ) : (
-            <View style={[styles.fullContent, { paddingTop: insets.top + 16 }]}>{panelBody}</View>
+            <View style={[styles.panel, panelStyle]}>{panelBody}</View>
           )}
         </ScrollView>
       </Animated.View>
@@ -209,6 +225,18 @@ const styles = StyleSheet.create({
   scrollContentBottom: {
     justifyContent: 'flex-end',
   },
+  scrollContentFull: {
+    justifyContent: 'flex-start',
+  },
+  fullPanel: {
+    flexGrow: 1,
+    width: '100%',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 24,
+    paddingBottom: 8,
+    gap: 24,
+  },
   panel: {
     backgroundColor: 'rgba(0,0,0,0.4)',
     paddingHorizontal: 24,
@@ -216,11 +244,6 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
     gap: 24,
     width: '100%',
-  },
-  fullContent: {
-    flexGrow: 1,
-    paddingHorizontal: 24,
-    gap: 24,
   },
   header: {
     flexDirection: 'row',
@@ -232,6 +255,7 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.bold,
     fontSize: 16,
     lineHeight: 20,
+    fontWeight: '800',
     color: '#FFFFFF',
     flex: 1,
     marginRight: 8,
@@ -246,6 +270,9 @@ const styles = StyleSheet.create({
   body: {
     gap: 16,
     width: '100%',
+  },
+  bodyFull: {
+    flex: 1,
   },
   cancelWrap: {
     alignItems: 'center',

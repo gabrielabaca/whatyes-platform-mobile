@@ -8,4 +8,6 @@ export * from './types';
 export * from './authApi';
 export * from './platformApi';
 export * from './paymentsApi';
+export * from './sellerOnboardingApi';
+export * from './productsApi';
 export { ApiError } from './authApi';

@@ -27,9 +27,6 @@ const RADIUS = 14;
 /** Borde superior alineado al diseño de referencia del layout principal. */
 const NAV_BORDER = '#71717B';
 const MUTED = '#71717B';
-/** Fondo barra inferior (MVP Figma BottomNav). */
-const NAV_BG_LIGHT = '#E8E8FF';
-
 export const HomeBottomNav: React.FC<HomeBottomNavProps> = ({ activeTab, onTabPress }) => {
   const { t } = useTranslation();
   const { isDark } = useTheme();
@@ -55,15 +52,20 @@ export const HomeBottomNav: React.FC<HomeBottomNavProps> = ({ activeTab, onTabPr
         hitSlop={6}
       >
         <View style={styles.iconWrap}>
-          <IconCmp size={ICON} color={labelKey === 'home.tabAccount' ? '#685CF0' : color} strokeWidth={2} />
+          <IconCmp size={ICON} color={color} strokeWidth={2} />
         </View>
-        <Text style={[styles.label, { color: labelKey === 'home.tabAccount' ? '#685CF0' : color }]}>{t(labelKey)}</Text>
+        <Text style={[styles.label, { color }]}>{t(labelKey)}</Text>
       </TouchableOpacity>
     );
   };
 
   return (
-    <View style={[styles.bar, isDark ? styles.barDark : styles.barLight]}>
+    <View
+      style={[
+        styles.bar,
+        { backgroundColor: isDark ? themeColors.dark.background : themeColors.home.navBar },
+      ]}
+    >
       <NavItem tab="home" labelKey="home.tabHome" IconCmp={IconHome} />
       <NavItem tab="explore" labelKey="home.tabExplore" IconCmp={IconSearch} />
       <CenterFab onPress={() => onTabPress('create')} />
@@ -98,13 +100,6 @@ const styles = StyleSheet.create({
     gap: 26,
     borderTopWidth: 0.7,
     borderTopColor: NAV_BORDER,
-  },
-  barLight: {
-    backgroundColor: NAV_BG_LIGHT,
-  },
-  barDark: {
-    backgroundColor: '#050f2f',
-    borderTopColor: '#3f3f46',
   },
   navItem: {
     flex: 1,

@@ -15,7 +15,7 @@ export const GlassBackdrop: React.FC = () => (
     <BlurView
       style={StyleSheet.absoluteFill}
       blurType="dark"
-      blurAmount={Platform.select({ ios: 30, android: 32, default: 30 })}
+      blurAmount={Platform.select({ ios: 30, android: 30, default: 30 })}
       overlayColor={Platform.OS === 'android' ? TINT : undefined}
       reducedTransparencyFallbackColor={FALLBACK}
     />

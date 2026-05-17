@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   View,
   StyleSheet,
@@ -22,6 +23,7 @@ import {
 import { Camera, useCameraDevice, useCameraPermission } from 'react-native-vision-camera';
 import { RTCView } from 'react-native-webrtc';
 import type { MediaStream } from 'react-native-webrtc';
+import HeaderLogo from '../../../../assets/images/header_logo.svg';
 import { Text } from '../../atoms/Text';
 import { Heart, Send, MessageSquare, MessageSquareOff, ChevronUp, ChevronDown, Maximize2, Square, ArrowLeft, FlipHorizontal, Users, Gavel } from 'lucide-react-native';
 import type { StreamConfig } from '../StreamConfigScreen';
@@ -32,6 +34,7 @@ import { startKinesisWebRTCMaster, stopKinesisWebRTCMaster } from '../../../nati
 import { useStreamChat } from '../../../hooks/useStreamChat';
 import { AuctionWinnerOverlay } from '../../molecules/AuctionWinnerOverlay/AuctionWinnerOverlay';
 import KeepAwake from 'react-native-keep-awake';
+import { PreLiveSetupOverlay } from '../../organisms/startLive/PreLiveSetupOverlay';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -98,6 +101,7 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
   streamConfig,
   onEndStream,
 }) => {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const [showChat, setShowChat] = useState(false);
   const [chatSize, setChatSize] = useState<ChatSize>('medium');
@@ -107,6 +111,8 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
   const [roomId, setRoomId] = useState<string | null>(null);
   const [streamError, setStreamError] = useState<string | null>(null);
   const [isStarting, setIsStarting] = useState(true);
+  const [preLiveReady, setPreLiveReady] = useState(false);
+  const [resolvedStreamConfig, setResolvedStreamConfig] = useState<StreamConfig>(streamConfig);
   const [localWebRTCStream, setLocalWebRTCStream] = useState<MediaStream | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
   const [likeEvents, setLikeEvents] = useState<LikeEvent[]>([]);
@@ -152,33 +158,51 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
     };
   }, []);
 
-  // Crear room (draft) y pasar a live al montar
+  // Crear room (draft) y pasar a live solo después del pre asistente.
   useEffect(() => {
+    if (!preLiveReady) return;
     let cancelled = false;
     (async () => {
       try {
-        const t = await storage.getAccessToken();
-        if (!t || cancelled) {
+        const accessToken = await storage.getAccessToken();
+        if (!accessToken || cancelled) {
           if (!cancelled) setStreamError('No se pudo obtener la sesión');
           return;
         }
-        setToken(t);
-        const name = streamConfig?.title || user?.name || undefined;
-        const room = await createRoom(t, name || null);
+        setToken(accessToken);
+        const name = resolvedStreamConfig?.title || user?.name || undefined;
+        const categoryUuids = resolvedStreamConfig?.interestCategoryUuids;
+        const room = await createRoom(
+          accessToken,
+          name || null,
+          categoryUuids?.length ? categoryUuids : null,
+          {
+            scheduled_at: resolvedStreamConfig.scheduledAt ?? null,
+            recurrence: resolvedStreamConfig.recurrence ?? 'none',
+            moderator_user_ids: resolvedStreamConfig.moderatorUserIds ?? [],
+            sale_format: resolvedStreamConfig.saleFormat ?? 'individual',
+            explicit_content: resolvedStreamConfig.explicitContent ?? false,
+            blocked_words_enabled: resolvedStreamConfig.blockedWordsEnabled ?? false,
+            blocked_words: resolvedStreamConfig.blockedWords ?? [],
+            privacy: resolvedStreamConfig.privacy ?? 'public',
+            cover_url: resolvedStreamConfig.coverUrl ?? null,
+            intro_video_url: resolvedStreamConfig.introVideoUrl ?? null,
+          }
+        );
         if (cancelled) return;
-        const live = await goLive(t, room.uuid);
+        const live = await goLive(accessToken, room.uuid);
         if (cancelled) return;
         setRoomId(live.uuid);
         // Solo WebRTC: el streamer envía video únicamente por Kinesis WebRTC (Master)
         try {
-          const webrtcCreds = await getWebRTCCredentials(t, live.uuid, 'master');
+          const webrtcCreds = await getWebRTCCredentials(accessToken, live.uuid, 'master');
           setIsStreaming(true);
           // Dar un pequeño margen para que VisionCamera libere la cámara
-          await new Promise((resolve) => setTimeout(resolve, 200));
+          await new Promise<void>((resolve) => setTimeout(resolve, 200));
           console.log('[Seller] Iniciando stream WebRTC (Master)...', { roomId: live.uuid });
           await startKinesisWebRTCMaster(webrtcCreds, {
             onLocalStream: (stream) => {
-              setLocalWebRTCStream(stream);
+              setLocalWebRTCStream(stream as unknown as MediaStream);
             },
           });
           console.log('[Seller] Stream WebRTC iniciado correctamente. Esperando viewers.');
@@ -195,7 +219,7 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
       }
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [preLiveReady, resolvedStreamConfig, user?.name]);
 
   const handleEndStream = () => {
     Alert.alert(
@@ -209,13 +233,13 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
           onPress: async () => {
             try {
               await stopKinesisWebRTCMaster();
-            } catch (_) {}
+            } catch {}
             setLocalWebRTCStream(null);
             setIsStreaming(false);
             if (token && roomId) {
               try {
                 await endStream(token, roomId);
-              } catch (_) {}
+              } catch {}
             }
             onEndStream();
           },
@@ -232,6 +256,12 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
   useEffect(() => {
     if (!hasPermission) requestPermission();
   }, [hasPermission, requestPermission]);
+
+  const handlePreLiveStart = useCallback((config: StreamConfig) => {
+    setResolvedStreamConfig(config);
+    setIsStarting(true);
+    setPreLiveReady(true);
+  }, []);
 
   const handleToggleChat = () => {
     setShowChat(prev => {
@@ -288,15 +318,26 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
 
   useEffect(() => {
     if (!messages.length) return;
-    const t = setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 60);
-    return () => clearTimeout(t);
+    const scrollTimer = setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 60);
+    return () => clearTimeout(scrollTimer);
   }, [messages.length]);
 
   useEffect(() => {
     if (!auctionBids.length) return;
-    const t = setTimeout(() => auctionBidsListRef.current?.scrollToEnd({ animated: true }), 60);
-    return () => clearTimeout(t);
+    const scrollTimer = setTimeout(() => auctionBidsListRef.current?.scrollToEnd({ animated: true }), 60);
+    return () => clearTimeout(scrollTimer);
   }, [auctionBids.length]);
+
+  if (!preLiveReady) {
+    return (
+      <PreLiveSetupOverlay
+        visible
+        initialConfig={resolvedStreamConfig}
+        onCancel={onEndStream}
+        onStart={handlePreLiveStart}
+      />
+    );
+  }
 
   if (!hasPermission) {
     return (
@@ -344,12 +385,34 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
 
   if (isStarting || !roomId) {
     return (
-      <View style={styles.permissionContainer}>
-        <TouchableOpacity style={styles.backButton} onPress={onEndStream} activeOpacity={0.7}>
-          <ArrowLeft size={24} color="#ffffff" />
+      <View style={[styles.container, styles.loadingScreen]}>
+        <View style={styles.loadingContent}>
+          <View style={styles.logoWrap}>
+            <HeaderLogo width={72} height={64} accessibilityLabel="PulpoLive" />
+            <ActivityIndicator
+              size="large"
+              color="#685CF0"
+              style={styles.loadingSpinner}
+            />
+          </View>
+          <Text variant="h3" className="text-white text-center mb-2">
+            {t('stream.startingRoomTitle')}
+          </Text>
+          <Text variant="body" className="text-white/80 text-center px-4">
+            {t('stream.startingRoomSubtitle')}
+          </Text>
+        </View>
+        <TouchableOpacity
+          onPress={onEndStream}
+          style={styles.cancelBtn}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel={t('stream.cancelJoin')}
+        >
+          <Text variant="body" className="text-white font-semibold">
+            {t('stream.cancelJoin')}
+          </Text>
         </TouchableOpacity>
-        <ActivityIndicator size="large" color="#fff" />
-        <Text variant="body" className="text-white text-center mt-4">Iniciando sala en vivo...</Text>
       </View>
     );
   }
@@ -539,6 +602,36 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000000' },
   camera: { width: SCREEN_WIDTH, height: SCREEN_HEIGHT, position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
+  loadingScreen: {
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingTop: 80,
+    paddingBottom: 48,
+  },
+  loadingContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%',
+  },
+  logoWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 32,
+  },
+  loadingSpinner: {
+    marginTop: 20,
+  },
+  cancelBtn: {
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    borderRadius: 9999,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.35)',
+    minWidth: 160,
+    alignItems: 'center',
+  },
   permissionContainer: { flex: 1, backgroundColor: '#000000', justifyContent: 'center', alignItems: 'center', padding: 20 },
   backButton: { position: 'absolute', top: Platform.OS === 'ios' ? 50 : 20, left: 16, width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', zIndex: 10 },
   permissionButton: { backgroundColor: '#0284c7', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8, marginTop: 12 },

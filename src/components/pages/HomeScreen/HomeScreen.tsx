@@ -1,21 +1,24 @@
 /**
- * Home Screen — comprador (categorías, ✨ Para Ti, Explorar, tab bar).
- * Navegación interna: home | explore | category (detalle categoría + lives).
+ * Home Screen — comprador (lives) y vendedor (dashboard Figma 566-3736).
+ * Navegación interna: home | explore | category | account | profile.
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View, ScrollView, RefreshControl, Alert } from 'react-native';
+import { View, ScrollView, RefreshControl, Alert, StyleSheet } from 'react-native';
 import { GeneralLayout } from '../../templates/GeneralLayout';
 import { Text } from '../../atoms/Text';
 import { StreamData } from '../../molecules/StreamCard';
-import { SellerHomeScreen } from '../SellerHomeScreen';
 import { BuyerExploreScreen } from '../BuyerExploreScreen';
 import { BuyerCategoryStreamsScreen } from '../BuyerCategoryStreamsScreen';
 import { BuyerAccountScreen } from '../BuyerAccountScreen';
 import { UserProfileScreen } from '../UserProfileScreen';
+import { BuyerKycModal } from '../../organisms/account/BuyerKycModal';
 import type { UserShowItem } from '../../../api/platformApi';
+import { getUserPublicProfile } from '../../../api/profileApi';
+import { getSellerOnboardingStatus } from '../../../api/sellerOnboardingApi';
 import { useAuth } from '../../../hooks/useAuth';
+import { useBottomNavController } from '../../../context/BottomNavContext';
 import { useInterestCategories } from '../../../hooks/useInterestCategories';
 import { useBuyerLiveRoomPreviews } from '../../../hooks/useBuyerLiveRoomPreviews';
 import { themeColors } from '../../../theme/colors';
@@ -26,11 +29,12 @@ import {
   CategoryExplorerRow,
   SectionHeader,
   BuyerLiveStreamsGrid,
-  HomeBottomNav,
+  SellerHomeDashboard,
   ALL_CATEGORIES_ID,
   type LiveStreamPreviewModel,
   type HomeBottomTab,
 } from '../../organisms/home';
+import { AddProductScreen } from '../AddProductScreen';
 
 interface HomeScreenProps {
   onStreamPress?: (stream: StreamData | any) => void;
@@ -40,35 +44,80 @@ interface HomeScreenProps {
 
 const GRID_GAP = 12;
 
-type BuyerPath =
+type HomePath =
   | { name: 'home' }
   | { name: 'explore' }
   | { name: 'category'; category: InterestCategoryItem }
   | { name: 'account' }
-  | { name: 'profile'; userId?: string };
+  | { name: 'profile'; userId?: string }
+  | { name: 'addProduct' };
+
+/** Debe renderizarse dentro de GeneralLayout (BottomNavProvider). */
+const HomeNavBridge: React.FC<{
+  activeTab: HomeBottomTab;
+  onTabPress: (tab: HomeBottomTab) => void;
+  children: React.ReactNode;
+}> = ({ activeTab, onTabPress, children }) => {
+  useBottomNavController(activeTab, onTabPress);
+  return <>{children}</>;
+};
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({
   onStreamPress,
   onStartNewStream,
-  onEditDraft,
 }) => {
   const { t } = useTranslation();
-  const { user, logout } = useAuth();
+  const { user, logout, reloadUser } = useAuth();
+  const isSeller = user?.user_type === 'seller_user';
+  const isBuyer = user?.user_type === 'buyer_user';
+
   const { categories, loadOnce } = useInterestCategories();
   const { previews, loading, refreshing, onRefresh } = useBuyerLiveRoomPreviews({
     pollIntervalMs: 15000,
+    enabled: isBuyer,
   });
+
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>(ALL_CATEGORIES_ID);
   const [bottomTab, setBottomTab] = useState<HomeBottomTab>('home');
-  const [buyerPath, setBuyerPath] = useState<BuyerPath>({ name: 'home' });
+  const [homePath, setHomePath] = useState<HomePath>({ name: 'home' });
+  const [soldCount, setSoldCount] = useState(0);
+  const [showFirstLiveCta, setShowFirstLiveCta] = useState(true);
+  const [kycVisible, setKycVisible] = useState(false);
 
   useEffect(() => {
-    if (user?.user_type === 'buyer_user') {
+    if (isBuyer || isSeller) {
       loadOnce().catch(() => {});
     }
-  }, [user?.user_type, loadOnce]);
+  }, [isBuyer, isSeller, loadOnce]);
 
-  /** Filtrado por chip de categoría usando `interest_categories` de cada sala. */
+  useEffect(() => {
+    if (!isSeller || !user?.uuid) {
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const [profile, onboarding] = await Promise.all([
+          getUserPublicProfile(user.uuid),
+          getSellerOnboardingStatus(),
+        ]);
+        if (cancelled) {
+          return;
+        }
+        setSoldCount(profile.sold_count ?? 0);
+        setShowFirstLiveCta(onboarding.is_first_live_auction !== false);
+      } catch {
+        if (!cancelled) {
+          setSoldCount(0);
+          setShowFirstLiveCta(true);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isSeller, user?.uuid]);
+
   const filteredPreviews = useMemo(() => {
     if (selectedCategoryId === ALL_CATEGORIES_ID) {
       return previews;
@@ -126,44 +175,37 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     });
   };
 
-  const handleBottomTab = (tab: HomeBottomTab) => {
-    setBottomTab(tab);
-    if (tab === 'home') {
-      setBuyerPath({ name: 'home' });
-      return;
-    }
-    if (tab === 'explore') {
-      setBuyerPath({ name: 'explore' });
-      return;
-    }
-    if (tab === 'account') {
-      setBuyerPath({ name: 'account' });
-      return;
-    }
-    if (tab === 'create') {
-      onStartNewStream?.();
-      return;
-    }
-    if (tab === 'activity') {
-      Alert.alert(t('common.appName'), t('home.placeholderScreen'));
-    }
-  };
+  const handleBottomTab = useCallback(
+    (tab: HomeBottomTab) => {
+      setBottomTab(tab);
+      if (tab === 'home') {
+        setHomePath({ name: 'home' });
+        return;
+      }
+      if (tab === 'explore') {
+        setHomePath({ name: 'explore' });
+        return;
+      }
+      if (tab === 'account') {
+        setHomePath({ name: 'account' });
+        return;
+      }
+      if (tab === 'create') {
+        onStartNewStream?.();
+        return;
+      }
+      if (tab === 'activity') {
+        Alert.alert(t('common.appName'), t('home.placeholderScreen'));
+      }
+    },
+    [onStartNewStream, t]
+  );
 
   if (!user) {
     return null;
   }
 
-  if (user.user_type === 'seller_user') {
-    return (
-      <SellerHomeScreen
-        onStreamPress={onStreamPress}
-        onStartNewStream={onStartNewStream}
-        onEditDraft={onEditDraft}
-      />
-    );
-  }
-
-  if (user.user_type !== 'buyer_user') {
+  if (!isBuyer && !isSeller) {
     return (
       <View className="flex-1 bg-white p-6">
         <Text variant="h1" className="text-primary-600 mb-2">
@@ -192,124 +234,171 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   };
 
   const bottomNavActiveTab: HomeBottomTab =
-    buyerPath.name === 'category'
+    homePath.name === 'category'
       ? 'explore'
-      : buyerPath.name === 'profile'
+      : homePath.name === 'profile'
         ? 'account'
         : bottomTab;
 
   const showHomeHeader =
-    buyerPath.name === 'home' || buyerPath.name === 'explore' || buyerPath.name === 'category';
+    homePath.name === 'home' ||
+    homePath.name === 'explore' ||
+    homePath.name === 'category' ||
+    homePath.name === 'addProduct';
+
+  const paymentsAmount = t('sellerHome.paymentsAmount', { amount: '0' });
 
   return (
-    <GeneralLayout
-      hideChrome
-      menuOptions={[]}
-      containerClassName="flex-1"
-      bottomBar={<HomeBottomNav activeTab={bottomNavActiveTab} onTabPress={handleBottomTab} />}
-    >
-      <View className="flex-1 bg-[transparent] dark:bg-night-950">
-        {showHomeHeader ? (
-          <HomeHeader
-            profileImageUri={profileImageUri}
-            profileInitials={profileInitials}
-            onPressSearch={() => Alert.alert(t('common.appName'), t('home.searchPlaceholder'))}
-            onPressNotifications={() =>
-              Alert.alert(t('common.appName'), t('home.placeholderNotifications'))
-            }
-            showProfile={buyerPath.name === 'home'}
-            onPressProfile={() => {
-              setBottomTab('account');
-              setBuyerPath({ name: 'account' });
-            }}
-          />
-        ) : null}
-
-        {buyerPath.name === 'home' ? (
-          <ScrollView
-            className="flex-1"
-            nestedScrollEnabled
-            // eslint-disable-next-line react-native/no-inline-styles -- padding alineado al diseño Home
-            contentContainerStyle={{
-              paddingHorizontal: 16,
-              paddingTop: 8,
-              paddingBottom: 24,
-            }}
-            showsVerticalScrollIndicator={false}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={onRefresh}
-                tintColor={themeColors.primary}
-                colors={[themeColors.primary]}
-              />
-            }
-          >
-            <CategoryExplorerRow
-              title={t('home.exploreCategories')}
-              categories={categories}
-              selectedId={selectedCategoryId}
-              onSelect={setSelectedCategoryId}
-            />
-
-            <View className="h-8" />
-
-            <BuyerLiveStreamsGrid
-              previews={filteredPreviews}
-              loading={loading}
-              onStreamPress={handleStreamPress}
-              loadingLabel={t('common.loading')}
-              emptyLabel={t('home.noLiveStreams')}
-              gap={GRID_GAP}
-              previewWithCategory={previewWithCategory}
-              sectionHeader={
-                !loading && filteredPreviews.length > 0 ? (
-                  <SectionHeader
-                    title={t('home.forYou')}
-                    actionLabel={t('home.seeAll')}
-                    onActionPress={() => Alert.alert(t('common.appName'), t('home.placeholderSeeAll'))}
-                  />
-                ) : undefined
+    <GeneralLayout hideChrome menuOptions={[]} containerStyle={styles.homeRoot}>
+      <HomeNavBridge activeTab={bottomNavActiveTab} onTabPress={handleBottomTab}>
+        <View style={styles.homeRoot}>
+          {showHomeHeader ? (
+            <HomeHeader
+              profileImageUri={profileImageUri}
+              profileInitials={profileInitials}
+              onPressSearch={() => Alert.alert(t('common.appName'), t('home.searchPlaceholder'))}
+              onPressNotifications={() =>
+                Alert.alert(t('common.appName'), t('home.placeholderNotifications'))
               }
+              showProfile={isBuyer && homePath.name === 'home'}
+              onPressProfile={() => {
+                setBottomTab('account');
+                setHomePath({ name: 'account' });
+              }}
             />
-          </ScrollView>
-        ) : null}
+          ) : null}
 
-        {buyerPath.name === 'explore' ? (
-          <BuyerExploreScreen onSelectCategory={(c) => setBuyerPath({ name: 'category', category: c })} />
-        ) : null}
+          {isSeller && homePath.name === 'home' ? (
+            <SellerHomeDashboard
+              paymentsAmount={paymentsAmount}
+              soldCount={soldCount}
+              showVerifyBanner={!(user as UserMe).identity_kyc_verified}
+              showFirstLiveCta={showFirstLiveCta}
+              onPressVerify={() => setKycVisible(true)}
+              onPressPayments={() =>
+                Alert.alert(t('common.appName'), t('home.placeholderScreen'))
+              }
+              onPressSold={() =>
+                Alert.alert(t('common.appName'), t('home.placeholderScreen'))
+              }
+              onPressGoLive={() => onStartNewStream?.()}
+              onPressAddProduct={() => setHomePath({ name: 'addProduct' })}
+              onPressFirstLiveCta={() => onStartNewStream?.()}
+            />
+          ) : null}
 
-        {buyerPath.name === 'category' ? (
-          <BuyerCategoryStreamsScreen
-            category={buyerPath.category}
-            onBack={() => setBuyerPath({ name: 'explore' })}
-            onStreamPress={handleStreamPress}
-          />
-        ) : null}
+          {isSeller && homePath.name === 'addProduct' ? (
+            <AddProductScreen
+              onCancel={() => setHomePath({ name: 'home' })}
+              onSaved={() => setHomePath({ name: 'home' })}
+            />
+          ) : null}
 
-        {buyerPath.name === 'account' ? (
-          <BuyerAccountScreen
-            profileImageUri={profileImageUri}
-            displayName={`${user.name ?? ''} ${user.last_name ?? ''}`.trim() || user.username}
-            subtitle={user.customer?.name ?? user.email}
-            userEmail={user.email}
-            onViewProfile={() => setBuyerPath({ name: 'profile' })}
-            onLogout={() => {
-              logout().catch(() => {});
+          {isBuyer && homePath.name === 'home' ? (
+            <ScrollView
+              className="flex-1"
+              nestedScrollEnabled
+              contentContainerStyle={{
+                paddingHorizontal: 16,
+                paddingTop: 8,
+                paddingBottom: 24,
+              }}
+              showsVerticalScrollIndicator={false}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={onRefresh}
+                  tintColor={themeColors.primary}
+                  colors={[themeColors.primary]}
+                />
+              }
+            >
+              <CategoryExplorerRow
+                title={t('home.exploreCategories')}
+                categories={categories}
+                selectedId={selectedCategoryId}
+                onSelect={setSelectedCategoryId}
+              />
+
+              <View className="h-8" />
+
+              <BuyerLiveStreamsGrid
+                previews={filteredPreviews}
+                loading={loading}
+                onStreamPress={handleStreamPress}
+                loadingLabel={t('common.loading')}
+                emptyLabel={t('home.noLiveStreams')}
+                gap={GRID_GAP}
+                previewWithCategory={previewWithCategory}
+                sectionHeader={
+                  !loading && filteredPreviews.length > 0 ? (
+                    <SectionHeader
+                      title={t('home.forYou')}
+                      actionLabel={t('home.seeAll')}
+                      onActionPress={() =>
+                        Alert.alert(t('common.appName'), t('home.placeholderSeeAll'))
+                      }
+                    />
+                  ) : undefined
+                }
+              />
+            </ScrollView>
+          ) : null}
+
+          {homePath.name === 'explore' ? (
+            <BuyerExploreScreen
+              onSelectCategory={(c) => setHomePath({ name: 'category', category: c })}
+            />
+          ) : null}
+
+          {homePath.name === 'category' ? (
+            <BuyerCategoryStreamsScreen
+              category={homePath.category}
+              onBack={() => setHomePath({ name: 'explore' })}
+              onStreamPress={handleStreamPress}
+            />
+          ) : null}
+
+          {homePath.name === 'account' ? (
+            <BuyerAccountScreen
+              profileImageUri={profileImageUri}
+              displayName={`${user.name ?? ''} ${user.last_name ?? ''}`.trim() || user.username}
+              subtitle={user.customer?.name ?? user.email}
+              userEmail={user.email}
+              onViewProfile={() => setHomePath({ name: 'profile' })}
+              onLogout={() => {
+                logout().catch(() => {});
+              }}
+            />
+          ) : null}
+
+          {homePath.name === 'profile' ? (
+            <View className="flex-1 bg-white">
+              <UserProfileScreen
+                userId={homePath.userId}
+                onBack={() => setHomePath({ name: 'account' })}
+                onShowPress={handleProfileShowPress}
+              />
+            </View>
+          ) : null}
+
+          <BuyerKycModal
+            visible={kycVisible}
+            onClose={() => setKycVisible(false)}
+            onVerified={() => {
+              setKycVisible(false);
+              void reloadUser();
             }}
           />
-        ) : null}
-
-        {buyerPath.name === 'profile' ? (
-          <View className="flex-1 bg-white">
-            <UserProfileScreen
-              userId={buyerPath.userId}
-              onBack={() => setBuyerPath({ name: 'account' })}
-              onShowPress={handleProfileShowPress}
-            />
-          </View>
-        ) : null}
-      </View>
+        </View>
+      </HomeNavBridge>
     </GeneralLayout>
   );
 };
+
+const styles = StyleSheet.create({
+  homeRoot: {
+    flex: 1,
+    backgroundColor: 'transparent',
+  },
+});

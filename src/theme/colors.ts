@@ -32,4 +32,12 @@ export const themeColors = {
   },
   primary: '#685CF0',
   success: '#00c566',
+  /** Home MVP Figma 566-3736 / 566-3737 */
+  home: {
+    gradientTop: '#FFFFFF',
+    gradientBottom: '#E7E7FF',
+    navBar: '#E8E8FF',
+    header: '#FFFFFF',
+    cardSurface: 'transparent',
+  },
 } as const;

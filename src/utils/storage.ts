@@ -57,6 +57,8 @@ const STORAGE_KEYS = {
   BUYER_ONBOARDING_UI_STEP: 'buyer_onboarding_ui_step',
   WALLET_INTRO_SEEN: 'wallet_intro_seen',
   PREFERRED_PAYMENT_ORIGIN: 'preferred_payment_origin',
+  SELLER_LIVE_WELCOME_STEP1_SEEN: 'seller_live_welcome_step1_seen',
+  SELLER_LIVE_WELCOME_TERMS_SEEN: 'seller_live_welcome_terms_seen',
 } as const;
 
 export type PreferredPaymentOrigin = 'PLATFORM_CARD' | 'MP_WALLET';
@@ -389,6 +391,48 @@ export const storage = {
       const s = getAsyncStorage();
       if (!s) return;
       await s.setItem(STORAGE_KEYS.PREFERRED_PAYMENT_ORIGIN, origin);
+    } catch {
+      // ignore
+    }
+  },
+
+  async getSellerLiveWelcomeStep1Seen(): Promise<boolean> {
+    try {
+      const s = getAsyncStorage();
+      if (!s) return false;
+      const v = await s.getItem(STORAGE_KEYS.SELLER_LIVE_WELCOME_STEP1_SEEN);
+      return v === '1' || v === 'true';
+    } catch {
+      return false;
+    }
+  },
+
+  async setSellerLiveWelcomeStep1Seen(seen: boolean): Promise<void> {
+    try {
+      const s = getAsyncStorage();
+      if (!s) return;
+      await s.setItem(STORAGE_KEYS.SELLER_LIVE_WELCOME_STEP1_SEEN, seen ? '1' : '0');
+    } catch {
+      // ignore
+    }
+  },
+
+  async getSellerLiveWelcomeTermsSeen(): Promise<boolean> {
+    try {
+      const s = getAsyncStorage();
+      if (!s) return false;
+      const v = await s.getItem(STORAGE_KEYS.SELLER_LIVE_WELCOME_TERMS_SEEN);
+      return v === '1' || v === 'true';
+    } catch {
+      return false;
+    }
+  },
+
+  async setSellerLiveWelcomeTermsSeen(seen: boolean): Promise<void> {
+    try {
+      const s = getAsyncStorage();
+      if (!s) return;
+      await s.setItem(STORAGE_KEYS.SELLER_LIVE_WELCOME_TERMS_SEEN, seen ? '1' : '0');
     } catch {
       // ignore
     }

@@ -65,6 +65,12 @@ interface CountrySelectProps {
   onValueChange: (value: string) => void;
   placeholder?: string;
   containerClassName?: string;
+  /** Oculta label interno (p. ej. si el padre ya muestra fieldLabel). */
+  hideLabel?: boolean;
+  /** `pillDark`: trigger estilo wizard Start Live sobre fondo oscuro. */
+  variant?: 'default' | 'pillDark';
+  modalTitle?: string;
+  searchPlaceholder?: string;
 }
 
 export const CountrySelect: React.FC<CountrySelectProps> = ({
@@ -73,6 +79,10 @@ export const CountrySelect: React.FC<CountrySelectProps> = ({
   onValueChange,
   placeholder = 'Seleccionar país',
   containerClassName = '',
+  hideLabel = false,
+  variant = 'default',
+  modalTitle = 'Seleccionar país',
+  searchPlaceholder = 'Buscar país...',
 }) => {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -90,16 +100,22 @@ export const CountrySelect: React.FC<CountrySelectProps> = ({
     setSearchQuery('');
   };
 
+  const isPillDark = variant === 'pillDark';
+
   return (
     <View className={containerClassName}>
-      {label && (
-        <Text variant="label" className="mb-2">
-          {label}
-        </Text>
-      )}
-      
+      {label && !hideLabel ? (
+        isPillDark ? (
+          <Text style={styles.pillFieldLabel}>{label}</Text>
+        ) : (
+          <Text variant="label" className="mb-2">
+            {label}
+          </Text>
+        )
+      ) : null}
+
       <TouchableOpacity
-        style={styles.selectButton}
+        style={[styles.selectButton, isPillDark && styles.selectButtonPillDark]}
         onPress={() => setIsModalVisible(true)}
         activeOpacity={0.7}
       >
@@ -107,26 +123,31 @@ export const CountrySelect: React.FC<CountrySelectProps> = ({
           {selectedCountry ? (
             <>
               <Text style={styles.flag}>{selectedCountry.flag}</Text>
-              <Text style={styles.selectText}>{selectedCountry.name}</Text>
+              <Text style={[styles.selectText, isPillDark && styles.selectTextPillDark]}>
+                {selectedCountry.name}
+              </Text>
             </>
           ) : (
-            <Text style={styles.placeholderText}>{placeholder}</Text>
+            <Text style={[styles.placeholderText, isPillDark && styles.placeholderTextPillDark]}>
+              {placeholder}
+            </Text>
           )}
         </View>
-        <ChevronDown size={20} color="#6b7280" />
+        <ChevronDown size={20} color={isPillDark ? '#FFFFFF' : '#6b7280'} />
       </TouchableOpacity>
 
       <Modal
         visible={isModalVisible}
         animationType="slide"
         transparent={true}
+        statusBarTranslucent
         onRequestClose={() => setIsModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text variant="h3" className="text-gray-900 font-bold">
-                Seleccionar país
+                {modalTitle}
               </Text>
               <TouchableOpacity
                 onPress={() => {
@@ -141,7 +162,7 @@ export const CountrySelect: React.FC<CountrySelectProps> = ({
 
             <TextInput
               style={styles.searchInput}
-              placeholder="Buscar país..."
+              placeholder={searchPlaceholder}
               placeholderTextColor="#9ca3af"
               value={searchQuery}
               onChangeText={setSearchQuery}
@@ -175,6 +196,13 @@ export const CountrySelect: React.FC<CountrySelectProps> = ({
 };
 
 const styles = StyleSheet.create({
+  pillFieldLabel: {
+    fontSize: 10,
+    lineHeight: 18,
+    color: '#FFFFFF',
+    letterSpacing: 0.05,
+    marginBottom: 8,
+  },
   selectButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -203,6 +231,22 @@ const styles = StyleSheet.create({
   placeholderText: {
     fontSize: 16,
     color: '#9ca3af',
+  },
+  selectButtonPillDark: {
+    borderColor: '#DDDDDD',
+    borderRadius: 1000,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    minHeight: 52,
+  },
+  selectTextPillDark: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  placeholderTextPillDark: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#BABABA',
   },
   modalOverlay: {
     flex: 1,

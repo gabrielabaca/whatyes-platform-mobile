@@ -1,0 +1,303 @@
+import { useCallback, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { Alert } from 'react-native';
+import {
+  launchCamera,
+  launchImageLibrary,
+  type ImagePickerResponse,
+} from 'react-native-image-picker';
+import { createProduct, uploadProductImages } from '../api/productsApi';
+import type { InterestCategoryItem } from '../api/types';
+import type {
+  PackageTierId,
+  ProductConditionId,
+  SaleFormatId,
+} from '../constants/productWeightPresets';
+import { PACKAGE_TIER_OPTIONS, SALE_FORMAT_OPTIONS } from '../constants/productWeightPresets';
+import { ApiError } from '../api/authApi';
+
+export type AddProductDrawer =
+  | 'none'
+  | 'photos'
+  | 'category'
+  | 'saleFormat'
+  | 'weight'
+  | 'condition';
+
+export const MAX_PRODUCT_PHOTOS = 10;
+
+export interface LocalPhoto {
+  uri: string;
+  type?: string;
+  name?: string;
+}
+
+function sanitizeShortText(value: string, maxLength: number): string {
+  return value.replace(/\s+/g, ' ').replace(/^\s/, '').slice(0, maxLength);
+}
+
+function sanitizeSku(value: string): string {
+  return value.toUpperCase().replace(/[^A-Z0-9-_]/g, '').slice(0, 32);
+}
+
+function sanitizePrice(value: string): string {
+  const normalized = value.replace(',', '.').replace(/[^0-9.]/g, '');
+  const [whole = '', ...decimalParts] = normalized.split('.');
+  const decimals = decimalParts.join('').slice(0, 2);
+  const cleanWhole = whole.replace(/^0+(?=\d)/, '').slice(0, 9);
+  return decimalParts.length > 0 ? `${cleanWhole || '0'}.${decimals}` : cleanWhole;
+}
+
+function assetsToPhotos(response: ImagePickerResponse): LocalPhoto[] {
+  if (response.didCancel || response.errorMessage) {
+    return [];
+  }
+  return (response.assets ?? [])
+    .filter((a) => a.uri)
+    .map((a, i) => ({
+      uri: a.uri!,
+      type: a.type ?? 'image/jpeg',
+      name: a.fileName ?? `photo-${Date.now()}-${i}.jpg`,
+    }));
+}
+
+export function useAddProductForm(options: {
+  categories: InterestCategoryItem[];
+  onSuccess: () => void;
+}) {
+  const { t } = useTranslation();
+  const { categories, onSuccess } = options;
+
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [minOfferPrice, setMinOfferPrice] = useState('');
+  const [sku, setSku] = useState('');
+  const [photos, setPhotos] = useState<LocalPhoto[]>([]);
+  const [categoryUuid, setCategoryUuid] = useState<string | null>(null);
+  const [saleFormat, setSaleFormat] = useState<SaleFormatId | null>(null);
+  const [packageTier, setPackageTier] = useState<PackageTierId | null>(null);
+  const [weightKg, setWeightKg] = useState<number | null>(null);
+  const [condition, setCondition] = useState<ProductConditionId | null>(null);
+  const [activeDrawer, setActiveDrawer] = useState<AddProductDrawer>('none');
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleTitleChange = useCallback((value: string) => {
+    setTitle(sanitizeShortText(value, 80));
+  }, []);
+
+  const handleDescriptionChange = useCallback((value: string) => {
+    setDescription(value.replace(/^\s/, '').slice(0, 500));
+  }, []);
+
+  const handlePriceChange = useCallback((value: string) => {
+    setMinOfferPrice(sanitizePrice(value));
+  }, []);
+
+  const handleSkuChange = useCallback((value: string) => {
+    setSku(sanitizeSku(value));
+  }, []);
+
+  const categoryLabel = useMemo(() => {
+    if (!categoryUuid) return null;
+    return categories.find((c) => c.uuid === categoryUuid)?.label ?? null;
+  }, [categoryUuid, categories]);
+
+  const saleFormatLabel = useMemo(() => {
+    if (!saleFormat) return null;
+    const opt = SALE_FORMAT_OPTIONS.find((o) => o.id === saleFormat);
+    return opt ? t(opt.labelKey) : null;
+  }, [saleFormat, t]);
+
+  const packageTierLabel = useMemo(() => {
+    if (!packageTier) return null;
+    if (packageTier === 'custom') return t('addProduct.tierCustom');
+    const opt = PACKAGE_TIER_OPTIONS.find((o) => o.id === packageTier);
+    return opt ? t(opt.labelKey) : null;
+  }, [packageTier, t]);
+
+  const weightLabel = useMemo(() => {
+    if (!packageTier) return null;
+    const tierLabel = packageTierLabel ?? '';
+    if (weightKg == null) return tierLabel;
+    const value =
+      packageTier === 'light'
+        ? `${Math.round(weightKg * 1000)} g`
+        : `${Number(weightKg.toFixed(2))} kg`;
+    return `${tierLabel} · ${value}`;
+  }, [packageTier, packageTierLabel, weightKg]);
+
+  const conditionLabel = useMemo(() => {
+    if (!condition) return null;
+    const key =
+      condition === 'new'
+        ? 'addProduct.conditionNew'
+        : condition === 'lightly_used'
+          ? 'addProduct.conditionLightUse'
+          : 'addProduct.conditionUsed';
+    return t(key);
+  }, [condition, t]);
+
+  const appendPhotos = useCallback((incoming: LocalPhoto[]) => {
+    if (!incoming.length) return;
+    setPhotos((prev) => {
+      const uris = new Set(prev.map((p) => p.uri));
+      const merged = [...prev];
+      for (const photo of incoming) {
+        if (merged.length >= MAX_PRODUCT_PHOTOS) break;
+        if (!uris.has(photo.uri)) {
+          uris.add(photo.uri);
+          merged.push(photo);
+        }
+      }
+      return merged;
+    });
+  }, []);
+
+  const openCamera = useCallback(() => {
+    if (photos.length >= MAX_PRODUCT_PHOTOS) {
+      Alert.alert(t('common.appName'), t('addProduct.maxPhotos', { count: MAX_PRODUCT_PHOTOS }));
+      return;
+    }
+    launchCamera({ mediaType: 'photo', cameraType: 'back', saveToPhotos: true }, (response) => {
+      appendPhotos(assetsToPhotos(response));
+    });
+  }, [appendPhotos, photos.length, t]);
+
+  const openGallery = useCallback(() => {
+    const remaining = MAX_PRODUCT_PHOTOS - photos.length;
+    if (remaining <= 0) {
+      Alert.alert(t('common.appName'), t('addProduct.maxPhotos', { count: MAX_PRODUCT_PHOTOS }));
+      return;
+    }
+    launchImageLibrary(
+      { mediaType: 'photo', selectionLimit: remaining },
+      (response) => {
+        appendPhotos(assetsToPhotos(response));
+      }
+    );
+  }, [appendPhotos, photos.length, t]);
+
+  const pickPhotos = useCallback(() => {
+    setActiveDrawer('photos');
+  }, []);
+
+  const handleTakePhotoFromDrawer = useCallback(() => {
+    setActiveDrawer('none');
+    openCamera();
+  }, [openCamera]);
+
+  const handleGalleryFromDrawer = useCallback(() => {
+    setActiveDrawer('none');
+    openGallery();
+  }, [openGallery]);
+
+  const removePhoto = useCallback((uri: string) => {
+    setPhotos((prev) => prev.filter((p) => p.uri !== uri));
+  }, []);
+
+  const validate = useCallback((): string | null => {
+    if (!title.trim()) return t('addProduct.errorTitle');
+    if (!description.trim()) return t('addProduct.errorDescription');
+    if (!photos.length) return t('addProduct.errorPhotos');
+    if (!categoryUuid) return t('addProduct.errorCategory');
+    if (!saleFormat) return t('addProduct.errorSaleFormat');
+    if (!packageTier || weightKg == null || weightKg <= 0) return t('addProduct.errorWeight');
+    if (!condition) return t('addProduct.errorCondition');
+    const price = parseFloat(minOfferPrice.replace(',', '.'));
+    if (!Number.isFinite(price) || price <= 0) return t('addProduct.errorPrice');
+    return null;
+  }, [
+    title,
+    description,
+    photos.length,
+    categoryUuid,
+    saleFormat,
+    packageTier,
+    weightKg,
+    condition,
+    minOfferPrice,
+    t,
+  ]);
+
+  const submit = useCallback(async () => {
+    const err = validate();
+    if (err) {
+      Alert.alert(t('common.appName'), err);
+      return;
+    }
+    const price = parseFloat(minOfferPrice.replace(',', '.'));
+    setSubmitting(true);
+    try {
+      const imageUrls = await uploadProductImages(photos);
+      await createProduct({
+        title: title.trim(),
+        description: description.trim(),
+        base_price_cents: Math.round(price * 100),
+        image_urls: imageUrls,
+        interest_category_uuid: categoryUuid!,
+        sale_format: saleFormat!,
+        package_tier: packageTier!,
+        weight_kg: weightKg,
+        condition: condition!,
+        sku: sku.trim() || null,
+      });
+      onSuccess();
+    } catch (e) {
+      const msg = e instanceof ApiError ? e.message : t('addProduct.saveError');
+      Alert.alert(t('common.appName'), msg);
+    } finally {
+      setSubmitting(false);
+    }
+  }, [
+    validate,
+    photos,
+    title,
+    description,
+    minOfferPrice,
+    categoryUuid,
+    saleFormat,
+    packageTier,
+    weightKg,
+    condition,
+    sku,
+    onSuccess,
+    t,
+  ]);
+
+  return {
+    title,
+    setTitle: handleTitleChange,
+    description,
+    setDescription: handleDescriptionChange,
+    minOfferPrice,
+    setMinOfferPrice: handlePriceChange,
+    sku,
+    setSku: handleSkuChange,
+    photos,
+    pickPhotos,
+    handleTakePhotoFromDrawer,
+    handleGalleryFromDrawer,
+    removePhoto,
+    maxPhotos: MAX_PRODUCT_PHOTOS,
+    canAddMorePhotos: photos.length < MAX_PRODUCT_PHOTOS,
+    categoryUuid,
+    categoryLabel,
+    setCategoryUuid,
+    saleFormat,
+    saleFormatLabel,
+    setSaleFormat,
+    packageTier,
+    packageTierLabel,
+    setPackageTier,
+    weightKg,
+    weightLabel,
+    setWeightKg,
+    condition,
+    conditionLabel,
+    setCondition,
+    activeDrawer,
+    setActiveDrawer,
+    submitting,
+    submit,
+  };
+}

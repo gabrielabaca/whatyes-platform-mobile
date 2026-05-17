@@ -30,6 +30,14 @@ export interface PlatformRoom {
   /** Categorías resueltas (uuid, slug, label); viene en GET /rooms */
   interest_categories?: InterestCategoryItem[];
   creator?: PlatformRoomCreator | null;
+  scheduled_at?: number | null;
+  recurrence?: string;
+  moderator_user_ids?: string[];
+  sale_format?: string;
+  explicit_content?: boolean;
+  blocked_words_enabled?: boolean;
+  blocked_words?: string[];
+  privacy?: string;
 }
 
 export interface PlatformRoomResponse {
@@ -42,6 +50,27 @@ export interface PlatformRoomResponse {
   created_at: number;
   ended_at?: number | null;
   interest_category_uuids?: string[];
+  scheduled_at?: number | null;
+  recurrence?: string;
+  moderator_user_ids?: string[];
+  sale_format?: string;
+  explicit_content?: boolean;
+  blocked_words_enabled?: boolean;
+  blocked_words?: string[];
+  privacy?: string;
+}
+
+export interface CreateRoomOptions {
+  scheduled_at?: number | null;
+  recurrence?: 'none' | 'daily' | 'weekly' | 'monthly';
+  moderator_user_ids?: string[];
+  sale_format?: 'individual' | 'auction_breaks' | 'surprise_boxes';
+  explicit_content?: boolean;
+  blocked_words_enabled?: boolean;
+  blocked_words?: string[];
+  privacy?: 'public' | 'private';
+  cover_url?: string | null;
+  intro_video_url?: string | null;
 }
 
 export interface IceServerItem {
@@ -235,9 +264,10 @@ export async function recordInterestCategoryVisit(categoryUuid: string): Promise
 export async function createRoom(
   accessToken: string,
   name?: string | null,
-  interestCategoryUuids?: string[] | null
+  interestCategoryUuids?: string[] | null,
+  options?: CreateRoomOptions
 ): Promise<PlatformRoomResponse> {
-  const payload: Record<string, unknown> = {};
+  const payload: Record<string, unknown> = { ...(options ?? {}) };
   if (name != null) {
     payload.name = name;
   }

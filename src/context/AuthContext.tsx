@@ -16,6 +16,8 @@ interface AuthContextType {
   login: (credentials: LoginRequest) => Promise<void>;
   logout: () => Promise<void>;
   refreshAuth: () => Promise<void>;
+  /** Recarga /auth/me sin rotar tokens ni cerrar sesión (p. ej. tras upgrade a vendedor). */
+  reloadUser: () => Promise<void>;
   /** Carga el usuario en contexto desde tokens ya guardados (p. ej. tras onboarding comprador). */
   activateSessionFromTokens: () => Promise<void>;
 }
@@ -189,6 +191,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
+  const reloadUser = async () => {
+    const token = await storage.getAccessToken();
+    if (!token) {
+      return;
+    }
+    const userData = await getCurrentUser();
+    if (userData.data) {
+      setUser(userData.data);
+      await storage.setUserData(userData.data);
+    }
+  };
+
   const activateSessionFromTokens = async () => {
     const accessToken = await storage.getAccessToken();
     if (!accessToken) {
@@ -211,6 +225,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         login,
         logout,
         refreshAuth,
+        reloadUser,
         activateSessionFromTokens,
       }}
     >

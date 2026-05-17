@@ -12,6 +12,8 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { InterestCategoriesProvider } from './src/context/InterestCategoriesContext';
+import { StartLiveWizardProvider, useStartLiveWizard } from './src/hooks/useStartLiveWizard';
+import { StartLiveWizardHost } from './src/components/organisms/startLive/StartLiveWizardHost';
 import { storage } from './src/utils/storage';
 import { isBuyerKycReturnUrl, notifyBuyerKycReturn } from './src/utils/buyerKycDeepLink';
 import { isMpWalletReturnUrl, notifyMpWalletReturn } from './src/utils/mpWalletDeepLink';
@@ -33,6 +35,97 @@ type AppScreen = AuthScreen | 'home' | 'stream' | 'stream-config' | 'seller-stre
 /**
  * Componente para manejar la navegación basada en autenticación
  */
+function AuthenticatedAppShell({
+  currentScreen,
+  setCurrentScreen,
+  selectedStream,
+  setSelectedStream,
+  streamDraft,
+  setStreamDraft,
+  activeStreamConfig,
+  setActiveStreamConfig,
+}: {
+  currentScreen: AppScreen;
+  setCurrentScreen: (s: AppScreen) => void;
+  selectedStream: StreamData | null;
+  setSelectedStream: (s: StreamData | null) => void;
+  streamDraft: StreamConfig | null;
+  setStreamDraft: (d: StreamConfig | null) => void;
+  activeStreamConfig: StreamConfig | null;
+  setActiveStreamConfig: (c: StreamConfig | null) => void;
+}) {
+  const wizard = useStartLiveWizard();
+
+  const openStartLiveWizard = () => {
+    void wizard.open();
+  };
+
+  if (currentScreen === 'seller-stream' && activeStreamConfig) {
+    return (
+      <>
+        <SellerStreamScreen
+          streamConfig={activeStreamConfig}
+          onEndStream={() => {
+            setCurrentScreen('home');
+            setActiveStreamConfig(null);
+          }}
+        />
+      </>
+    );
+  }
+
+  if (currentScreen === 'stream' && selectedStream) {
+    return (
+      <StreamScreen
+        stream={selectedStream}
+        onClose={() => {
+          setCurrentScreen('home');
+          setSelectedStream(null);
+        }}
+      />
+    );
+  }
+
+  if (currentScreen === 'stream-config') {
+    return (
+      <StreamConfigScreen
+        draft={streamDraft}
+        onBack={() => {
+          setCurrentScreen('home');
+          setStreamDraft(null);
+        }}
+        onStartStream={(config) => {
+          setActiveStreamConfig(config);
+          setCurrentScreen('seller-stream');
+          setStreamDraft(null);
+        }}
+      />
+    );
+  }
+
+  return (
+    <>
+      <HomeScreen
+        onStreamPress={(stream) => {
+          setSelectedStream(stream);
+          setCurrentScreen('stream');
+        }}
+        onStartNewStream={openStartLiveWizard}
+        onEditDraft={(draft) => {
+          setStreamDraft(draft);
+          setCurrentScreen('stream-config');
+        }}
+      />
+      <StartLiveWizardHost
+        onStartLive={(config) => {
+          setActiveStreamConfig(config);
+          setCurrentScreen('seller-stream');
+        }}
+      />
+    </>
+  );
+}
+
 function AppNavigator() {
   const { isAuthenticated, isBootstrapping } = useAuth();
   const [authScreen, setAuthScreen] = useState<AuthScreen>('onboarding');
@@ -88,67 +181,19 @@ function AppNavigator() {
   }
 
       if (isAuthenticated) {
-        // Si está transmitiendo el seller (stream activo)
-        if (currentScreen === 'seller-stream' && activeStreamConfig) {
-          return (
-            <SellerStreamScreen
-              streamConfig={activeStreamConfig}
-              onEndStream={() => {
-                setCurrentScreen('home');
-                setActiveStreamConfig(null);
-              }}
-            />
-          );
-        }
-        
-        // Si hay un stream seleccionado, mostrar pantalla de stream
-        if (currentScreen === 'stream' && selectedStream) {
-          return (
-            <StreamScreen
-              stream={selectedStream}
-              onClose={() => {
-                setCurrentScreen('home');
-                setSelectedStream(null);
-              }}
-            />
-          );
-        }
-        
-        // Si está en la pantalla de configuración de stream
-        if (currentScreen === 'stream-config') {
-          return (
-            <StreamConfigScreen
-              draft={streamDraft}
-              onBack={() => {
-                setCurrentScreen('home');
-                setStreamDraft(null);
-              }}
-              onStartStream={(config) => {
-                // Iniciar el stream y navegar a la pantalla de transmisión
-                console.log('Stream config:', config);
-                setActiveStreamConfig(config);
-                setCurrentScreen('seller-stream');
-                setStreamDraft(null);
-              }}
-            />
-          );
-        }
-        
         return (
-          <HomeScreen
-            onStreamPress={(stream) => {
-              setSelectedStream(stream);
-              setCurrentScreen('stream');
-            }}
-            onStartNewStream={() => {
-              setStreamDraft(null);
-              setCurrentScreen('stream-config');
-            }}
-            onEditDraft={(draft) => {
-              setStreamDraft(draft);
-              setCurrentScreen('stream-config');
-            }}
-          />
+          <StartLiveWizardProvider>
+            <AuthenticatedAppShell
+              currentScreen={currentScreen}
+              setCurrentScreen={setCurrentScreen}
+              selectedStream={selectedStream}
+              setSelectedStream={setSelectedStream}
+              streamDraft={streamDraft}
+              setStreamDraft={setStreamDraft}
+              activeStreamConfig={activeStreamConfig}
+              setActiveStreamConfig={setActiveStreamConfig}
+            />
+          </StartLiveWizardProvider>
         );
       }
 

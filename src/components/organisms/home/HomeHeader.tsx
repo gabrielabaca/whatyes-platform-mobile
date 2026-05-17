@@ -54,8 +54,8 @@ export const HomeHeader: React.FC<HomeHeaderProps> = ({
 
   return (
     <View
-      style={styles.bar}
-      className="flex-row bg-[#FFFFFF] dark:bg-[#050f2f] items-center justify-between w-full"
+      style={[styles.bar, { backgroundColor: isDark ? '#050f2f' : themeColors.home.header }]}
+      className="flex-row items-center justify-between w-full"
     >
       <View style={styles.logoRow} className="flex-row items-center flex-1 min-w-0">
         <HeaderLogo width={HEADER_METRICS.logoIconW} height={HEADER_METRICS.logoIconH} />

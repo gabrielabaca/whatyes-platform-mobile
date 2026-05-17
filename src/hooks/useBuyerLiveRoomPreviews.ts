@@ -12,6 +12,8 @@ export interface UseBuyerLiveRoomPreviewsOptions {
   interestCategoryUuid?: string | null;
   /** Intervalo de refresco automático; `null` desactiva el polling. */
   pollIntervalMs?: number | null;
+  /** Desactiva carga y polling (p. ej. home vendedor). */
+  enabled?: boolean;
 }
 
 export function useBuyerLiveRoomPreviews(
@@ -26,6 +28,7 @@ export function useBuyerLiveRoomPreviews(
   const { t } = useTranslation();
   const cat = options?.interestCategoryUuid ?? undefined;
   const pollMs = options?.pollIntervalMs === undefined ? DEFAULT_POLL_MS : options.pollIntervalMs;
+  const enabled = options?.enabled !== false;
 
   const [previews, setPreviews] = useState<LiveStreamPreviewModel[]>([]);
   const [loading, setLoading] = useState(true);
@@ -57,19 +60,24 @@ export function useBuyerLiveRoomPreviews(
   }, [t, cat]);
 
   useEffect(() => {
+    if (!enabled) {
+      setLoading(false);
+      setPreviews([]);
+      return;
+    }
     setLoading(true);
     load().catch(() => {});
-  }, [load]);
+  }, [load, enabled]);
 
   useEffect(() => {
-    if (pollMs == null || pollMs <= 0) {
+    if (!enabled || pollMs == null || pollMs <= 0) {
       return undefined;
     }
     const interval = setInterval(() => {
       load().catch(() => {});
     }, pollMs);
     return () => clearInterval(interval);
-  }, [load, pollMs]);
+  }, [load, pollMs, enabled]);
 
   const onRefresh = () => {
     setRefreshing(true);

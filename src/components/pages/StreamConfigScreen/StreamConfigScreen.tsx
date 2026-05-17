@@ -30,6 +30,17 @@ export interface StreamConfig {
   title: string;
   description: string;
   products: Product[];
+  interestCategoryUuids?: string[];
+  scheduledAt?: number | null;
+  recurrence?: 'none' | 'daily' | 'weekly' | 'monthly';
+  moderatorUserIds?: string[];
+  saleFormat?: 'individual' | 'auction_breaks' | 'surprise_boxes';
+  explicitContent?: boolean;
+  blockedWordsEnabled?: boolean;
+  blockedWords?: string[];
+  privacy?: 'public' | 'private';
+  coverUrl?: string | null;
+  introVideoUrl?: string | null;
 }
 
 export const StreamConfigScreen: React.FC<StreamConfigScreenProps> = ({ 

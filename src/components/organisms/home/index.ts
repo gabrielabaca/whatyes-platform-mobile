@@ -1,4 +1,6 @@
 export { HomeHeader } from './HomeHeader';
+export { HomeLightBackground } from './HomeLightBackground';
+export { SellerHomeDashboard } from './SellerHomeDashboard';
 export { CategoryExplorerRow } from './CategoryExplorerRow';
 export { SectionHeader } from './SectionHeader';
 export { LiveStreamPreviewCard } from './LiveStreamPreviewCard';
