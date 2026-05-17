@@ -55,7 +55,7 @@ export const VerificationCodeScreen: React.FC<VerificationCodeScreenProps> = ({
   onBack,
 }) => {
   const { t } = useTranslation();
-  const otpLength = origin === 'forgotPassword' ? 6 : 4;
+  const otpLength = 4;
   const [code, setCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isResending, setIsResending] = useState(false);

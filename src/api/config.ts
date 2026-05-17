@@ -112,5 +112,9 @@ export const API_ENDPOINTS = {
     BUYER_ONBOARDING_INTERESTS: '/auth/buyer/onboarding/interests',
     BUYER_KYC_SESSION: '/auth/buyer/kyc/session',
     BUYER_KYC_STATUS: '/auth/buyer/kyc/status',
+    DELETE_ACCOUNT: '/auth/account',
+    CHANGE_PASSWORD_REQUEST: '/auth/change_password/request_code',
+    CHANGE_PASSWORD_VERIFY: '/auth/change_password/verify_code',
+    CHANGE_PASSWORD_CONFIRM: '/auth/change_password/confirm',
   },
 } as const;

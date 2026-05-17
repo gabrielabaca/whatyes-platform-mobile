@@ -6,7 +6,7 @@
 import React, { useState, useRef, useEffect, useImperativeHandle, forwardRef } from 'react';
 import { View, TouchableOpacity, Animated, StyleSheet, Dimensions } from 'react-native';
 import { Text } from '../../atoms/Text';
-import { Check, AlertCircle, X, Moon, Sun, Smartphone } from 'lucide-react-native';
+import { AlertCircle, X } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../../context/ThemeContext';
 import { themeColors } from '../../../theme/colors';
@@ -48,7 +48,7 @@ const isProfileComplete = (user: User): boolean => {
 export const UserMenu = forwardRef<UserMenuRef, UserMenuProps>(
   ({ user, options, onMenuButtonPress }, ref) => {
     const { t } = useTranslation();
-    const { isDark, themePreference, setThemePreference } = useTheme();
+    const { isDark } = useTheme();
     const [isOpen, setIsOpen] = useState(false);
     const slideAnim = useRef(new Animated.Value(-DRAWER_WIDTH)).current;
     const overlayOpacity = useRef(new Animated.Value(0)).current;
@@ -218,44 +218,6 @@ export const UserMenu = forwardRef<UserMenuRef, UserMenuProps>(
               backgroundColor: isDark ? themeColors.dark.surface : themeColors.light.surface,
             }}
           >
-            <Text
-              variant="caption"
-              className="px-6 pb-2 font-semibold uppercase"
-              style={{ color: c.textMuted }}
-            >
-              {t('theme.appearance')}
-            </Text>
-            {(
-              [
-                { key: 'light' as const, icon: Sun, labelKey: 'theme.light' as const },
-                { key: 'dark' as const, icon: Moon, labelKey: 'theme.dark' as const },
-                { key: 'system' as const, icon: Smartphone, labelKey: 'theme.automatic' as const },
-              ] as const
-            ).map(({ key, icon: Icon, labelKey }) => {
-              const selected = themePreference === key;
-              return (
-                <TouchableOpacity
-                  key={key}
-                  onPress={() => setThemePreference(key)}
-                  className="flex-row items-center border-b border-gray-100 px-6 py-3.5 dark:border-night-700"
-                  activeOpacity={0.7}
-                >
-                  <Icon size={20} color={selected ? primary : iconMuted} />
-                  <Text
-                    variant="body"
-                    className="ml-3 flex-1"
-                    style={{
-                      color: selected ? primary : c.text,
-                      fontWeight: selected ? '600' : '400',
-                    }}
-                  >
-                    {t(labelKey)}
-                  </Text>
-                  {selected ? <Check size={20} color={primary} /> : <View style={{ width: 20 }} />}
-                </TouchableOpacity>
-              );
-            })}
-
             {options.map((option) => (
               <TouchableOpacity
                 key={option.value}

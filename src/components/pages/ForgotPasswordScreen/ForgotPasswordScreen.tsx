@@ -26,7 +26,7 @@ import { isValidEmail, passwordMeetsPolicy } from '../../../utils/formValidation
 import { VerificationCodeScreen } from '../VerificationCodeScreen';
 
 /** Mismo largo que `origin="forgotPassword"` en VerificationCodeScreen */
-const FORGOT_PASSWORD_OTP_LENGTH = 6;
+const FORGOT_PASSWORD_OTP_LENGTH = 4;
 
 type Step = 'request' | 'reset';
 

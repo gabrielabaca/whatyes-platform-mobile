@@ -12,6 +12,9 @@ import { StreamData } from '../../molecules/StreamCard';
 import { SellerHomeScreen } from '../SellerHomeScreen';
 import { BuyerExploreScreen } from '../BuyerExploreScreen';
 import { BuyerCategoryStreamsScreen } from '../BuyerCategoryStreamsScreen';
+import { BuyerAccountScreen } from '../BuyerAccountScreen';
+import { UserProfileScreen } from '../UserProfileScreen';
+import type { UserShowItem } from '../../../api/platformApi';
 import { useAuth } from '../../../hooks/useAuth';
 import { useInterestCategories } from '../../../hooks/useInterestCategories';
 import { useBuyerLiveRoomPreviews } from '../../../hooks/useBuyerLiveRoomPreviews';
@@ -40,7 +43,9 @@ const GRID_GAP = 12;
 type BuyerPath =
   | { name: 'home' }
   | { name: 'explore' }
-  | { name: 'category'; category: InterestCategoryItem };
+  | { name: 'category'; category: InterestCategoryItem }
+  | { name: 'account' }
+  | { name: 'profile'; userId?: string };
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({
   onStreamPress,
@@ -56,7 +61,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>(ALL_CATEGORIES_ID);
   const [bottomTab, setBottomTab] = useState<HomeBottomTab>('home');
   const [buyerPath, setBuyerPath] = useState<BuyerPath>({ name: 'home' });
-  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
 
   useEffect(() => {
     if (user?.user_type === 'buyer_user') {
@@ -97,6 +101,20 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     }
   };
 
+  const handleProfileShowPress = (show: UserShowItem) => {
+    if (show.status !== 'live' || !onStreamPress) {
+      return;
+    }
+    const seller = show.creator;
+    onStreamPress({
+      id: show.room_uuid,
+      sellerName: seller ? `${seller.name} ${seller.last_name}`.trim() : t('home.defaultRoomName'),
+      viewerCount: show.viewer_count ?? 0,
+      streamingTime: t('home.liveBadge'),
+      thumbnail: show.thumbnail_url ?? undefined,
+    });
+  };
+
   const handleBottomTab = (tab: HomeBottomTab) => {
     setBottomTab(tab);
     if (tab === 'home') {
@@ -107,15 +125,17 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       setBuyerPath({ name: 'explore' });
       return;
     }
-    if (tab === 'purchases') {
-      Alert.alert(t('common.appName'), t('home.placeholderScreen'));
+    if (tab === 'account') {
+      setBuyerPath({ name: 'account' });
       return;
     }
     if (tab === 'create') {
       onStartNewStream?.();
       return;
     }
-    Alert.alert(t('common.appName'), t('home.placeholderScreen'));
+    if (tab === 'activity') {
+      Alert.alert(t('common.appName'), t('home.placeholderScreen'));
+    }
   };
 
   if (!user) {
@@ -161,7 +181,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   };
 
   const bottomNavActiveTab: HomeBottomTab =
-    buyerPath.name === 'category' ? 'explore' : bottomTab;
+    buyerPath.name === 'category'
+      ? 'explore'
+      : buyerPath.name === 'profile'
+        ? 'account'
+        : bottomTab;
+
+  const showHomeHeader =
+    buyerPath.name === 'home' || buyerPath.name === 'explore' || buyerPath.name === 'category';
 
   return (
     <GeneralLayout
@@ -171,18 +198,21 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       bottomBar={<HomeBottomNav activeTab={bottomNavActiveTab} onTabPress={handleBottomTab} />}
     >
       <View className="flex-1 bg-[transparent] dark:bg-night-950">
-        <HomeHeader
-          profileImageUri={profileImageUri}
-          profileInitials={profileInitials}
-          onPressSearch={() => Alert.alert(t('common.appName'), t('home.searchPlaceholder'))}
-          onPressNotifications={() => Alert.alert(t('common.appName'), t('home.placeholderNotifications'))}
-          accountMenuVisible={accountMenuOpen}
-          onAccountMenuVisibleChange={setAccountMenuOpen}
-          onLogout={() => {
-            logout().catch(() => {});
-          }}
-          showProfile={buyerPath.name === 'home'}
-        />
+        {showHomeHeader ? (
+          <HomeHeader
+            profileImageUri={profileImageUri}
+            profileInitials={profileInitials}
+            onPressSearch={() => Alert.alert(t('common.appName'), t('home.searchPlaceholder'))}
+            onPressNotifications={() =>
+              Alert.alert(t('common.appName'), t('home.placeholderNotifications'))
+            }
+            showProfile={buyerPath.name === 'home'}
+            onPressProfile={() => {
+              setBottomTab('account');
+              setBuyerPath({ name: 'account' });
+            }}
+          />
+        ) : null}
 
         {buyerPath.name === 'home' ? (
           <ScrollView
@@ -244,6 +274,29 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             onBack={() => setBuyerPath({ name: 'explore' })}
             onStreamPress={handleStreamPress}
           />
+        ) : null}
+
+        {buyerPath.name === 'account' ? (
+          <BuyerAccountScreen
+            profileImageUri={profileImageUri}
+            displayName={`${user.name ?? ''} ${user.last_name ?? ''}`.trim() || user.username}
+            subtitle={user.customer?.name ?? user.email}
+            userEmail={user.email}
+            onViewProfile={() => setBuyerPath({ name: 'profile' })}
+            onLogout={() => {
+              logout().catch(() => {});
+            }}
+          />
+        ) : null}
+
+        {buyerPath.name === 'profile' ? (
+          <View className="flex-1 bg-white">
+            <UserProfileScreen
+              userId={buyerPath.userId}
+              onBack={() => setBuyerPath({ name: 'account' })}
+              onShowPress={handleProfileShowPress}
+            />
+          </View>
         ) : null}
       </View>
     </GeneralLayout>

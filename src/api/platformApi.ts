@@ -326,3 +326,37 @@ export async function getWebRTCCredentials(
   }
   return res.json();
 }
+
+export interface UserShowItem {
+  room_uuid: string;
+  name: string | null;
+  stream_name?: string | null;
+  status: 'draft' | 'live' | 'ended' | string;
+  created_at: number;
+  ended_at?: number | null;
+  viewer_count?: number;
+  thumbnail_url?: string | null;
+  description?: string | null;
+  last_joined_at?: number | null;
+  interest_categories?: InterestCategoryItem[];
+  creator?: PlatformRoomCreator | null;
+}
+
+export async function getUserShows(
+  accessToken: string,
+  userId: string,
+  options?: { limit?: number; offset?: number; status?: string }
+): Promise<UserShowItem[]> {
+  const params = new URLSearchParams();
+  if (options?.limit != null) params.set('limit', String(options.limit));
+  if (options?.offset != null) params.set('offset', String(options.offset));
+  if (options?.status) params.set('status', options.status);
+  const q = params.toString() ? `?${params.toString()}` : '';
+  const res = await fetch(
+    `${PLATFORM_HTTP_URL}/users/${encodeURIComponent(userId)}/shows${q}`,
+    { headers: authHeaders(accessToken) }
+  );
+  if (!res.ok) throw new Error(`getUserShows: ${res.status}`);
+  const data = (await res.json()) as UserShowItem[];
+  return Array.isArray(data) ? data : [];
+}

@@ -4,6 +4,7 @@
  */
 
 import { API_BASE_URL, API_ENDPOINTS } from './config';
+import { formatApiErrorMessage } from '../utils/formatApiErrorMessage';
 import type {
   LoginRequest,
   TokenResponse,
@@ -27,10 +28,10 @@ import type {
 export class ApiError extends Error {
   constructor(
     public status: number,
-    public message: string,
-    public data?: any
+    message: string | unknown,
+    public data?: unknown
   ) {
-    super(message);
+    super(formatApiErrorMessage(message));
     this.name = 'ApiError';
   }
 }
@@ -69,7 +70,7 @@ async function fetchApi<T>(
     if (!response.ok) {
       throw new ApiError(
         response.status,
-        data.detail || data.message || 'Error en la petición',
+        data.detail ?? data.message,
         data
       );
     }
@@ -121,7 +122,7 @@ export async function login(credentials: LoginRequest): Promise<TokenResponse> {
   if (!response.ok) {
     throw new ApiError(
       response.status,
-      data.detail || data.message || 'Error al iniciar sesión',
+      data.detail ?? data.message ?? 'Error al iniciar sesión',
       data
     );
   }
@@ -223,6 +224,47 @@ export async function logout(refreshToken: string): Promise<{ message?: string }
   return fetchApi<{ message?: string }>(API_ENDPOINTS.AUTH.LOGOUT, {
     method: 'POST',
     body: JSON.stringify(request),
+  });
+}
+
+/**
+ * Elimina la cuenta del usuario autenticado (soft delete: is_deleted=true).
+ */
+export async function deleteOwnAccount(): Promise<{ status: string; message: string }> {
+  return fetchApi<{ status: string; message: string }>(API_ENDPOINTS.AUTH.DELETE_ACCOUNT, {
+    method: 'DELETE',
+  });
+}
+
+/** Envía código FORGOT_PASSWORD al email del usuario autenticado. */
+export async function changePasswordRequestCode(): Promise<{ message?: string }> {
+  return fetchApi<{ message?: string }>(API_ENDPOINTS.AUTH.CHANGE_PASSWORD_REQUEST, {
+    method: 'POST',
+    body: JSON.stringify({}),
+  });
+}
+
+/** Valida el código sin consumirlo (paso 2 del drawer). */
+export async function changePasswordVerifyCode(
+  code: string
+): Promise<{ valid: boolean; message: string }> {
+  return fetchApi<{ valid: boolean; message: string }>(
+    API_ENDPOINTS.AUTH.CHANGE_PASSWORD_VERIFY,
+    {
+      method: 'POST',
+      body: JSON.stringify({ code }),
+    }
+  );
+}
+
+/** Confirma nueva contraseña tras verificación por email. */
+export async function changePasswordConfirm(params: {
+  code: string;
+  new_password: string;
+}): Promise<{ message?: string }> {
+  return fetchApi<{ message?: string }>(API_ENDPOINTS.AUTH.CHANGE_PASSWORD_CONFIRM, {
+    method: 'POST',
+    body: JSON.stringify(params),
   });
 }
 

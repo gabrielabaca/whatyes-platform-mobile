@@ -22,7 +22,7 @@ export interface Country {
 }
 
 // Lista de países comunes con sus banderas (emojis)
-const COUNTRIES: Country[] = [
+export const COUNTRIES: Country[] = [
   { code: 'AR', name: 'Argentina', flag: '🇦🇷' },
   { code: 'BO', name: 'Bolivia', flag: '🇧🇴' },
   { code: 'BR', name: 'Brasil', flag: '🇧🇷' },

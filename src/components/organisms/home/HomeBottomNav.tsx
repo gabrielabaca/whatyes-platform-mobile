@@ -6,8 +6,8 @@ import {
   IconSearch,
   IconPlus,
   IconBell,
-  IconShoppingBag,
   type SvgIconProps,
+  IconAccount,
 } from '../../icons';
 import { Text } from '../../atoms/Text';
 import { FONT_FAMILY } from '../../../theme/typography';
@@ -42,7 +42,7 @@ export const HomeBottomNav: React.FC<HomeBottomNavProps> = ({ activeTab, onTabPr
     IconCmp,
   }: {
     tab: HomeBottomTab;
-    labelKey: 'home.tabHome' | 'home.tabExplore' | 'home.tabActivity' | 'home.tabPurchases';
+    labelKey: 'home.tabHome' | 'home.tabExplore' | 'home.tabActivity' | 'home.tabAccount';
     IconCmp: React.FC<SvgIconProps>;
   }) => {
     const on = activeTab === tab;
@@ -55,9 +55,9 @@ export const HomeBottomNav: React.FC<HomeBottomNavProps> = ({ activeTab, onTabPr
         hitSlop={6}
       >
         <View style={styles.iconWrap}>
-          <IconCmp size={ICON} color={color} strokeWidth={2} />
+          <IconCmp size={ICON} color={labelKey === 'home.tabAccount' ? '#685CF0' : color} strokeWidth={2} />
         </View>
-        <Text style={[styles.label, { color }]}>{t(labelKey)}</Text>
+        <Text style={[styles.label, { color: labelKey === 'home.tabAccount' ? '#685CF0' : color }]}>{t(labelKey)}</Text>
       </TouchableOpacity>
     );
   };
@@ -68,7 +68,7 @@ export const HomeBottomNav: React.FC<HomeBottomNavProps> = ({ activeTab, onTabPr
       <NavItem tab="explore" labelKey="home.tabExplore" IconCmp={IconSearch} />
       <CenterFab onPress={() => onTabPress('create')} />
       <NavItem tab="activity" labelKey="home.tabActivity" IconCmp={IconBell} />
-      <NavItem tab="purchases" labelKey="home.tabPurchases" IconCmp={IconShoppingBag} />
+      <NavItem tab="account" labelKey="home.tabAccount" IconCmp={IconAccount} />
     </View>
   );
 };
