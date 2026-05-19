@@ -302,6 +302,19 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({ stream, onClose }) =
     };
   }, [roomId, onClose]);
 
+  useEffect(() => {
+    if (!remoteStream) {
+      return;
+    }
+    enableSpeakerphone();
+    const t1 = setTimeout(() => enableSpeakerphone(), 400);
+    const t2 = setTimeout(() => enableSpeakerphone(), 1200);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, [remoteStream]);
+
   const handleSendMessage = () => {
     if (messageText.trim()) {
       sendChat(messageText.trim());

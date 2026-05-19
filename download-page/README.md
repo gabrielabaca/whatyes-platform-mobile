@@ -1,6 +1,6 @@
 # Página de descarga para demo (S3)
 
-Landing que se despliega en S3 en cada deploy. Los usuarios de prueba abren la URL del bucket y pueden:
+Landing de **PulpoLive** (logo y marca) que se despliega en S3 en cada deploy. Los usuarios de prueba abren la URL del bucket y pueden:
 
 - **Android:** descargar el APK (enlace directo).
 - **iOS:** enlace a TestFlight (configurable por secret).
@@ -78,3 +78,26 @@ El APK se construye con las variables de `env/.env_main` (o un `.env` mínimo en
 ## iOS
 
 Para testers en iOS, sube la build a TestFlight, obtén el enlace de invitación y guárdalo en el secret `IOS_TESTFLIGHT_URL`. El botón “iOS (TestFlight)” de la landing usará esa URL.
+
+### Subir a TestFlight con Fastlane (local, macOS)
+
+Requisitos: Xcode + CocoaPods, Ruby (de preferencia `bundle install` en la raíz del repo).
+
+1. **Variables en `env/.env_main`** (no commitear secretos reales). El `Fastfile` las carga con `dotenv`:
+   - `APPLE_TEAM_ID` — Team ID de Apple Developer (10 caracteres).
+   - `FASTLANE_USER` — Apple ID (opcional si usás solo API key).
+   - **API key de App Store Connect** (recomendado):  
+     - `APP_STORE_CONNECT_API_KEY_PATH` — ruta al `.p8` o al JSON exportado de la key, o  
+     - `APP_STORE_CONNECT_KEY_ID`, `APP_STORE_CONNECT_ISSUER_ID` + `APP_STORE_CONNECT_API_KEY_PATH` apuntando al `.p8`.
+2. **Certificados y perfiles**: abrí el workspace `ios/PulpoLive.xcworkspace` en Xcode al menos una vez y dejá firmado “Release” con el equipo correcto; el lane usa `export_method: app-store` y `-allowProvisioningUpdates`.
+3. **Comandos** (desde la raíz de `platform_mobile`):
+
+   ```sh
+   bundle install
+   bundle exec fastlane ios build   # solo IPA, no sube
+   bundle exec fastlane ios beta    # build + upload a TestFlight
+   ```
+
+   El lane `beta` incrementa `CURRENT_PROJECT_VERSION` en `PulpoLive.xcodeproj` y sube con `upload_to_testflight` (`skip_waiting_for_build_processing: true`).
+
+4. **Post-subida**: en App Store Connect, cuando el build esté “Processing” / listo, copiá el enlace público de TestFlight al secret `IOS_TESTFLIGHT_URL` del workflow de S3 para que la landing apunte al grupo correcto.

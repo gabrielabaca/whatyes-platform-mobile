@@ -7,12 +7,32 @@ import type { SignalingClient } from 'amazon-kinesis-video-streams-webrtc';
 import type { StreamWebRTCCredentialsResponse } from '../api/platformApi';
 import { formatSignalingError } from './signalingError';
 import { SigV4RequestSigner } from './SigV4RequestSigner';
+import { enableSpeakerphone } from '../utils/audioRoute';
 
 let signalingClient: SignalingClient | null = null;
 let peerConnection: RTCPeerConnection | null = null;
 let remoteStream: MediaStream | null = null;
 let onRemoteStream: ((stream: MediaStream) => void) | null = null;
 let cleanupRef: (() => void) | null = null;
+
+/** WebRTC (sobre todo en iOS) vuelve a fijar la sesión de audio al negociar; repetimos el altavoz. */
+let speakerEnforcementTimers: ReturnType<typeof setTimeout>[] = [];
+
+function clearSpeakerEnforcementTimers(): void {
+  speakerEnforcementTimers.forEach(clearTimeout);
+  speakerEnforcementTimers = [];
+}
+
+function enforceSpeakerAfterWebRtcPulse(): void {
+  enableSpeakerphone();
+  clearSpeakerEnforcementTimers();
+  const delaysMs = [80, 250, 700, 1600, 3200];
+  speakerEnforcementTimers = delaysMs.map((ms) =>
+    setTimeout(() => {
+      enableSpeakerphone();
+    }, ms)
+  );
+}
 
 const VIEWER_CLIENT_ID_PREFIX = 'viewer-';
 
@@ -50,6 +70,7 @@ function ensureRemoteAudioEnabled(stream: MediaStream) {
       readyState: track.readyState,
     });
   });
+  enforceSpeakerAfterWebRtcPulse();
 }
 
 export type ViewerOptions = {
@@ -157,6 +178,7 @@ export async function startKinesisWebRTCViewerJS(
       pc.onconnectionstatechange = () => {
         console.log('[Viewer WebRTC] connectionState:', pc.connectionState);
         if (pc.connectionState === 'connected') {
+          enforceSpeakerAfterWebRtcPulse();
           clearCloseTimer();
         }
         if (pc.connectionState === 'disconnected') {
@@ -169,8 +191,11 @@ export async function startKinesisWebRTCViewerJS(
       };
       pc.oniceconnectionstatechange = () => {
         console.log('[Viewer WebRTC] iceConnectionState:', pc.iceConnectionState);
-        if ((pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') && !remoteStream) {
-          tryEmitRemoteStreamFromReceivers(pc);
+        if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
+          enforceSpeakerAfterWebRtcPulse();
+          if (!remoteStream) {
+            tryEmitRemoteStreamFromReceivers(pc);
+          }
         }
         if (pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'closed') {
           notifyClose(`ice_connection_${pc.iceConnectionState}`);
@@ -215,6 +240,7 @@ export async function startKinesisWebRTCViewerJS(
       console.log('[Viewer WebRTC] SDP Answer recibida, setRemoteDescription...');
       await peerConnection.setRemoteDescription(answer);
       console.log('[Viewer WebRTC] setRemoteDescription OK.');
+      enforceSpeakerAfterWebRtcPulse();
       tryEmitRemoteStreamFromReceivers(peerConnection);
     } catch (e) {
       console.warn('[Viewer WebRTC] setRemoteDescription error:', e);
@@ -241,6 +267,7 @@ export async function startKinesisWebRTCViewerJS(
   });
 
   client.on('close', () => {
+    clearSpeakerEnforcementTimers();
     peerConnection?.close();
     peerConnection = null;
     remoteStream = null;
@@ -252,6 +279,7 @@ export async function startKinesisWebRTCViewerJS(
 
   const cleanup = () => {
     closed = true;
+    clearSpeakerEnforcementTimers();
     clearCloseTimer();
     client.close();
     signalingClient = null;
@@ -266,6 +294,7 @@ export async function startKinesisWebRTCViewerJS(
 }
 
 export function stopKinesisWebRTCViewerJS(): void {
+  clearSpeakerEnforcementTimers();
   if (cleanupRef) {
     cleanupRef();
     cleanupRef = null;

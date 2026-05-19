@@ -16,12 +16,12 @@ def build_ios(team_id:, project_root:)
   )
 
   increment_build_number(
-    xcodeproj: "ios/PlatformMobile.xcodeproj"
+    xcodeproj: "ios/PulpoLive.xcodeproj"
   )
 
   build_app(
-    workspace: "ios/PlatformMobile.xcworkspace",
-    scheme: "PlatformMobile",
+    workspace: "ios/PulpoLive.xcworkspace",
+    scheme: "PulpoLive",
     export_method: "app-store",
     clean: true,
     output_directory: "build/ios",

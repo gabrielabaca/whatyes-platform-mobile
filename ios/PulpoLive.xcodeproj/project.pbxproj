@@ -9,14 +9,15 @@
 /* Begin PBXBuildFile section */
 		0C80B921A6F3F58F76C31292 /* libPods-PulpoLive.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 5DCACB8F33CDC322A6C60F78 /* libPods-PulpoLive.a */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
+		57085ACA83904334BC555375 /* Mulish-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 389039A9B5804E04A547967C /* Mulish-Regular.ttf */; };
 		761780ED2CA45674006654EE /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761780EC2CA45674006654EE /* AppDelegate.swift */; };
+		775276EE2D3A405A852EF396 /* Mulish-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C6A2DCA868794AD8A8597FC7 /* Mulish-SemiBold.ttf */; };
 		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
 		A7F6AC0927524C84E0F5163A /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */; };
-		FACAB738756B4297B7CFDBBE /* Mulish-Variable.ttf in Resources */ = {isa = PBXBuildFile; fileRef = D13261782A774E72A05E8577 /* Mulish-Variable.ttf */; };
-		F6D409F3F0D24607A677A338 /* Mulish-Italic-Variable.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 394757E24B75439AACC04854 /* Mulish-Italic-Variable.ttf */; };
-		57085ACA83904334BC555375 /* Mulish-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 389039A9B5804E04A547967C /* Mulish-Regular.ttf */; };
+		B8E9D0122CA456740066501 /* WebRTCAudioBootstrap.m in Sources */ = {isa = PBXBuildFile; fileRef = B8E9D0222CA456740066502 /* WebRTCAudioBootstrap.m */; };
 		C043932823B54D488D8B7D6C /* Mulish-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 8538E93CFC054C33839115CB /* Mulish-Bold.ttf */; };
-		775276EE2D3A405A852EF396 /* Mulish-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C6A2DCA868794AD8A8597FC7 /* Mulish-SemiBold.ttf */; };
+		F6D409F3F0D24607A677A338 /* Mulish-Italic-Variable.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 394757E24B75439AACC04854 /* Mulish-Italic-Variable.ttf */; };
+		FACAB738756B4297B7CFDBBE /* Mulish-Variable.ttf in Resources */ = {isa = PBXBuildFile; fileRef = D13261782A774E72A05E8577 /* Mulish-Variable.ttf */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -24,17 +25,20 @@
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = PulpoLive/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = PulpoLive/Info.plist; sourceTree = "<group>"; };
 		13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = PrivacyInfo.xcprivacy; path = PulpoLive/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		389039A9B5804E04A547967C /* Mulish-Regular.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = "Mulish-Regular.ttf"; path = "../assets/fonts/Mulish-Regular.ttf"; sourceTree = "<group>"; };
+		394757E24B75439AACC04854 /* Mulish-Italic-Variable.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = "Mulish-Italic-Variable.ttf"; path = "../assets/fonts/Mulish-Italic-Variable.ttf"; sourceTree = "<group>"; };
 		3B4392A12AC88292D35C810B /* Pods-PulpoLive.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-PulpoLive.debug.xcconfig"; path = "Target Support Files/Pods-PulpoLive/Pods-PulpoLive.debug.xcconfig"; sourceTree = "<group>"; };
 		5709B34CF0A7D63546082F79 /* Pods-PulpoLive.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-PulpoLive.release.xcconfig"; path = "Target Support Files/Pods-PulpoLive/Pods-PulpoLive.release.xcconfig"; sourceTree = "<group>"; };
 		5DCACB8F33CDC322A6C60F78 /* libPods-PulpoLive.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-PulpoLive.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		761780EC2CA45674006654EE /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = PulpoLive/AppDelegate.swift; sourceTree = "<group>"; };
 		81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = LaunchScreen.storyboard; path = PulpoLive/LaunchScreen.storyboard; sourceTree = "<group>"; };
+		8538E93CFC054C33839115CB /* Mulish-Bold.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = "Mulish-Bold.ttf"; path = "../assets/fonts/Mulish-Bold.ttf"; sourceTree = "<group>"; };
+		B8E9D0222CA456740066502 /* WebRTCAudioBootstrap.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = WebRTCAudioBootstrap.m; path = PulpoLive/WebRTCAudioBootstrap.m; sourceTree = "<group>"; };
+		B8E9D0322CA456740066503 /* WebRTCAudioBootstrap.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = WebRTCAudioBootstrap.h; path = PulpoLive/WebRTCAudioBootstrap.h; sourceTree = "<group>"; };
+		B8E9D0422CA456740066504 /* PulpoLive-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "PulpoLive-Bridging-Header.h"; path = "PulpoLive/PulpoLive-Bridging-Header.h"; sourceTree = "<group>"; };
+		C6A2DCA868794AD8A8597FC7 /* Mulish-SemiBold.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = "Mulish-SemiBold.ttf"; path = "../assets/fonts/Mulish-SemiBold.ttf"; sourceTree = "<group>"; };
+		D13261782A774E72A05E8577 /* Mulish-Variable.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = "Mulish-Variable.ttf"; path = "../assets/fonts/Mulish-Variable.ttf"; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
-		D13261782A774E72A05E8577 /* Mulish-Variable.ttf */ = {isa = PBXFileReference; name = "Mulish-Variable.ttf"; path = "../assets/fonts/Mulish-Variable.ttf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
-		394757E24B75439AACC04854 /* Mulish-Italic-Variable.ttf */ = {isa = PBXFileReference; name = "Mulish-Italic-Variable.ttf"; path = "../assets/fonts/Mulish-Italic-Variable.ttf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
-		389039A9B5804E04A547967C /* Mulish-Regular.ttf */ = {isa = PBXFileReference; name = "Mulish-Regular.ttf"; path = "../assets/fonts/Mulish-Regular.ttf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
-		8538E93CFC054C33839115CB /* Mulish-Bold.ttf */ = {isa = PBXFileReference; name = "Mulish-Bold.ttf"; path = "../assets/fonts/Mulish-Bold.ttf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
-		C6A2DCA868794AD8A8597FC7 /* Mulish-SemiBold.ttf */ = {isa = PBXFileReference; name = "Mulish-SemiBold.ttf"; path = "../assets/fonts/Mulish-SemiBold.ttf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -54,6 +58,9 @@
 			children = (
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				761780EC2CA45674006654EE /* AppDelegate.swift */,
+				B8E9D0322CA456740066503 /* WebRTCAudioBootstrap.h */,
+				B8E9D0222CA456740066502 /* WebRTCAudioBootstrap.m */,
+				B8E9D0422CA456740066504 /* PulpoLive-Bridging-Header.h */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */,
 				13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */,
@@ -68,6 +75,19 @@
 				5DCACB8F33CDC322A6C60F78 /* libPods-PulpoLive.a */,
 			);
 			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		6C9A1876959B4929B02E2646 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				D13261782A774E72A05E8577 /* Mulish-Variable.ttf */,
+				394757E24B75439AACC04854 /* Mulish-Italic-Variable.ttf */,
+				389039A9B5804E04A547967C /* Mulish-Regular.ttf */,
+				8538E93CFC054C33839115CB /* Mulish-Bold.ttf */,
+				C6A2DCA868794AD8A8597FC7 /* Mulish-SemiBold.ttf */,
+			);
+			name = Resources;
+			path = "";
 			sourceTree = "<group>";
 		};
 		832341AE1AAA6A7D00B99B32 /* Libraries */ = {
@@ -108,19 +128,6 @@
 			);
 			path = Pods;
 			sourceTree = "<group>";
-		};
-		6C9A1876959B4929B02E2646 /* Resources */ = {
-			isa = "PBXGroup";
-			children = (
-				D13261782A774E72A05E8577 /* Mulish-Variable.ttf */,
-				394757E24B75439AACC04854 /* Mulish-Italic-Variable.ttf */,
-				389039A9B5804E04A547967C /* Mulish-Regular.ttf */,
-				8538E93CFC054C33839115CB /* Mulish-Bold.ttf */,
-				C6A2DCA868794AD8A8597FC7 /* Mulish-SemiBold.ttf */,
-			);
-			name = Resources;
-			sourceTree = "<group>";
-			path = "";
 		};
 /* End PBXGroup section */
 
@@ -276,6 +283,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				761780ED2CA45674006654EE /* AppDelegate.swift in Sources */,
+				B8E9D0122CA456740066501 /* WebRTCAudioBootstrap.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -304,6 +312,7 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.pulpolive;
 				PRODUCT_NAME = PulpoLive;
+				SWIFT_OBJC_BRIDGING_HEADER = "PulpoLive/PulpoLive-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
 				VERSIONING_SYSTEM = "apple-generic";
@@ -331,6 +340,7 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.pulpolive;
 				PRODUCT_NAME = PulpoLive;
+				SWIFT_OBJC_BRIDGING_HEADER = "PulpoLive/PulpoLive-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 				VERSIONING_SYSTEM = "apple-generic";
 			};
