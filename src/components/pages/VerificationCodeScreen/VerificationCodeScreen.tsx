@@ -13,11 +13,13 @@ import {
   Alert,
   TouchableOpacity,
   TextInput,
-  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft } from 'lucide-react-native';
 import { Text } from '../../atoms/Text';
+import { Button } from '../../atoms/Button';
+import { useTheme } from '../../../context/ThemeContext';
+import { themeColors } from '../../../theme/colors';
 import { verifyUser, resendVerificationCode, forgotPasswordRequest, ApiError } from '../../../api';
 import type { VerifyUserResponse } from '../../../api/types';
 import { storage } from '../../../utils/storage';
@@ -55,6 +57,8 @@ export const VerificationCodeScreen: React.FC<VerificationCodeScreenProps> = ({
   onBack,
 }) => {
   const { t } = useTranslation();
+  const { isDark } = useTheme();
+  const c = isDark ? themeColors.dark : themeColors.light;
   const otpLength = 4;
   const [code, setCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -164,7 +168,7 @@ export const VerificationCodeScreen: React.FC<VerificationCodeScreenProps> = ({
                 className="w-8 h-8 items-start justify-center"
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
-                <ArrowLeft size={22} color="#02050F" />
+                <ArrowLeft size={22} color={c.text} />
               </TouchableOpacity>
               <Text className="text-[20px] font-bold text-[#02050F]">{t('verification.title')}</Text>
               <View className="w-8 h-8" />
@@ -210,38 +214,42 @@ export const VerificationCodeScreen: React.FC<VerificationCodeScreenProps> = ({
               </View>
             </View>
 
-            <TouchableOpacity
-              onPress={handleVerify}
-              activeOpacity={0.9}
+            <Button
+              title={t('common.continue')}
+              variant="primary"
+              size="large"
+              loading={isLoading}
               disabled={code.length !== otpLength || isLoading}
-              className={`rounded-full min-h-[52px] items-center justify-center px-8 bg-primary-600 ${code.length !== otpLength || isLoading ? 'opacity-60' : 'opacity-100'}`}
-            >
-              {isLoading ? (
-                <ActivityIndicator color="#FFFFFF" />
-              ) : (
-                <Text className="text-white text-base leading-6 font-semibold">{t('common.continue')}</Text>
-              )}
-            </TouchableOpacity>
+              onPress={handleVerify}
+              className="w-full min-h-[52px] rounded-full"
+            />
 
-            <View className="items-center mt-3">
-              <Text className="text-[#4C4E55] text-[12px]">
-                {t('verification.noReceivedPrompt')}{' '}
-                <Text
-                  className="text-primary-600 text-[12px] font-bold"
-                  onPress={isResending ? undefined : handleResendCode}
-                >
-                  {isResending ? t('verification.resending') : t('verification.resend')}
-                </Text>
+            <View className="items-center mt-3 gap-1">
+              <Text className="text-[#4C4E55] dark:text-night-muted text-[12px]">
+                {t('verification.noReceivedPrompt')}
               </Text>
+              <Button
+                title={isResending ? t('verification.resending') : t('verification.resend')}
+                variant="ghost"
+                size="small"
+                loading={isResending}
+                disabled={isResending}
+                onPress={handleResendCode}
+                titleClassName="text-[12px] font-bold"
+                className="min-h-[36px] px-2"
+              />
             </View>
 
-            {onBack && (
-              <View className="items-center mt-6">
-                <TouchableOpacity onPress={onBack}>
-                  <Text className="text-[#4C4E55] text-[12px] underline">{t('verification.back')}</Text>
-                </TouchableOpacity>
-              </View>
-            )}
+            {onBack ? (
+              <Button
+                title={t('verification.back')}
+                variant="ghost"
+                size="small"
+                onPress={onBack}
+                titleClassName="text-[12px] text-[#4C4E55] dark:text-night-muted underline"
+                className="mt-6 self-center min-h-[36px] px-2"
+              />
+            ) : null}
           </View>
         </ScrollView>
       </KeyboardAvoidingView>

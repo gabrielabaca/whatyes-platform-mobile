@@ -1,5 +1,5 @@
 /**
- * Onboarding comprador: categorías de interés (multi-selección).
+ * Onboarding comprador: categorías de interés (mismo grid que Explorar).
  */
 
 import React, { useEffect, useState } from 'react';
@@ -9,9 +9,12 @@ import { useTranslation } from 'react-i18next';
 import { ArrowLeft } from 'lucide-react-native';
 import { Text } from '../../atoms/Text';
 import { Button } from '../../atoms/Button';
+import { InterestCategoryGrid } from '../../organisms/home/InterestCategoryGrid';
 import { useInterestCategories } from '../../../hooks/useInterestCategories';
 import { useTheme } from '../../../context/ThemeContext';
 import { themeColors } from '../../../theme/colors';
+
+const H_PADDING = 16;
 
 interface BuyerInterestsOnboardingScreenProps {
   onBack?: () => void;
@@ -62,7 +65,7 @@ export const BuyerInterestsOnboardingScreen: React.FC<BuyerInterestsOnboardingSc
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <View className="flex-1 px-6 pt-4 pb-8">
+        <View className="flex-1 px-4 pt-4 pb-8">
           <View className="flex-row items-center justify-between mb-8">
             {onBack ? (
               <TouchableOpacity
@@ -81,7 +84,7 @@ export const BuyerInterestsOnboardingScreen: React.FC<BuyerInterestsOnboardingSc
             <View className="w-8 h-8" />
           </View>
 
-          <Text className="text-center text-[#4C4E55] text-[14px] leading-[22px] mb-8">
+          <Text className="text-center text-[#4C4E55] dark:text-night-muted text-[14px] leading-[22px] mb-6">
             {t('buyerOnboarding.interestsSubtitle')}
           </Text>
 
@@ -95,33 +98,20 @@ export const BuyerInterestsOnboardingScreen: React.FC<BuyerInterestsOnboardingSc
             <Text className="text-center text-red-500 mb-4">{loadError}</Text>
           )}
 
-          {!loading && !loadError && (
-            <View className="flex-row flex-wrap gap-3 mb-8">
-              {items.map((cat) => {
-                const on = selected.has(cat.uuid);
-                return (
-                  <TouchableOpacity
-                    key={cat.uuid}
-                    onPress={() => toggle(cat.uuid)}
-                    activeOpacity={0.85}
-                    disabled={busy}
-                    className={`px-4 py-3 rounded-full border ${
-                      on
-                        ? 'bg-primary-600 border-primary-600'
-                        : 'bg-white dark:bg-night-800 border-[#D9D9D9]'
-                    }`}
-                  >
-                    <Text
-                      className={`text-[14px] font-semibold ${
-                        on ? 'text-white' : 'text-[#02050F] dark:text-white'
-                      }`}
-                    >
-                      {cat.label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
+          {!loading && !loadError && items.length > 0 && (
+            <InterestCategoryGrid
+              items={items}
+              selectedUuids={selected}
+              onPressItem={(cat) => toggle(cat.uuid)}
+              disabled={busy}
+              horizontalPadding={H_PADDING}
+            />
+          )}
+
+          {!loading && !loadError && items.length === 0 && (
+            <Text className="text-center text-[#71717a] dark:text-night-muted mb-8">
+              {t('explore.catalogEmpty')}
+            </Text>
           )}
 
           <Button
@@ -131,7 +121,7 @@ export const BuyerInterestsOnboardingScreen: React.FC<BuyerInterestsOnboardingSc
             loading={busy}
             disabled={busy || loading}
             onPress={handleContinue}
-            className="w-full min-h-[52px] rounded-full"
+            className="w-full min-h-[52px] rounded-full mt-8"
           />
 
           <Button

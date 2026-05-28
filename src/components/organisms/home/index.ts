@@ -2,6 +2,7 @@ export { HomeHeader } from './HomeHeader';
 export { HomeLightBackground } from './HomeLightBackground';
 export { SellerHomeDashboard } from './SellerHomeDashboard';
 export { CategoryExplorerRow } from './CategoryExplorerRow';
+export { InterestCategoryGrid } from './InterestCategoryGrid';
 export { SectionHeader } from './SectionHeader';
 export { LiveStreamPreviewCard } from './LiveStreamPreviewCard';
 export { BuyerLiveStreamsGrid } from './BuyerLiveStreamsGrid';

@@ -1,6 +1,6 @@
 /**
- * Home Screen — comprador (lives) y vendedor (dashboard Figma 566-3736).
- * Navegación interna: home | explore | category | account | profile.
+ * Home Screen — feed de lives en Inicio (comprador y vendedor); hub vendedor en FAB.
+ * Navegación interna: home | explore | category | sellerHub | account | profile.
  */
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -48,9 +48,10 @@ type HomePath =
   | { name: 'home' }
   | { name: 'explore' }
   | { name: 'category'; category: InterestCategoryItem }
+  | { name: 'sellerHub' }
   | { name: 'account' }
   | { name: 'profile'; userId?: string }
-  | { name: 'addProduct' };
+  | { name: 'addProduct'; returnTo?: 'home' | 'sellerHub' };
 
 /** Debe renderizarse dentro de GeneralLayout (BottomNavProvider). */
 const HomeNavBridge: React.FC<{
@@ -72,9 +73,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const isBuyer = user?.user_type === 'buyer_user';
 
   const { categories, loadOnce } = useInterestCategories();
+  const hasHomeTabs = isBuyer || isSeller;
   const { previews, loading, refreshing, onRefresh } = useBuyerLiveRoomPreviews({
     pollIntervalMs: 15000,
-    enabled: isBuyer,
+    enabled: hasHomeTabs,
   });
 
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>(ALL_CATEGORIES_ID);
@@ -191,14 +193,21 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         return;
       }
       if (tab === 'create') {
-        onStartNewStream?.();
+        if (isBuyer) {
+          onStartNewStream?.();
+          return;
+        }
+        if (isSeller) {
+          setHomePath({ name: 'sellerHub' });
+          return;
+        }
         return;
       }
       if (tab === 'activity') {
         Alert.alert(t('common.appName'), t('home.placeholderScreen'));
       }
     },
-    [onStartNewStream, t]
+    [isBuyer, isSeller, onStartNewStream, t]
   );
 
   if (!user) {
@@ -234,16 +243,21 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   };
 
   const bottomNavActiveTab: HomeBottomTab =
-    homePath.name === 'category'
-      ? 'explore'
-      : homePath.name === 'profile'
-        ? 'account'
-        : bottomTab;
+    homePath.name === 'sellerHub' || homePath.name === 'addProduct'
+      ? 'create'
+      : homePath.name === 'category'
+        ? 'explore'
+        : homePath.name === 'profile'
+          ? 'account'
+          : bottomTab;
+
+  const isSellerDashboard = isSeller && homePath.name === 'sellerHub';
 
   const showHomeHeader =
     homePath.name === 'home' ||
     homePath.name === 'explore' ||
     homePath.name === 'category' ||
+    homePath.name === 'sellerHub' ||
     homePath.name === 'addProduct';
 
   const paymentsAmount = t('sellerHome.paymentsAmount', { amount: '0' });
@@ -260,7 +274,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               onPressNotifications={() =>
                 Alert.alert(t('common.appName'), t('home.placeholderNotifications'))
               }
-              showProfile={isBuyer && homePath.name === 'home'}
+              showProfile={homePath.name === 'home'}
               onPressProfile={() => {
                 setBottomTab('account');
                 setHomePath({ name: 'account' });
@@ -268,7 +282,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             />
           ) : null}
 
-          {isSeller && homePath.name === 'home' ? (
+          {isSellerDashboard ? (
             <SellerHomeDashboard
               paymentsAmount={paymentsAmount}
               soldCount={soldCount}
@@ -282,19 +296,31 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                 Alert.alert(t('common.appName'), t('home.placeholderScreen'))
               }
               onPressGoLive={() => onStartNewStream?.()}
-              onPressAddProduct={() => setHomePath({ name: 'addProduct' })}
+              onPressAddProduct={() => setHomePath({ name: 'addProduct', returnTo: 'sellerHub' })}
               onPressFirstLiveCta={() => onStartNewStream?.()}
             />
           ) : null}
 
           {isSeller && homePath.name === 'addProduct' ? (
             <AddProductScreen
-              onCancel={() => setHomePath({ name: 'home' })}
-              onSaved={() => setHomePath({ name: 'home' })}
+              onCancel={() => {
+                if (homePath.returnTo === 'sellerHub') {
+                  setHomePath({ name: 'sellerHub' });
+                } else {
+                  setHomePath({ name: 'home' });
+                }
+              }}
+              onSaved={() => {
+                if (homePath.returnTo === 'sellerHub') {
+                  setHomePath({ name: 'sellerHub' });
+                } else {
+                  setHomePath({ name: 'home' });
+                }
+              }}
             />
           ) : null}
 
-          {isBuyer && homePath.name === 'home' ? (
+          {homePath.name === 'home' ? (
             <ScrollView
               className="flex-1"
               nestedScrollEnabled

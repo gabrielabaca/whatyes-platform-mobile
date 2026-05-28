@@ -278,17 +278,16 @@ export const BuyerKycOnboardingScreen: React.FC<BuyerKycOnboardingScreenProps> =
               originWhitelist={['https://*', 'http://*', 'pulpolive://*']}
             />
           ) : null}
-          <TouchableOpacity
+          <Button
+            title={t('common.cancel')}
+            variant="outline"
+            size="small"
             onPress={() => {
               setVerificationUrl(null);
               setPhase('offer');
             }}
-            className="absolute top-12 right-4 bg-white/90 px-4 py-2 rounded-full"
-          >
-            <Text style={{ fontFamily: FONT_FAMILY.semibold }} className="text-[#02050F]">
-              {t('common.cancel')}
-            </Text>
-          </TouchableOpacity>
+            className="absolute top-12 right-4 bg-white/90 dark:bg-night-800 min-h-[40px] rounded-full"
+          />
         </SafeAreaView>
       </Modal>
     </>

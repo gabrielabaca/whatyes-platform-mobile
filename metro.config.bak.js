@@ -10,20 +10,17 @@ const { withNativeWind } = require('nativewind/metro');
  */
 const projectRoot = __dirname;
 const baseConfig = getDefaultConfig(projectRoot);
+baseConfig.projectRoot = projectRoot;
+// Workspace multi-carpeta (Cursor): asegurar que Metro vigile solo este proyecto.
+baseConfig.watchFolders = [projectRoot];
 const { assetExts, sourceExts } = baseConfig.resolver;
 
-// @expo/metro-config + package "exports" rompe helpers de @babel/runtime en RN.
-baseConfig.resolver.unstable_conditionsByPlatform = {
-  ios: ['react-native', 'import', 'require', 'default'],
-  android: ['react-native', 'import', 'require', 'default'],
-  web: ['browser'],
-};
-baseConfig.resolver.unstable_enablePackageExports = false;
-
 // Polyfills Node (http, stream, crypto, etc.) para amazon-kinesis-video-streams-webrtc
+// net/tls no existen en RN; el paquete "ws" se reemplaza por un shim que usa global.WebSocket
+// isomorphic-webcrypto se fuerza a un shim para RN
 const nodeLibs = require('node-libs-react-native');
-const webcryptoShim = path.resolve(projectRoot, 'shim', 'isomorphic-webcrypto.js');
-const kvsSigv4Shim = path.resolve(projectRoot, 'shim', 'kvs-sigv4.js');
+const webcryptoShim = path.resolve(__dirname, 'shim', 'isomorphic-webcrypto.js');
+const kvsSigv4Shim = path.resolve(__dirname, 'shim', 'kvs-sigv4.js');
 baseConfig.resolver = baseConfig.resolver || {};
 baseConfig.resolver.extraNodeModules = {
   ...nodeLibs,
@@ -37,7 +34,7 @@ baseConfig.resolver.resolveRequest = (context, moduleName, platform) => {
   if (moduleName === 'ws') {
     return {
       type: 'sourceFile',
-      filePath: path.resolve(projectRoot, 'shim', 'ws.js'),
+      filePath: path.resolve(__dirname, 'shim', 'ws.js'),
     };
   }
   if (moduleName === 'isomorphic-webcrypto') {
@@ -57,6 +54,7 @@ baseConfig.resolver.resolveRequest = (context, moduleName, platform) => {
     : context.resolveRequest(context, moduleName, platform);
 };
 
+// Permite importar SVG locales como componentes React Native
 baseConfig.transformer = {
   ...baseConfig.transformer,
   babelTransformerPath: require.resolve('react-native-svg-transformer/expo'),
@@ -64,5 +62,8 @@ baseConfig.transformer = {
 baseConfig.resolver.assetExts = assetExts.filter((ext) => ext !== 'svg');
 baseConfig.resolver.sourceExts = [...sourceExts, 'svg'];
 
-// No reasignar resolver.resolveRequest después de withNativeWind: rompe NativeWind (className).
-module.exports = withNativeWind(baseConfig, { input: './global.css' });
+const config = withNativeWind(baseConfig, { input: './global.css' });
+config.projectRoot = projectRoot;
+config.watchFolders = [projectRoot];
+
+module.exports = config;

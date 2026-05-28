@@ -80,7 +80,7 @@ const CenterFab: React.FC<{ onPress: () => void }> = ({ onPress }) => {
     <TouchableOpacity
       onPress={onPress}
       style={styles.fabSlot}
-      activeOpacity={0.85}
+      activeOpacity={0.85} 
       hitSlop={12}
     >
       <View style={styles.fabInner}>

@@ -10,20 +10,25 @@ const { withNativeWind } = require('nativewind/metro');
  */
 const projectRoot = __dirname;
 const baseConfig = getDefaultConfig(projectRoot);
+baseConfig.projectRoot = projectRoot;
+baseConfig.watchFolders = [projectRoot];
+
 const { assetExts, sourceExts } = baseConfig.resolver;
 
-// @expo/metro-config + package "exports" rompe helpers de @babel/runtime en RN.
+// @expo/metro-config usa solo ['react-native'] en Android/iOS; paquetes como
+// @babel/runtime exportan con "default"/"import" y fallan al resolver helpers.
 baseConfig.resolver.unstable_conditionsByPlatform = {
   ios: ['react-native', 'import', 'require', 'default'],
   android: ['react-native', 'import', 'require', 'default'],
   web: ['browser'],
 };
+// Evita que Metro use solo "exports" de package.json (rompe @babel/runtime helpers).
 baseConfig.resolver.unstable_enablePackageExports = false;
 
 // Polyfills Node (http, stream, crypto, etc.) para amazon-kinesis-video-streams-webrtc
 const nodeLibs = require('node-libs-react-native');
-const webcryptoShim = path.resolve(projectRoot, 'shim', 'isomorphic-webcrypto.js');
-const kvsSigv4Shim = path.resolve(projectRoot, 'shim', 'kvs-sigv4.js');
+const webcryptoShim = path.resolve(__dirname, 'shim', 'isomorphic-webcrypto.js');
+const kvsSigv4Shim = path.resolve(__dirname, 'shim', 'kvs-sigv4.js');
 baseConfig.resolver = baseConfig.resolver || {};
 baseConfig.resolver.extraNodeModules = {
   ...nodeLibs,
@@ -37,7 +42,7 @@ baseConfig.resolver.resolveRequest = (context, moduleName, platform) => {
   if (moduleName === 'ws') {
     return {
       type: 'sourceFile',
-      filePath: path.resolve(projectRoot, 'shim', 'ws.js'),
+      filePath: path.resolve(__dirname, 'shim', 'ws.js'),
     };
   }
   if (moduleName === 'isomorphic-webcrypto') {
@@ -64,5 +69,11 @@ baseConfig.transformer = {
 baseConfig.resolver.assetExts = assetExts.filter((ext) => ext !== 'svg');
 baseConfig.resolver.sourceExts = [...sourceExts, 'svg'];
 
-// No reasignar resolver.resolveRequest después de withNativeWind: rompe NativeWind (className).
-module.exports = withNativeWind(baseConfig, { input: './global.css' });
+const config = withNativeWind(baseConfig, { input: './global.css' });
+config.projectRoot = projectRoot;
+config.watchFolders = [projectRoot];
+config.resolver.unstable_conditionsByPlatform =
+  baseConfig.resolver.unstable_conditionsByPlatform;
+config.resolver.unstable_enablePackageExports = false;
+
+module.exports = config;

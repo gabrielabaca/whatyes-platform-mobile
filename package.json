@@ -17,6 +17,8 @@
     "lint": "eslint .",
     "postinstall": "patch-package",
     "start": "react-native start",
+    "start:reset": "react-native start --reset-cache",
+    "metro:watchman-reset": "watchman watch-del-all 2>/dev/null; watchman shutdown-server 2>/dev/null; true",
     "test": "jest"
   },
   "dependencies": {
@@ -34,6 +36,7 @@
     "lucide-react-native": "^0.562.0",
     "nativewind": "^4.2.1",
     "node-libs-react-native": "^1.2.1",
+    "@babel/runtime": "^7.25.0",
     "react": "19.2.0",
     "react-i18next": "^16.6.2",
     "react-native": "0.83.1",
@@ -55,7 +58,6 @@
   "devDependencies": {
     "@babel/core": "^7.25.2",
     "@babel/preset-env": "^7.25.3",
-    "@babel/runtime": "^7.25.0",
     "@expo/metro-config": "^55.0.9",
     "@react-native-community/cli": "20.0.0",
     "@react-native-community/cli-platform-android": "20.0.0",
