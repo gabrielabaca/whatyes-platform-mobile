@@ -59,3 +59,21 @@ index e3850d5..23acdb6 100644
    }
  
  
+diff --git a/node_modules/react-native-record-screen/ios/RecordScreen.mm b/node_modules/react-native-record-screen/ios/RecordScreen.mm
+index 67ac51f..65ceb5c 100644
+--- a/node_modules/react-native-record-screen/ios/RecordScreen.mm
++++ b/node_modules/react-native-record-screen/ios/RecordScreen.mm
+@@ -289,13 +289,4 @@ RCT_REMAP_METHOD(clean,
+     resolve(@"cleaned");
+ }
+ 
+-// Don't compile this code when we build for the old architecture.
+-#ifdef RCT_NEW_ARCH_ENABLED
+-- (std::shared_ptr<facebook::react::TurboModule>)getTurboModule:
+-    (const facebook::react::ObjCTurboModule::InitParams &)params
+-{
+-    return std::make_shared<facebook::react::NativeRecordScreenSpecJSI>(params);
+-}
+-#endif
+-
+ @end

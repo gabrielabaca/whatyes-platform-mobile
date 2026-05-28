@@ -92,8 +92,8 @@ android {
         applicationId "com.pulpolive"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode 9
+        versionName "0.0.9"
         // Nombre bajo el icono (sobrescribe strings.xml)
         resValue "string", "app_name", "PulpoLive"
         // Permitir HTTP si las URLs en env son http://

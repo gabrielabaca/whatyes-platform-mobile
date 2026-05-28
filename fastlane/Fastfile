@@ -15,6 +15,14 @@ def build_ios(team_id:, project_root:)
     repo_update: false
   )
 
+  marketing = ENV.fetch("IOS_MARKETING_VERSION", "").strip
+  unless marketing.empty?
+    increment_version_number(
+      version_number: marketing,
+      xcodeproj: "ios/PulpoLive.xcodeproj"
+    )
+  end
+
   increment_build_number(
     xcodeproj: "ios/PulpoLive.xcodeproj"
   )
