@@ -1,19 +1,21 @@
 import { useEffect, useRef } from 'react';
-import { getKinesisWebRTCMasterVideoTrackId } from '../native/KinesisWebRTCNative';
-import { captureWebRTCVideoFrame, isLiveCoverCaptureAvailable } from '../native/liveCoverCapture';
+import { captureRef } from 'react-native-view-shot';
 import { uploadLiveRoomCover } from '../api/platformApi';
 
 const LIVE_COVER_INTERVAL_MS = 10_000;
 
 export interface UseLiveAutoCoverSnapshotOptions {
   roomId: string | null;
+  /** Ref de la View/RTCView que contiene el stream del seller. */
+  videoViewRef: React.RefObject<unknown>;
   enabled: boolean;
   onCoverUploaded?: (coverUrl: string) => void;
 }
 
-/** Captura un frame del VideoTrack WebRTC cada 10 s y lo sube como cover de la room. */
+/** Captura un screenshot del view del stream cada 10 s y lo sube como cover de la room. */
 export function useLiveAutoCoverSnapshot({
   roomId,
+  videoViewRef,
   enabled,
   onCoverUploaded,
 }: UseLiveAutoCoverSnapshotOptions) {
@@ -22,25 +24,20 @@ export function useLiveAutoCoverSnapshot({
   onCoverUploadedRef.current = onCoverUploaded;
 
   useEffect(() => {
-    if (!enabled || !roomId || !isLiveCoverCaptureAvailable()) return;
+    if (!enabled || !roomId) return;
 
-    // Toda la función está en un único try/catch para que ningún error
-    // escape como unhandled rejection y cierre el screen.
     const captureAndUpload = () => {
       (async () => {
         if (uploadingRef.current) return;
-
-        let trackId: string | null = null;
-        try {
-          trackId = await getKinesisWebRTCMasterVideoTrackId();
-        } catch {
-          return;
-        }
-        if (!trackId) return;
+        if (!videoViewRef.current) return;
 
         uploadingRef.current = true;
         try {
-          const uri = await captureWebRTCVideoFrame(trackId, 0.72);
+          const uri = await captureRef(videoViewRef, {
+            format: 'jpg',
+            quality: 0.72,
+            result: 'tmpfile',
+          });
           if (!roomId) return;
           const coverUrl = await uploadLiveRoomCover(roomId, {
             uri,
@@ -65,5 +62,5 @@ export function useLiveAutoCoverSnapshot({
       clearTimeout(initial);
       clearInterval(interval);
     };
-  }, [enabled, roomId]);
+  }, [enabled, roomId, videoViewRef]);
 }

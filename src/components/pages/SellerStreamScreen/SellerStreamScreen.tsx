@@ -94,6 +94,7 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
   const [liveCoverUrl, setLiveCoverUrl] = useState<string | null>(null);
   const userProvidedCover = Boolean(resolvedStreamConfig.coverUrl?.trim());
   const cameraRef = useRef<Camera>(null);
+  const streamViewRef = useRef<View>(null);
 
   const { likeEvents, handleLikeDone, handleLikeEvent } = useFloatingHearts();
 
@@ -124,6 +125,7 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
 
   useLiveAutoCoverSnapshot({
     roomId,
+    videoViewRef: streamViewRef,
     enabled:
       !userProvidedCover &&
       isStreaming &&
@@ -473,11 +475,13 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
       <StatusBar hidden />
 
       {localWebRTCStream ? (
-        <RTCView
-          streamURL={localWebRTCStream.toURL()}
-          style={styles.camera}
-          objectFit="cover"
-        />
+        <View ref={streamViewRef} style={styles.camera} collapsable={false}>
+          <RTCView
+            streamURL={localWebRTCStream.toURL()}
+            style={StyleSheet.absoluteFill}
+            objectFit="cover"
+          />
+        </View>
       ) : (
         <>
           {activeDevice && !isStreaming && (
@@ -539,7 +543,7 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
         onClose={closeAddProduct}
         roomId={roomId ?? ''}
         categoryUuid={resolvedStreamConfig.interestCategoryUuids?.[0] ?? null}
-        saleFormat={resolvedStreamConfig.saleFormat ?? 'individual'}
+        saleFormat="individual"
         onSaved={refreshLiveCommerce}
       />
 
