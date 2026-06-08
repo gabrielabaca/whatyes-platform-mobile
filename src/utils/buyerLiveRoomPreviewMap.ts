@@ -45,12 +45,14 @@ export function mapPlatformRoomToPreview(r: PlatformRoom, t: TFunction): LiveStr
         }))
       : undefined;
 
+  const coverThumb = r.cover_url?.trim() || undefined;
+
   return {
     id: r.uuid,
     sellerName,
     title,
     viewerCount: pseudoViewers(r.uuid),
-    thumbnail: undefined,
+    thumbnail: coverThumb,
     rating: 4.2 + (pseudoViewers(r.uuid) % 8) / 10,
     categoryLabel: interestCategories?.[0]?.label ?? null,
     interestCategories,

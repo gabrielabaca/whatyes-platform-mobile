@@ -7,6 +7,7 @@ import { STREAM_COLORS, STREAM_RADIUS } from './streamTokens';
 export interface StreamProductStackProps {
   imageUrls?: string[];
   extraCount?: number;
+  showPlaceholder?: boolean;
   /** Si viene definido, reemplaza el aviso "próximamente" al tocar el stack. */
   onPress?: () => void;
 }
@@ -14,6 +15,7 @@ export interface StreamProductStackProps {
 export const StreamProductStack: React.FC<StreamProductStackProps> = ({
   imageUrls = [],
   extraCount = 0,
+  showPlaceholder = false,
   onPress,
 }) => {
   const { t } = useTranslation();
@@ -28,11 +30,12 @@ export const StreamProductStack: React.FC<StreamProductStackProps> = ({
     Alert.alert(t('common.appName'), t('stream.comingSoon'));
   };
 
-  if (urls.length === 0) {
+  if (urls.length === 0 && !showPlaceholder) {
     return null;
   }
 
-  const layers = urls.length >= 3 ? urls : urls.length === 2 ? [urls[1], urls[0]] : [urls[0]];
+  const layers: Array<string | null> =
+    urls.length >= 3 ? urls : urls.length === 2 ? [urls[1], urls[0]] : [urls[0] ?? null];
 
   return (
     <TouchableOpacity onPress={handlePress} activeOpacity={0.85} style={styles.stackHost}>
@@ -45,8 +48,14 @@ export const StreamProductStack: React.FC<StreamProductStackProps> = ({
               ? styles.layerMid
               : styles.layerFront;
         return (
-          <View key={`${uri}-${index}`} style={[styles.card, offsetStyle, isFront && styles.cardFront]}>
-            <Image source={{ uri }} style={styles.image} resizeMode="cover" />
+          <View key={`${uri ?? 'placeholder'}-${index}`} style={[styles.card, offsetStyle, isFront && styles.cardFront]}>
+            {uri ? (
+              <Image source={{ uri }} style={styles.image} resizeMode="cover" />
+            ) : (
+              <View style={styles.placeholder}>
+                <RNText style={styles.placeholderText}>+</RNText>
+              </View>
+            )}
             {isFront && overflow > 0 ? (
               <View style={styles.badge}>
                 <RNText style={styles.badgeText}>+{overflow}</RNText>
@@ -97,6 +106,20 @@ const styles = StyleSheet.create({
   image: {
     width: '100%',
     height: '100%',
+  },
+  placeholder: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.55)',
+  },
+  placeholderText: {
+    fontFamily: FONT_FAMILY.bold,
+    fontSize: 18,
+    lineHeight: 22,
+    color: STREAM_COLORS.white,
+    includeFontPadding: false,
   },
   badge: {
     position: 'absolute',

@@ -19,7 +19,8 @@ import {
 import { X, ImageUp } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { launchImageLibrary } from 'react-native-image-picker';
+import { launchPhotoLibraryNow } from '../../../utils/mediaPicker';
+import { deferMediaPicker } from '../../../utils/deferMediaPicker';
 import { GlassBackdrop } from '../profile/GlassBackdrop';
 import { FONT_FAMILY } from '../../../theme/typography';
 
@@ -85,22 +86,21 @@ export const ContactModal: React.FC<ContactModalProps> = ({ visible, onClose }) 
     if (!interactionsReady || evidenceUris.length >= MAX_EVIDENCE) {
       return;
     }
-    launchImageLibrary(
-      { mediaType: 'photo', selectionLimit: MAX_EVIDENCE - evidenceUris.length },
-      (response) => {
-        if (response.didCancel || response.errorMessage) {
-          return;
-        }
-        const uris =
-          response.assets
-            ?.map((asset) => asset.uri)
-            .filter((uri): uri is string => Boolean(uri)) ?? [];
-        if (uris.length === 0) {
-          return;
-        }
-        setEvidenceUris((prev) => [...prev, ...uris].slice(0, MAX_EVIDENCE));
-      }
-    );
+    deferMediaPicker(() => {
+      launchPhotoLibraryNow(
+        { mediaType: 'photo', selectionLimit: MAX_EVIDENCE - evidenceUris.length },
+        (response) => {
+          const uris =
+            response.assets
+              ?.map((asset) => asset.uri)
+              .filter((uri): uri is string => Boolean(uri)) ?? [];
+          if (uris.length === 0) {
+            return;
+          }
+          setEvidenceUris((prev) => [...prev, ...uris].slice(0, MAX_EVIDENCE));
+        },
+      );
+    });
   };
 
   const handleSend = () => {

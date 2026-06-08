@@ -1,12 +1,21 @@
 import React from 'react';
 import { TouchableOpacity, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 
+export type StreamIconButtonSize = 'sm' | 'md' | 'lg';
+
+const SIZE_MAP: Record<StreamIconButtonSize, number> = {
+  sm: 24,
+  md: 32,
+  lg: 40,
+};
+
 export interface StreamIconButtonProps {
   onPress?: () => void;
   disabled?: boolean;
   accessibilityLabel?: string;
   children: React.ReactNode;
   style?: StyleProp<ViewStyle>;
+  size?: StreamIconButtonSize;
 }
 
 export const StreamIconButton: React.FC<StreamIconButtonProps> = ({
@@ -15,24 +24,26 @@ export const StreamIconButton: React.FC<StreamIconButtonProps> = ({
   accessibilityLabel,
   children,
   style,
-}) => (
-  <TouchableOpacity
-    onPress={onPress}
-    disabled={disabled}
-    activeOpacity={0.75}
-    hitSlop={8}
-    accessibilityRole="button"
-    accessibilityLabel={accessibilityLabel}
-    style={[styles.btn, style]}
-  >
-    {children}
-  </TouchableOpacity>
-);
+  size = 'sm',
+}) => {
+  const dim = SIZE_MAP[size];
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      disabled={disabled}
+      activeOpacity={0.75}
+      hitSlop={8}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      style={[styles.btn, { width: dim, height: dim }, style]}
+    >
+      {children}
+    </TouchableOpacity>
+  );
+};
 
 const styles = StyleSheet.create({
   btn: {
-    width: 24,
-    height: 24,
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -7,7 +7,7 @@ import com.facebook.react.uimanager.ViewManager
 
 class RecordingStoragePackage : ReactPackage {
     override fun createNativeModules(reactContext: ReactApplicationContext): List<NativeModule> =
-        listOf(RecordingStorageModule(reactContext))
+        listOf(RecordingStorageModule(reactContext), LiveCoverCaptureModule(reactContext))
 
     override fun createViewManagers(reactContext: ReactApplicationContext): List<ViewManager<*, *>> =
         emptyList()

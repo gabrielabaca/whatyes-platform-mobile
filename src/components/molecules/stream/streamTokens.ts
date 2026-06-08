@@ -11,6 +11,8 @@ export const STREAM_COLORS = {
   placeholder: '#71717b',
   hint: '#D8D8D8',
   white: '#FFFFFF',
+  liveStop: '#FB2C36',
+  ringMuted: '#71717B',
 } as const;
 
 export const STREAM_RADIUS = {

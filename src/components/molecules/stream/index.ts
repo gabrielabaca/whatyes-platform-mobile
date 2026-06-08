@@ -1,9 +1,11 @@
 export { StreamSellerHeader } from './StreamSellerHeader';
-export type { StreamSellerHeaderProps } from './StreamSellerHeader';
+export type { StreamSellerHeaderProps, StreamSellerHeaderVariant } from './StreamSellerHeader';
 export { StreamChatOverlay } from './StreamChatOverlay';
 export { StreamActionRail } from './StreamActionRail';
+export type { StreamActionRailProps, StreamActionRailVariant } from './StreamActionRail';
 export { StreamChatComposer } from './StreamChatComposer';
 export { StreamProductStack } from './StreamProductStack';
 export { StreamAuctionPanel } from './StreamAuctionPanel';
+export type { StreamAuctionPanelProps, StreamAuctionPanelVariant } from './StreamAuctionPanel';
 export { StreamBidBar } from './StreamBidBar';
 export { STREAM_COLORS, STREAM_RADIUS } from './streamTokens';

@@ -10,5 +10,7 @@ const styles = StyleSheet.create({
   scrim: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.18)',
+    zIndex: 2,
+    elevation: 2,
   },
 });

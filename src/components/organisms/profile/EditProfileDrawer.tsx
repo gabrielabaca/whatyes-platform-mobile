@@ -22,7 +22,8 @@ import { GlassBackdrop } from './GlassBackdrop';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Camera } from 'lucide-react-native';
-import { launchImageLibrary } from 'react-native-image-picker';
+import { launchPhotoLibraryNow } from '../../../utils/mediaPicker';
+import { deferMediaPicker } from '../../../utils/deferMediaPicker';
 import { IconUser } from '../../icons';
 import { FONT_FAMILY } from '../../../theme/typography';
 import { updateOwnProfile, type UserPublicProfile } from '../../../api/profileApi';
@@ -85,14 +86,13 @@ export const EditProfileDrawer: React.FC<EditProfileDrawerProps> = ({
   };
 
   const pickAvatar = () => {
-    launchImageLibrary({ mediaType: 'photo' }, (response) => {
-      if (response.didCancel || response.errorMessage) {
-        return;
-      }
-      const uri = response.assets?.[0]?.uri;
-      if (uri) {
-        setAvatarUri(uri);
-      }
+    deferMediaPicker(() => {
+      launchPhotoLibraryNow({ mediaType: 'photo' }, (response) => {
+        const uri = response.assets?.[0]?.uri;
+        if (uri) {
+          setAvatarUri(uri);
+        }
+      });
     });
   };
 

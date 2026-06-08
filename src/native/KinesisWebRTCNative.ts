@@ -13,6 +13,7 @@ export type KinesisWebRTCCreds = StreamWebRTCCredentialsResponse;
 /** Inicia el envío de video como Master (broadcaster). Usa JS si hay signaling_endpoint, si no el módulo nativo. */
 export type StartMasterOptions = {
   onLocalStream?: (stream: MediaStream) => void;
+  initialFacingMode?: 'user' | 'environment';
 };
 
 export async function startKinesisWebRTCMaster(
@@ -37,6 +38,32 @@ export async function startKinesisWebRTCMaster(
     );
   }
   throw new Error('WebRTC Master no disponible: falta signaling_endpoint o módulo nativo');
+}
+
+/** Pausa/reanuda video y audio hacia viewers; el preview local del seller sigue activo. */
+export async function setKinesisWebRTCMasterVideoEnabled(enabled: boolean): Promise<void> {
+  const { setKinesisWebRTCMasterVideoEnabledJS } = await import('../services/KinesisWebRTCMaster');
+  await setKinesisWebRTCMasterVideoEnabledJS(enabled);
+}
+
+/** Silencia o activa el micrófono del seller hacia viewers. */
+export async function setKinesisWebRTCMasterMicMuted(muted: boolean): Promise<void> {
+  const { setKinesisWebRTCMasterMicMutedJS } = await import('../services/KinesisWebRTCMaster');
+  await setKinesisWebRTCMasterMicMutedJS(muted);
+}
+
+/** Alterna la cámara del stream local WebRTC (frontal / trasera). */
+export async function switchKinesisWebRTCMasterCamera(
+  facingMode: 'user' | 'environment',
+): Promise<void> {
+  const { switchKinesisWebRTCMasterCameraJS } = await import('../services/KinesisWebRTCMaster');
+  await switchKinesisWebRTCMasterCameraJS(facingMode);
+}
+
+/** ID del VideoTrack local del master (si el stream está activo). */
+export async function getKinesisWebRTCMasterVideoTrackId(): Promise<string | null> {
+  const { getKinesisWebRTCMasterLocalVideoTrackId } = await import('../services/KinesisWebRTCMaster');
+  return getKinesisWebRTCMasterLocalVideoTrackId();
 }
 
 /** Detiene el Master. */

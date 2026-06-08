@@ -20,6 +20,8 @@ export interface CreateProductPayload {
   sku?: string | null;
   scope?: 'global' | 'room_exclusive';
   quantity_on_hand?: number;
+  /** Asocia el producto al catálogo del vivo activo. */
+  room_id?: string;
 }
 
 export interface ProductResponse {

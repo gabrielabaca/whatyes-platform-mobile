@@ -14,11 +14,14 @@ import { StreamGradientButton } from '../../atoms/stream/StreamGradientButton';
 import { FONT_FAMILY } from '../../../theme/typography';
 import { STREAM_COLORS } from './streamTokens';
 
+export type StreamSellerHeaderVariant = 'buyer' | 'seller';
+
 export interface StreamSellerHeaderProps {
   sellerName: string;
   avatarUrl?: string | null;
   rating?: number | null;
   viewerCount: number;
+  variant?: StreamSellerHeaderVariant;
   isFollowing?: boolean;
   onFollowPress?: () => void;
   /** Tocar avatar o nombre → perfil del vendedor. */
@@ -30,6 +33,7 @@ export const StreamSellerHeader: React.FC<StreamSellerHeaderProps> = ({
   avatarUrl,
   rating,
   viewerCount,
+  variant = 'buyer',
   isFollowing = false,
   onFollowPress,
   onSellerPress,
@@ -97,14 +101,16 @@ export const StreamSellerHeader: React.FC<StreamSellerHeaderProps> = ({
               </RNText>
             </View>
           </StreamGlassPill>
-          <View style={styles.followDivider}>
-            <StreamGradientButton
-              label={isFollowing ? t('stream.following') : t('stream.follow')}
-              onPress={handleFollow}
-              variant={isFollowing ? 'following' : 'follow'}
-              minWidth={72}
-            />
-          </View>
+          {variant === 'buyer' ? (
+            <View style={styles.followDivider}>
+              <StreamGradientButton
+                label={isFollowing ? t('stream.following') : t('stream.follow')}
+                onPress={handleFollow}
+                variant={isFollowing ? 'following' : 'follow'}
+                minWidth={72}
+              />
+            </View>
+          ) : null}
         </View>
       </View>
     </StreamGlassPill>

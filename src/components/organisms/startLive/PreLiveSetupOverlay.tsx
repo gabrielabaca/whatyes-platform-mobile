@@ -3,7 +3,8 @@ import { useTranslation } from 'react-i18next';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import ConfettiCannon from 'react-native-confetti-cannon';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { launchCamera, launchImageLibrary, type ImagePickerResponse } from 'react-native-image-picker';
+import type { ImagePickerResponse } from 'react-native-image-picker';
+import { launchPhotoCameraNow, launchPhotoLibraryNow } from '../../../utils/mediaPicker';
 import {
   Alert,
   ActivityIndicator,
@@ -413,6 +414,7 @@ export const PreLiveSetupOverlay: React.FC<{
   const { categories } = useInterestCategories();
   const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [drawer, setDrawer] = useState<Drawer>('none');
+  const [mediaPickerActive, setMediaPickerActive] = useState(false);
   const [title, setTitle] = useState(initialConfig.title || '');
   const [scheduleAt, setScheduleAt] = useState(() => scheduleFromEpoch(initialConfig.scheduledAt));
   const [showScheduleDatePicker, setShowScheduleDatePicker] = useState(false);
@@ -450,6 +452,12 @@ export const PreLiveSetupOverlay: React.FC<{
     setCoverStagingUri(null);
     setCoverUploading(false);
   }, [visible, initialConfig.coverUrl]);
+
+  useEffect(() => {
+    if (!visible) {
+      setMediaPickerActive(false);
+    }
+  }, [visible]);
 
   const handleLeavePreLive = useCallback(() => {
     clearLaunchTimers();
@@ -501,21 +509,31 @@ export const PreLiveSetupOverlay: React.FC<{
     [t],
   );
 
+  const resetMediaPickerUi = useCallback(() => {
+    setMediaPickerActive(false);
+  }, []);
+
   const handleCoverFromGallery = useCallback(() => {
-    setDrawer('none');
-    launchImageLibrary({ mediaType: 'photo', selectionLimit: 1 }, (response) => {
-      const p = coverPhotoFromPicker(response);
-      if (p) void submitCoverPhoto(p);
-    });
-  }, [submitCoverPhoto]);
+    launchPhotoLibraryNow(
+      { mediaType: 'photo', selectionLimit: 1 },
+      (response) => {
+        const p = coverPhotoFromPicker(response);
+        if (p) void submitCoverPhoto(p);
+      },
+      { onAfter: resetMediaPickerUi, onError: resetMediaPickerUi },
+    );
+  }, [resetMediaPickerUi, submitCoverPhoto]);
 
   const handleCoverFromCamera = useCallback(() => {
-    setDrawer('none');
-    launchCamera({ mediaType: 'photo', cameraType: 'back', saveToPhotos: true }, (response) => {
-      const p = coverPhotoFromPicker(response);
-      if (p) void submitCoverPhoto(p);
-    });
-  }, [submitCoverPhoto]);
+    launchPhotoCameraNow(
+      { mediaType: 'photo', cameraType: 'back', saveToPhotos: true },
+      (response) => {
+        const p = coverPhotoFromPicker(response);
+        if (p) void submitCoverPhoto(p);
+      },
+      { onAfter: resetMediaPickerUi, onError: resetMediaPickerUi },
+    );
+  }, [resetMediaPickerUi, submitCoverPhoto]);
 
   const buildConfig = (): StreamConfig => ({
     ...initialConfig,
@@ -556,7 +574,13 @@ export const PreLiveSetupOverlay: React.FC<{
   if (!visible) return null;
 
   return (
-    <Modal visible transparent animationType="fade" statusBarTranslucent onRequestClose={handleLeavePreLive}>
+    <Modal
+      visible={!mediaPickerActive}
+      transparent
+      animationType="fade"
+      statusBarTranslucent
+      onRequestClose={handleLeavePreLive}
+    >
       <View style={styles.overlay}>
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <View style={styles.header}>
@@ -754,9 +778,12 @@ export const PreLiveSetupOverlay: React.FC<{
 
         <AddProductPhotoSourceDrawer
           visible={drawer === 'coverSource'}
+          presentation="overlay"
           photoCount={0}
           maxPhotos={1}
           onClose={() => setDrawer('none')}
+          onBeforePicker={() => setMediaPickerActive(true)}
+          onAfterPicker={resetMediaPickerUi}
           onTakePhoto={handleCoverFromCamera}
           onChooseGallery={handleCoverFromGallery}
         />

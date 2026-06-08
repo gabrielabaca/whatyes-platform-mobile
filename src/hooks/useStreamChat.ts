@@ -74,6 +74,9 @@ export function useStreamChat({ roomId, accessToken, enabled = true, onLike }: U
   const [auction, setAuction] = useState<AuctionState | null>(null);
   const [auctionBids, setAuctionBids] = useState<AuctionBid[]>([]);
   const [auctionWinner, setAuctionWinner] = useState<AuctionWinner | null>(null);
+  const [isStreamPaused, setIsStreamPaused] = useState(false);
+  const [roomCoverUrl, setRoomCoverUrl] = useState<string | null>(null);
+  const [roomIntroVideoUrl, setRoomIntroVideoUrl] = useState<string | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -111,6 +114,14 @@ export function useStreamChat({ roomId, accessToken, enabled = true, onLike }: U
     [send]
   );
 
+  const sendStreamPause = useCallback(() => {
+    send({ type: 'stream_pause' });
+  }, [send]);
+
+  const sendStreamResume = useCallback(() => {
+    send({ type: 'stream_resume' });
+  }, [send]);
+
   useEffect(() => {
     if (!enabled || !roomId || !accessToken) return;
 
@@ -143,6 +154,15 @@ export function useStreamChat({ roomId, accessToken, enabled = true, onLike }: U
             }
             if (typeof msg.payload.likes_count === 'number') {
               setLikesCount(msg.payload.likes_count);
+            }
+            if (typeof msg.payload.stream_paused === 'boolean') {
+              setIsStreamPaused(msg.payload.stream_paused);
+            }
+            if (typeof msg.payload.cover_url === 'string' && msg.payload.cover_url.trim()) {
+              setRoomCoverUrl(msg.payload.cover_url.trim());
+            }
+            if (typeof msg.payload.intro_video_url === 'string' && msg.payload.intro_video_url.trim()) {
+              setRoomIntroVideoUrl(msg.payload.intro_video_url.trim());
             }
             const a = msg.payload.auction;
             if (a && a.id && typeof a.ends_at === 'number' && a.ends_at > Math.floor(Date.now() / 1000)) {
@@ -203,6 +223,17 @@ export function useStreamChat({ roomId, accessToken, enabled = true, onLike }: U
           }
           if (msg.type === 'viewers' && msg.payload && typeof msg.payload.count === 'number') {
             setViewerCount(msg.payload.count);
+            return;
+          }
+          if (msg.type === 'stream_status' && msg.payload) {
+            setIsStreamPaused(Boolean(msg.payload.paused));
+            return;
+          }
+          if (msg.type === 'cover_updated' && msg.payload) {
+            const url = msg.payload.cover_url;
+            if (typeof url === 'string' && url.trim()) {
+              setRoomCoverUrl(url.trim());
+            }
             return;
           }
           if (msg.type === 'like' && msg.payload) {
@@ -282,6 +313,11 @@ export function useStreamChat({ roomId, accessToken, enabled = true, onLike }: U
     sendLike,
     sendAuctionStart,
     sendBid,
+    sendStreamPause,
+    sendStreamResume,
+    isStreamPaused,
+    roomCoverUrl,
+    roomIntroVideoUrl,
     auction,
     isAuctionActive,
     auctionSecondsRemaining,

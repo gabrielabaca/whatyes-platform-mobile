@@ -29,11 +29,12 @@ import type { MediaStream } from 'react-native-webrtc';
 import { useStreamChat } from '../../../hooks/useStreamChat';
 import { AuctionWinnerOverlay } from '../../molecules/AuctionWinnerOverlay/AuctionWinnerOverlay';
 import { useFloatingHearts, FloatingHeartsLayer } from '../../molecules/FloatingHearts/FloatingHearts';
-import { enableSpeakerphone, disableSpeakerphone } from '../../../utils/audioRoute';
-import KeepAwake from 'react-native-keep-awake';
+import { enableSpeakerphone, disableSpeakerphone, muteSpeakerOutput } from '../../../utils/audioRoute';
+import { useLiveKeepAwake } from '../../../hooks/useLiveKeepAwake';
 import { StreamBuyerOverlay } from '../../organisms/stream/StreamBuyerOverlay';
 import { StreamRoomProductsDrawer } from '../../organisms/stream/StreamRoomProductsDrawer';
 import { StreamVideoScrim } from '../../organisms/stream/StreamVideoScrim';
+import { StreamPausedMedia } from '../../organisms/stream/StreamPausedMedia';
 import { UserProfileScreen } from '../UserProfileScreen';
 import { useSellerFollow } from '../../../hooks/useSellerFollow';
 import { FollowSuccessCelebration } from '../../molecules/profile';
@@ -77,6 +78,13 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({ stream, onClose }) =
   const { isRecording, recordingTimeLabel, toggleRecording } = useLiveScreenRecording();
   const wallet = useStreamWalletFlow();
   const [sellerFollowInitial, setSellerFollowInitial] = useState(false);
+  // No usar stream.thumbnail como cover de pausa: puede contener el avatar del seller.
+  // El cover real se obtiene del WS (cover_url) o del GET /rooms, ambos sólo devuelven imágenes S3.
+  const [roomCoverUrl, setRoomCoverUrl] = useState<string | null>(null);
+  const [roomIntroVideoUrl, setRoomIntroVideoUrl] = useState<string | null>(null);
+  const [isAudioMuted, setIsAudioMuted] = useState(false);
+  const [rtcViewEpoch, setRtcViewEpoch] = useState(0);
+  const wasStreamPausedRef = useRef(false);
 
   const {
     isFollowing: isFollowingSeller,
@@ -102,14 +110,15 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({ stream, onClose }) =
     auctionSecondsRemaining,
     auctionBids,
     auctionWinner,
+    isStreamPaused,
+    roomCoverUrl: wsCoverUrl,
+    roomIntroVideoUrl: wsIntroVideoUrl,
   } = useStreamChat({ roomId, accessToken: chatToken, onLike: handleLikeEvent });
 
-  useEffect(() => {
-    KeepAwake.activate();
-    return () => {
-      KeepAwake.deactivate();
-    };
-  }, []);
+  const effectiveCoverUrl = wsCoverUrl ?? roomCoverUrl;
+  const effectiveIntroVideoUrl = wsIntroVideoUrl ?? roomIntroVideoUrl;
+
+  useLiveKeepAwake();
 
   // Carga el token del chat en paralelo con el WebRTC para que el WebSocket conecte lo antes posible
   useEffect(() => {
@@ -121,6 +130,28 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({ stream, onClose }) =
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!chatToken || !roomId) return;
+    let cancelled = false;
+    getRooms(chatToken)
+      .then((rooms) => {
+        if (cancelled) return;
+        const room = rooms.find((r) => r.uuid === roomId);
+        if (room) {
+          if (room.cover_url?.trim()) {
+            setRoomCoverUrl(room.cover_url.trim());
+          }
+          if (room.intro_video_url?.trim()) {
+            setRoomIntroVideoUrl(room.intro_video_url.trim());
+          }
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [chatToken, roomId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -315,6 +346,33 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({ stream, onClose }) =
     };
   }, [remoteStream]);
 
+  useEffect(() => {
+    if (!remoteStream) return;
+    const shouldPlayAudio = !isStreamPaused && !isAudioMuted;
+    remoteStream.getAudioTracks().forEach((track) => {
+      track.enabled = shouldPlayAudio;
+    });
+    remoteStream.getVideoTracks().forEach((track) => {
+      track.enabled = true;
+    });
+    if (shouldPlayAudio) {
+      enableSpeakerphone();
+    } else {
+      muteSpeakerOutput();
+    }
+  }, [remoteStream, isStreamPaused, isAudioMuted]);
+
+  useEffect(() => {
+    if (wasStreamPausedRef.current && !isStreamPaused && remoteStream) {
+      setRtcViewEpoch((epoch) => epoch + 1);
+    }
+    wasStreamPausedRef.current = isStreamPaused;
+  }, [isStreamPaused, remoteStream]);
+
+  const handleToggleAudio = useCallback(() => {
+    setIsAudioMuted((prev) => !prev);
+  }, []);
+
   const handleSendMessage = () => {
     if (messageText.trim()) {
       sendChat(messageText.trim());
@@ -359,7 +417,7 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({ stream, onClose }) =
     );
   }
 
-  if (isConnecting || !remoteStream) {
+  if ((isConnecting || !remoteStream) && !isStreamPaused) {
     return (
       <View style={[styles.container, styles.loadingScreen]}>
         <View style={styles.loadingContent}>
@@ -397,13 +455,24 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({ stream, onClose }) =
     <View style={styles.container}>
       <StatusBar hidden />
 
-      <RTCView
-        streamURL={remoteStream.toURL()}
-        style={styles.video}
-        objectFit="cover"
-        zOrder={1}
-        pointerEvents="none"
-      />
+      {remoteStream ? (
+        <RTCView
+          key={`viewer-rtc-${rtcViewEpoch}`}
+          streamURL={remoteStream.toURL()}
+          style={[styles.video, isStreamPaused && styles.videoWhilePaused]}
+          objectFit="cover"
+          zOrder={0}
+          pointerEvents="none"
+        />
+      ) : null}
+
+      {isStreamPaused ? (
+        <StreamPausedMedia
+          variant="viewer"
+          introVideoUrl={effectiveIntroVideoUrl}
+          coverUrl={effectiveCoverUrl}
+        />
+      ) : null}
 
       <StreamVideoScrim />
 
@@ -449,6 +518,8 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({ stream, onClose }) =
         onFollowSeller={() => {
           void toggleSellerFollow();
         }}
+        isAudioMuted={isAudioMuted}
+        onToggleAudio={handleToggleAudio}
       />
 
       {sellerProfileUserId ? (
@@ -589,6 +660,9 @@ const styles = StyleSheet.create({
   },
   video: {
     ...StyleSheet.absoluteFillObject,
+  },
+  videoWhilePaused: {
+    opacity: 0,
   },
 
   errorBtn: {

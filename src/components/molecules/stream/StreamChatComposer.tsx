@@ -11,9 +11,11 @@ export interface StreamChatComposerProps {
   value: string;
   onChangeText: (text: string) => void;
   onSubmit: () => void;
-  onLike: () => void;
+  onLike?: () => void;
+  showLikeButton?: boolean;
   productImageUrls?: string[];
   productExtraCount?: number;
+  showProductPlaceholder?: boolean;
   onProductStackPress?: () => void;
 }
 
@@ -22,8 +24,10 @@ export const StreamChatComposer: React.FC<StreamChatComposerProps> = ({
   onChangeText,
   onSubmit,
   onLike,
+  showLikeButton = true,
   productImageUrls,
   productExtraCount,
+  showProductPlaceholder,
   onProductStackPress,
 }) => {
   const { t } = useTranslation();
@@ -41,13 +45,16 @@ export const StreamChatComposer: React.FC<StreamChatComposerProps> = ({
           onSubmitEditing={onSubmit}
           blurOnSubmit={false}
         />
-        <StreamIconButton onPress={onLike} accessibilityLabel={t('stream.like')}>
-          <Heart size={22} color="#FB2C36" fill="#FB2C36" />
-        </StreamIconButton>
+        {showLikeButton ? (
+          <StreamIconButton onPress={onLike} accessibilityLabel={t('stream.like')}>
+            <Heart size={22} color="#FB2C36" fill="#FB2C36" />
+          </StreamIconButton>
+        ) : null}
       </View>
       <StreamProductStack
         imageUrls={productImageUrls}
         extraCount={productExtraCount}
+        showPlaceholder={showProductPlaceholder}
         onPress={onProductStackPress}
       />
     </View>
@@ -70,7 +77,8 @@ const styles = StyleSheet.create({
     borderWidth: 0.7,
     borderColor: STREAM_COLORS.chatInputBorder,
     borderRadius: STREAM_RADIUS.pill,
-    paddingHorizontal: 16,
+    paddingLeft: 16,
+    paddingRight: 10,
     gap: 8,
   },
   input: {

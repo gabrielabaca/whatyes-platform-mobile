@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { View, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { View, StyleSheet, Keyboard, Platform, type KeyboardEvent } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   StreamSellerHeader,
@@ -47,6 +47,8 @@ export interface StreamBuyerOverlayProps {
   onSellerPress?: () => void;
   isFollowingSeller?: boolean;
   onFollowSeller?: () => void;
+  isAudioMuted?: boolean;
+  onToggleAudio?: () => void;
 }
 
 export const StreamBuyerOverlay: React.FC<StreamBuyerOverlayProps> = ({
@@ -77,8 +79,32 @@ export const StreamBuyerOverlay: React.FC<StreamBuyerOverlayProps> = ({
   onSellerPress,
   isFollowingSeller,
   onFollowSeller,
+  isAudioMuted,
+  onToggleAudio,
 }) => {
   const insets = useSafeAreaInsets();
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const onShow = (event: KeyboardEvent) => {
+      setKeyboardHeight(event.endCoordinates.height);
+    };
+    const onHide = () => setKeyboardHeight(0);
+
+    const showSub = Keyboard.addListener(showEvent, onShow);
+    const hideSub = Keyboard.addListener(hideEvent, onHide);
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
+  const isKeyboardVisible = keyboardHeight > 0;
+  const contentPaddingBottom = isKeyboardVisible ? 5 : insets.bottom + 32;
 
   const lastBid = auctionBids.length > 0 ? auctionBids[auctionBids.length - 1] : null;
   const bidAmount = lastBid?.amount ?? 0;
@@ -103,17 +129,15 @@ export const StreamBuyerOverlay: React.FC<StreamBuyerOverlayProps> = ({
     stackUrls.length > 3 ? stackUrls.length - 3 : 0;
 
   return (
-    <KeyboardAvoidingView
+    <View
       style={[
         styles.root,
         {
           paddingTop: Math.max(insets.top, Platform.OS === 'android' ? 36 : 16) + 8,
-          paddingBottom: insets.bottom + 32,
+          bottom: keyboardHeight,
         },
       ]}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       pointerEvents="box-none"
-      keyboardVerticalOffset={0}
     >
       <StreamSellerHeader
         sellerName={sellerName}
@@ -125,53 +149,68 @@ export const StreamBuyerOverlay: React.FC<StreamBuyerOverlayProps> = ({
         onFollowPress={onFollowSeller}
       />
 
-      <View style={styles.midRow}>
-        <StreamChatOverlay messages={messages} />
-        <StreamActionRail
-          onExit={onExit}
-          onOpenWallet={onOpenWallet}
-          isRecording={isRecording}
-          recordingTimeLabel={recordingTimeLabel}
-          onToggleRecording={onToggleRecording}
+      <View style={[styles.contentBlock, { paddingBottom: contentPaddingBottom }]}>
+        <View style={styles.midRow}>
+          <StreamChatOverlay messages={messages} />
+          <StreamActionRail
+            onExit={onExit}
+            onOpenWallet={onOpenWallet}
+            isRecording={isRecording}
+            recordingTimeLabel={recordingTimeLabel}
+            onToggleRecording={onToggleRecording}
+            isAudioMuted={isAudioMuted}
+            onToggleAudio={onToggleAudio}
+          />
+        </View>
+
+        <StreamChatComposer
+          value={messageText}
+          onChangeText={onMessageChange}
+          onSubmit={onSendMessage}
+          onLike={onLike}
+          productImageUrls={stackUrls}
+          productExtraCount={stackExtra}
+          onProductStackPress={onOpenProductCatalog}
+        />
+
+        <StreamAuctionPanel
+          productTitle={productTitle}
+          itemCount={itemCount}
+          winningUsername={winningUsername}
+          currentPrice={currentPrice}
+          secondsRemaining={auctionSecondsRemaining}
+          isAuctionActive={isAuctionActive}
+          onPressItemsRow={onOpenProductCatalog}
+        />
+
+        <StreamBidBar
+          bidAmount={suggestedBid}
+          onBid={() => onBid(suggestedBid)}
+          isAuctionActive={isAuctionActive}
         />
       </View>
-
-      <StreamChatComposer
-        value={messageText}
-        onChangeText={onMessageChange}
-        onSubmit={onSendMessage}
-        onLike={onLike}
-        productImageUrls={stackUrls}
-        productExtraCount={stackExtra}
-        onProductStackPress={onOpenProductCatalog}
-      />
-
-      <StreamAuctionPanel
-        productTitle={productTitle}
-        itemCount={itemCount}
-        winningUsername={winningUsername}
-        currentPrice={currentPrice}
-        secondsRemaining={auctionSecondsRemaining}
-        isAuctionActive={isAuctionActive}
-        onPressItemsRow={onOpenProductCatalog}
-      />
-
-      <StreamBidBar
-        bidAmount={suggestedBid}
-        onBid={() => onBid(suggestedBid)}
-        isAuctionActive={isAuctionActive}
-      />
-    </KeyboardAvoidingView>
+    </View>
   );
 };
 
+
 const styles = StyleSheet.create({
   root: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
     paddingHorizontal: 24,
     justifyContent: 'space-between',
-    zIndex: 2,
+    zIndex: 10,
+    elevation: 10,
     backgroundColor: 'transparent',
+  },
+  contentBlock: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    gap: 16,
+    width: '100%',
   },
   midRow: {
     flex: 1,
@@ -179,5 +218,6 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     gap: 8,
     minHeight: 120,
+    width: '100%',
   },
 });

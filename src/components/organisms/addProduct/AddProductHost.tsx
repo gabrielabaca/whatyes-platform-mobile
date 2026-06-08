@@ -53,6 +53,7 @@ export const AddProductHost: React.FC<AddProductHostProps> = ({
     <View style={styles.host} pointerEvents="box-none">
       <AddProductPhotoSourceDrawer
         visible={activeDrawer === 'photos'}
+        presentation="overlay"
         photoCount={photoCount}
         maxPhotos={MAX_PRODUCT_PHOTOS}
         onClose={onCloseDrawer}

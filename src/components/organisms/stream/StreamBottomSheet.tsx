@@ -238,7 +238,9 @@ const styles = StyleSheet.create({
     gap: 24,
   },
   panel: {
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: 'rgba(2, 5, 15, 0.4)',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     paddingHorizontal: 24,
     paddingTop: 24,
     paddingBottom: 8,

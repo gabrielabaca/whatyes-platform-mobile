@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import {
   Modal,
+  Platform,
   StyleSheet,
   View,
   Text as RNText,
@@ -13,17 +14,28 @@ import { Camera, ChevronRight, Images } from 'lucide-react-native';
 import { StreamBottomSheet } from '../stream/StreamBottomSheet';
 import { addProductStyles } from './addProductStyles';
 import { startLivePanelStyle } from '../startLive/startLiveStyles';
+import { deferMediaPicker } from '../../../utils/deferMediaPicker';
 
 export interface AddProductPhotoSourceDrawerProps {
   visible: boolean;
   photoCount: number;
   maxPhotos: number;
   onClose: () => void;
+  /** Solo abre el picker; el drawer ya cerró overlays y aplicó defer en iOS. */
   onTakePhoto: () => void;
   onChooseGallery: () => void;
+  /**
+   * `overlay`: sin Modal RN (recomendado en iOS y sobre streams).
+   * `modal`: pantallas sin host absoluto.
+   */
+  presentation?: 'modal' | 'overlay';
+  showCameraOption?: boolean;
+  /** Oculta modales padre antes del picker (p. ej. PreLiveSetupOverlay). */
+  onBeforePicker?: () => void;
+  onAfterPicker?: () => void;
 }
 
-/** Origen de fotos — mismo patrón que condición / peso (StreamBottomSheet). */
+/** Origen de fotos — cierra sheets/modales y difiere el picker en iOS. */
 export const AddProductPhotoSourceDrawer: React.FC<AddProductPhotoSourceDrawerProps> = ({
   visible,
   photoCount,
@@ -31,11 +43,31 @@ export const AddProductPhotoSourceDrawer: React.FC<AddProductPhotoSourceDrawerPr
   onClose,
   onTakePhoto,
   onChooseGallery,
+  presentation = Platform.OS === 'ios' ? 'overlay' : 'modal',
+  showCameraOption = true,
+  onBeforePicker,
+  onAfterPicker,
 }) => {
   const { t } = useTranslation();
   const remaining = maxPhotos - photoCount;
   const atLimit = remaining <= 0;
   const panelStyle: StyleProp<ViewStyle> = [startLivePanelStyle, { paddingTop: 28 }];
+
+  const runPickerAction = useCallback(
+    (action: () => void) => {
+      if (atLimit) return;
+      onClose();
+      onBeforePicker?.();
+      deferMediaPicker(() => {
+        try {
+          action();
+        } catch {
+          onAfterPicker?.();
+        }
+      });
+    },
+    [atLimit, onClose, onBeforePicker, onAfterPicker],
+  );
 
   const options = [
     {
@@ -43,16 +75,67 @@ export const AddProductPhotoSourceDrawer: React.FC<AddProductPhotoSourceDrawerPr
       labelKey: 'addProduct.takePhoto' as const,
       hintKey: 'addProduct.takePhotoHint' as const,
       icon: Camera,
-      onPress: onTakePhoto,
+      onPress: () => runPickerAction(onTakePhoto),
     },
     {
       id: 'gallery' as const,
       labelKey: 'addProduct.chooseFromGallery' as const,
       hintKey: 'addProduct.chooseFromGalleryHint' as const,
       icon: Images,
-      onPress: onChooseGallery,
+      onPress: () => runPickerAction(onChooseGallery),
     },
   ];
+
+  const sheet = (
+    <StreamBottomSheet
+      visible={visible}
+      title={t('addProduct.photoPickerTitle')}
+      onClose={onClose}
+      bottomPanel
+      panelStyle={panelStyle}
+      contentContainerStyle={addProductStyles.photoSourceBody}
+      scrollEnabled={false}
+    >
+      <RNText style={addProductStyles.photoSourceIntro}>
+        {atLimit
+          ? t('addProduct.maxPhotos', { count: maxPhotos })
+          : t('addProduct.photoPickerSubtitle', { remaining, max: maxPhotos })}
+      </RNText>
+
+      {!showCameraOption ? (
+        <RNText style={addProductStyles.photoSourceIntro}>{t('stream.addProductGalleryOnlyHint')}</RNText>
+      ) : null}
+
+      <View style={addProductStyles.photoSourceList}>
+        {options.filter((opt) => showCameraOption || opt.id !== 'camera').map((opt) => {
+          const Icon = opt.icon;
+          return (
+            <TouchableOpacity
+              key={opt.id}
+              style={[addProductStyles.photoSourceRow, atLimit && addProductStyles.photoSourceRowDisabled]}
+              onPress={opt.onPress}
+              disabled={atLimit}
+              activeOpacity={0.85}
+            >
+              <View style={addProductStyles.photoSourceIconWrap}>
+                <Icon size={20} color="#685CF0" strokeWidth={2.3} />
+              </View>
+              <View style={addProductStyles.photoSourceTextCol}>
+                <RNText style={addProductStyles.photoSourceTitle}>{t(opt.labelKey)}</RNText>
+                <RNText style={addProductStyles.photoSourceHint}>{t(opt.hintKey)}</RNText>
+              </View>
+              <ChevronRight size={20} color="#D9D9D9" strokeWidth={2.2} />
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    </StreamBottomSheet>
+  );
+
+  if (presentation === 'overlay') {
+    if (!visible) return null;
+    return <View style={styles.overlayHost}>{sheet}</View>;
+  }
 
   return (
     <Modal
@@ -62,47 +145,7 @@ export const AddProductPhotoSourceDrawer: React.FC<AddProductPhotoSourceDrawerPr
       statusBarTranslucent
       onRequestClose={onClose}
     >
-      <View style={styles.modalRoot}>
-        <StreamBottomSheet
-          visible={visible}
-          title={t('addProduct.photoPickerTitle')}
-          onClose={onClose}
-          bottomPanel
-          panelStyle={panelStyle}
-          contentContainerStyle={addProductStyles.photoSourceBody}
-          scrollEnabled={false}
-        >
-          <RNText style={addProductStyles.photoSourceIntro}>
-            {atLimit
-              ? t('addProduct.maxPhotos', { count: maxPhotos })
-              : t('addProduct.photoPickerSubtitle', { remaining, max: maxPhotos })}
-          </RNText>
-
-          <View style={addProductStyles.photoSourceList}>
-            {options.map((opt) => {
-              const Icon = opt.icon;
-              return (
-                <TouchableOpacity
-                  key={opt.id}
-                  style={[addProductStyles.photoSourceRow, atLimit && addProductStyles.photoSourceRowDisabled]}
-                  onPress={() => !atLimit && opt.onPress()}
-                  disabled={atLimit}
-                  activeOpacity={0.85}
-                >
-                  <View style={addProductStyles.photoSourceIconWrap}>
-                    <Icon size={20} color="#685CF0" strokeWidth={2.3} />
-                  </View>
-                  <View style={addProductStyles.photoSourceTextCol}>
-                    <RNText style={addProductStyles.photoSourceTitle}>{t(opt.labelKey)}</RNText>
-                    <RNText style={addProductStyles.photoSourceHint}>{t(opt.hintKey)}</RNText>
-                  </View>
-                  <ChevronRight size={20} color="#D9D9D9" strokeWidth={2.2} />
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </StreamBottomSheet>
-      </View>
+      <View style={styles.modalRoot}>{sheet}</View>
     </Modal>
   );
 };
@@ -111,5 +154,10 @@ const styles = StyleSheet.create({
   modalRoot: {
     flex: 1,
     backgroundColor: 'transparent',
+  },
+  overlayHost: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 350,
+    elevation: 350,
   },
 });

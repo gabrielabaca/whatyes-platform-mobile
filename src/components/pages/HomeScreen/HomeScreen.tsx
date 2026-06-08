@@ -193,21 +193,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         return;
       }
       if (tab === 'create') {
-        if (isBuyer) {
-          onStartNewStream?.();
-          return;
-        }
-        if (isSeller) {
-          setHomePath({ name: 'sellerHub' });
-          return;
-        }
+        setHomePath({ name: 'sellerHub' });
         return;
       }
       if (tab === 'activity') {
         Alert.alert(t('common.appName'), t('home.placeholderScreen'));
       }
     },
-    [isBuyer, isSeller, onStartNewStream, t]
+    [onStartNewStream, t]
   );
 
   if (!user) {

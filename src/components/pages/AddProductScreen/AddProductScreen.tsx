@@ -224,8 +224,8 @@ export const AddProductScreen: React.FC<AddProductScreenProps> = ({ onCancel, on
         }}
         onCondition={(value: ProductConditionId) => form.setCondition(value)}
         photoCount={form.photos.length}
-        onTakePhoto={form.handleTakePhotoFromDrawer}
-        onChooseGallery={form.handleGalleryFromDrawer}
+        onTakePhoto={form.openCamera}
+        onChooseGallery={form.openGallery}
       />
 
       <AddProductSuccessCelebration

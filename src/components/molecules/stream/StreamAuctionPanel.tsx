@@ -4,8 +4,11 @@ import { ChevronRight } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { StreamPriceText } from '../../atoms/stream/StreamPriceText';
 import { StreamCountdownText } from '../../atoms/stream/StreamCountdownText';
+import { AuctionStatusRow } from '../../atoms/AuctionStatusRow';
 import { FONT_FAMILY } from '../../../theme/typography';
 import { STREAM_COLORS } from './streamTokens';
+
+export type StreamAuctionPanelVariant = 'buyer' | 'seller';
 
 export interface StreamAuctionPanelProps {
   productTitle: string;
@@ -14,6 +17,7 @@ export interface StreamAuctionPanelProps {
   currentPrice: number;
   secondsRemaining: number | null;
   isAuctionActive: boolean;
+  variant?: StreamAuctionPanelVariant;
   /** Tocar la fila "N artículos" (misma acción que el stack de fotos). */
   onPressItemsRow?: () => void;
 }
@@ -25,6 +29,7 @@ export const StreamAuctionPanel: React.FC<StreamAuctionPanelProps> = ({
   currentPrice,
   secondsRemaining,
   isAuctionActive,
+  variant = 'buyer',
   onPressItemsRow,
 }) => {
   const { t } = useTranslation();
@@ -37,31 +42,38 @@ export const StreamAuctionPanel: React.FC<StreamAuctionPanelProps> = ({
     Alert.alert(t('common.appName'), t('stream.comingSoon'));
   };
 
+  const statusLabel = winningUsername
+    ? t('stream.winning', { username: winningUsername })
+    : variant === 'seller' || isAuctionActive
+      ? t('stream.noBidsYet')
+      : null;
+
+  const showStatusRow = variant === 'seller' ? statusLabel != null : winningUsername != null;
+
   return (
     <View style={styles.panel}>
       <View style={styles.left}>
-        {winningUsername ? (
-          <View style={styles.winningRow}>
-            <RNText style={styles.trophy}>🏆</RNText>
-            <RNText style={styles.winningText} numberOfLines={1}>
-              {t('stream.winning', { username: winningUsername })}
-            </RNText>
-          </View>
+        {showStatusRow && statusLabel ? (
+          <AuctionStatusRow label={statusLabel} />
         ) : null}
         <RNText style={styles.title} numberOfLines={1}>
           {productTitle}
         </RNText>
-        <TouchableOpacity style={styles.itemsRow} onPress={handleItemsPress} activeOpacity={0.8}>
-          <RNText style={styles.itemsText}>
-            {t('stream.itemsCount', { count: itemCount })}
-          </RNText>
-          <ChevronRight size={16} color={STREAM_COLORS.white} />
-        </TouchableOpacity>
+        {variant === 'buyer' ? (
+          <TouchableOpacity style={styles.itemsRow} onPress={handleItemsPress} activeOpacity={0.8}>
+            <RNText style={styles.itemsText}>
+              {t('stream.itemsCount', { count: itemCount })}
+            </RNText>
+            <ChevronRight size={16} color={STREAM_COLORS.white} />
+          </TouchableOpacity>
+        ) : null}
       </View>
       <View style={styles.right}>
         <StreamPriceText amount={currentPrice} />
         <StreamCountdownText seconds={secondsRemaining} />
-        <RNText style={styles.shippingLabel}>{t('stream.shippingRate')}</RNText>
+        {variant === 'buyer' ? (
+          <RNText style={styles.shippingLabel}>{t('stream.shippingRate')}</RNText>
+        ) : null}
       </View>
     </View>
   );
@@ -79,22 +91,6 @@ const styles = StyleSheet.create({
     minWidth: 0,
     gap: 8,
     justifyContent: 'center',
-  },
-  winningRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  trophy: {
-    fontSize: 14,
-  },
-  winningText: {
-    fontFamily: FONT_FAMILY.bold,
-    fontSize: 12,
-    lineHeight: 20,
-    color: STREAM_COLORS.white,
-    flex: 1,
-    includeFontPadding: false,
   },
   title: {
     fontFamily: FONT_FAMILY.semibold,

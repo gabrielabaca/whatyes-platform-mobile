@@ -2,10 +2,11 @@ import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert } from 'react-native';
 import {
-  launchCamera,
-  launchImageLibrary,
-  type ImagePickerResponse,
-} from 'react-native-image-picker';
+  launchPhotoCameraNow,
+  launchPhotoLibraryNow,
+  photosFromPickerResponse,
+  showMediaPickerError,
+} from '../utils/mediaPicker';
 import { createProduct, uploadProductImages } from '../api/productsApi';
 import type { InterestCategoryItem } from '../api/types';
 import type {
@@ -46,19 +47,6 @@ function sanitizePrice(value: string): string {
   const decimals = decimalParts.join('').slice(0, 2);
   const cleanWhole = whole.replace(/^0+(?=\d)/, '').slice(0, 9);
   return decimalParts.length > 0 ? `${cleanWhole || '0'}.${decimals}` : cleanWhole;
-}
-
-function assetsToPhotos(response: ImagePickerResponse): LocalPhoto[] {
-  if (response.didCancel || response.errorMessage) {
-    return [];
-  }
-  return (response.assets ?? [])
-    .filter((a) => a.uri)
-    .map((a, i) => ({
-      uri: a.uri!,
-      type: a.type ?? 'image/jpeg',
-      name: a.fileName ?? `photo-${Date.now()}-${i}.jpg`,
-    }));
 }
 
 export function useAddProductForm(options: {
@@ -158,9 +146,13 @@ export function useAddProductForm(options: {
       Alert.alert(t('common.appName'), t('addProduct.maxPhotos', { count: MAX_PRODUCT_PHOTOS }));
       return;
     }
-    launchCamera({ mediaType: 'photo', cameraType: 'back', saveToPhotos: true }, (response) => {
-      appendPhotos(assetsToPhotos(response));
-    });
+    launchPhotoCameraNow(
+      { mediaType: 'photo', cameraType: 'back', saveToPhotos: true },
+      (response) => appendPhotos(photosFromPickerResponse(response)),
+      {
+        onError: (message) => showMediaPickerError(t('common.appName'), message),
+      },
+    );
   }, [appendPhotos, photos.length, t]);
 
   const openGallery = useCallback(() => {
@@ -169,27 +161,18 @@ export function useAddProductForm(options: {
       Alert.alert(t('common.appName'), t('addProduct.maxPhotos', { count: MAX_PRODUCT_PHOTOS }));
       return;
     }
-    launchImageLibrary(
+    launchPhotoLibraryNow(
       { mediaType: 'photo', selectionLimit: remaining },
-      (response) => {
-        appendPhotos(assetsToPhotos(response));
-      }
+      (response) => appendPhotos(photosFromPickerResponse(response)),
+      {
+        onError: (message) => showMediaPickerError(t('common.appName'), message),
+      },
     );
   }, [appendPhotos, photos.length, t]);
 
   const pickPhotos = useCallback(() => {
     setActiveDrawer('photos');
   }, []);
-
-  const handleTakePhotoFromDrawer = useCallback(() => {
-    setActiveDrawer('none');
-    openCamera();
-  }, [openCamera]);
-
-  const handleGalleryFromDrawer = useCallback(() => {
-    setActiveDrawer('none');
-    openGallery();
-  }, [openGallery]);
 
   const removePhoto = useCallback((uri: string) => {
     setPhotos((prev) => prev.filter((p) => p.uri !== uri));
@@ -275,8 +258,8 @@ export function useAddProductForm(options: {
     setSku: handleSkuChange,
     photos,
     pickPhotos,
-    handleTakePhotoFromDrawer,
-    handleGalleryFromDrawer,
+    openCamera,
+    openGallery,
     removePhoto,
     maxPhotos: MAX_PRODUCT_PHOTOS,
     canAddMorePhotos: photos.length < MAX_PRODUCT_PHOTOS,
