@@ -5,6 +5,11 @@ import { PLATFORM_HTTP_URL } from './config';
 import { ApiError } from './authApi';
 import { storage } from '../utils/storage';
 import type { PackageTierId, ProductConditionId, SaleFormatId } from '../constants/productWeightPresets';
+import type {
+  LiveSaleMode,
+  ProductStatus,
+  RaffleParticipationMode,
+} from './types';
 
 export interface CreateProductPayload {
   title: string;
@@ -22,6 +27,11 @@ export interface CreateProductPayload {
   quantity_on_hand?: number;
   /** Asocia el producto al catálogo del vivo activo. */
   room_id?: string;
+  live_sale_mode?: LiveSaleMode;
+  min_bid_cents?: number;
+  auction_duration_seconds?: number;
+  raffle_participation_mode?: RaffleParticipationMode;
+  status?: ProductStatus;
 }
 
 export interface ProductResponse {
@@ -40,7 +50,39 @@ export interface ProductResponse {
   condition: string | null;
   sku: string | null;
   quantity_on_hand: number;
+  status?: string;
   created_at: number;
+}
+
+export interface SellerProductListItem {
+  uuid: string;
+  title: string;
+  image_url: string | null;
+  base_price_cents: number;
+  currency: string;
+  quantity_on_hand: number;
+  status: string;
+  in_current_room: boolean;
+}
+
+export async function listMyProducts(options?: {
+  roomId?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<SellerProductListItem[]> {
+  const params = new URLSearchParams();
+  if (options?.roomId) params.set('room_id', options.roomId);
+  if (options?.limit != null) params.set('limit', String(options.limit));
+  if (options?.offset != null) params.set('offset', String(options.offset));
+  const q = params.toString() ? `?${params.toString()}` : '';
+  const response = await fetch(`${PLATFORM_HTTP_URL}/me/products${q}`, {
+    headers: await authHeaders(),
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    throw new ApiError(response.status, data?.detail ?? 'Error al listar productos', data);
+  }
+  return Array.isArray(data) ? data : [];
 }
 
 async function authHeaders(json = false): Promise<Record<string, string>> {

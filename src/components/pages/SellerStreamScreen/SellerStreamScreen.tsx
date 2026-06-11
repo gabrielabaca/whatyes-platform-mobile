@@ -4,7 +4,7 @@
  * UI overlay: Figma 636-30152 vía StreamSellerOverlay.
  */
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   View,
@@ -36,6 +36,10 @@ import {
   getWebRTCCredentials,
   getRoomLiveCommerce,
   getRoomCatalog,
+  setActiveRoomProduct,
+  pinRoomProduct,
+  startRoomProductAuction,
+  startRoomProductRaffle,
   type LiveCommerceResponse,
   type RoomCatalogProductItem,
 } from '../../../api/platformApi';
@@ -55,8 +59,14 @@ import { useLiveKeepAwake } from '../../../hooks/useLiveKeepAwake';
 import { PreLiveSetupOverlay } from '../../organisms/startLive/PreLiveSetupOverlay';
 import { StreamSellerOverlay } from '../../organisms/stream/StreamSellerOverlay';
 import { StreamVideoScrim } from '../../organisms/stream/StreamVideoScrim';
-import { StreamRoomProductsDrawer } from '../../organisms/stream/StreamRoomProductsDrawer';
+import {
+  StreamRoomProductsDrawer,
+  type LiveProductCardVM,
+  type LiveProductSaleMode,
+} from '../../organisms/stream/StreamRoomProductsDrawer';
 import { SellerAddProductDrawer } from '../../organisms/stream/SellerAddProductDrawer';
+import { SellerAddProductTypeDrawer, type ProductListType } from '../../organisms/stream/SellerAddProductTypeDrawer';
+import type { ProductListScope } from '../../../api/types';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -84,10 +94,13 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
   const [sellerProfile, setSellerProfile] = useState<UserPublicProfile | null>(null);
   const [liveCommerce, setLiveCommerce] = useState<LiveCommerceResponse | null>(null);
   const [productCatalogVisible, setProductCatalogVisible] = useState(false);
+  const [addProductTypeVisible, setAddProductTypeVisible] = useState(false);
   const [addProductVisible, setAddProductVisible] = useState(false);
+  const [pendingScope, setPendingScope] = useState<ProductListScope>('room_exclusive');
   const [catalogItems, setCatalogItems] = useState<RoomCatalogProductItem[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [catalogError, setCatalogError] = useState<string | null>(null);
+  const [saleMode, setSaleMode] = useState<LiveProductSaleMode>('buy_now');
   const [showAuctionModal, setShowAuctionModal] = useState(false);
   const [auctionDuration, setAuctionDuration] = useState('10');
   const [isMicMuted, setIsMicMuted] = useState(false);
@@ -228,36 +241,32 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
     };
   }, [token, roomId]);
 
+  const refreshCatalog = useCallback(async () => {
+    if (!token || !roomId) return;
+    try {
+      const res = await getRoomCatalog(token, roomId);
+      setCatalogItems(res.items ?? []);
+      setCatalogError(null);
+    } catch {
+      setCatalogError(t('stream.productsCatalogEmpty'));
+      setCatalogItems([]);
+    }
+  }, [token, roomId, t]);
+
   const openProductCatalog = useCallback(async () => {
     if (!token || !roomId) return;
     setProductCatalogVisible(true);
     setCatalogLoading(true);
     setCatalogError(null);
     try {
-      const res = await getRoomCatalog(token, roomId);
-      setCatalogItems(res.items ?? []);
-    } catch {
-      setCatalogError(t('stream.productsCatalogEmpty'));
-      setCatalogItems([]);
+      await refreshCatalog();
     } finally {
       setCatalogLoading(false);
     }
-  }, [token, roomId, t]);
+  }, [token, roomId, refreshCatalog]);
 
   const closeProductCatalog = useCallback(() => {
     setProductCatalogVisible(false);
-  }, []);
-
-  const openAddProduct = useCallback(() => {
-    if (!resolvedStreamConfig.interestCategoryUuids?.[0]) {
-      Alert.alert(t('common.appName'), t('stream.addProductNoCategory'));
-      return;
-    }
-    setAddProductVisible(true);
-  }, [resolvedStreamConfig.interestCategoryUuids, t]);
-
-  const closeAddProduct = useCallback(() => {
-    setAddProductVisible(false);
   }, []);
 
   const refreshLiveCommerce = useCallback(() => {
@@ -266,6 +275,81 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
       .then((data) => setLiveCommerce(data))
       .catch(() => {});
   }, [token, roomId]);
+
+  const productCards = useMemo<LiveProductCardVM[]>(
+    () =>
+      catalogItems.map((it) => ({
+        uuid: it.uuid,
+        title: it.title,
+        imageUrl: it.image_url,
+        priceCents: it.base_price_cents,
+        currency: it.currency,
+        articleCount: it.article_count ?? it.quantity_on_hand,
+        startsSoon: it.starts_soon,
+        auctionSecondsRemaining: it.auction_seconds_remaining,
+        status: it.is_active ? 'live' : it.starts_soon ? 'scheduled' : undefined,
+      })),
+    [catalogItems],
+  );
+
+  const handleStartProduct = useCallback(
+    async (item: LiveProductCardVM) => {
+      if (!token || !roomId) return;
+      try {
+        if (saleMode === 'auction') {
+          // Sin duración: el backend usa la config guardada al crear el producto.
+          await startRoomProductAuction(token, roomId, item.uuid);
+        } else if (saleMode === 'buy_now') {
+          await setActiveRoomProduct(token, roomId, item.uuid);
+        } else {
+          await startRoomProductRaffle(token, roomId, item.uuid, {
+            participationMode: 'everyone',
+          });
+        }
+        await refreshCatalog();
+        refreshLiveCommerce();
+        setProductCatalogVisible(false);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : t('common.error');
+        Alert.alert(t('common.appName'), msg);
+      }
+    },
+    [saleMode, token, roomId, refreshCatalog, refreshLiveCommerce, t],
+  );
+
+  const handlePinProduct = useCallback(
+    async (item: LiveProductCardVM) => {
+      if (!token || !roomId) return;
+      try {
+        await pinRoomProduct(token, roomId, item.uuid);
+        await refreshCatalog();
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : t('common.error');
+        Alert.alert(t('common.appName'), msg);
+      }
+    },
+    [token, roomId, refreshCatalog, t],
+  );
+
+  const openAddProductFlow = useCallback(() => {
+    if (!resolvedStreamConfig.interestCategoryUuids?.[0]) {
+      Alert.alert(t('common.appName'), t('stream.addProductNoCategory'));
+      return;
+    }
+    setAddProductTypeVisible(true);
+  }, [resolvedStreamConfig.interestCategoryUuids, t]);
+
+  const handleSelectProductListType = useCallback((type: ProductListType) => {
+    setPendingScope(type === 'temporary' ? 'room_exclusive' : 'global');
+    setAddProductTypeVisible(false);
+    setAddProductVisible(true);
+  }, []);
+
+  const openAddProduct = openAddProductFlow;
+
+  const closeAddProduct = useCallback(() => {
+    setAddProductVisible(false);
+  }, []);
 
   const confirmEndStream = useCallback(async () => {
     try {
@@ -538,21 +622,41 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
         onStartAuction={openAuctionModal}
       />
 
+      <SellerAddProductTypeDrawer
+        visible={addProductTypeVisible}
+        onClose={() => setAddProductTypeVisible(false)}
+        onSelectType={handleSelectProductListType}
+      />
+
       <SellerAddProductDrawer
         visible={addProductVisible}
         onClose={closeAddProduct}
         roomId={roomId ?? ''}
         categoryUuid={resolvedStreamConfig.interestCategoryUuids?.[0] ?? null}
         saleFormat="individual"
-        onSaved={refreshLiveCommerce}
+        scope={pendingScope}
+        defaultSaleMode={saleMode}
+        onSaved={() => {
+          refreshLiveCommerce();
+          refreshCatalog().catch(() => {});
+        }}
       />
 
       <StreamRoomProductsDrawer
         visible={productCatalogVisible}
         onClose={closeProductCatalog}
         loading={catalogLoading}
-        items={catalogItems}
+        items={productCards}
         errorMessage={catalogError}
+        interactive
+        saleMode={saleMode}
+        onSaleModeChange={setSaleMode}
+        onStartProduct={handleStartProduct}
+        onPinProduct={handlePinProduct}
+        onAddProduct={() => {
+          setProductCatalogVisible(false);
+          openAddProductFlow();
+        }}
       />
 
       <Modal visible={showAuctionModal} transparent animationType="fade">

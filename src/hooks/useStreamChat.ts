@@ -100,8 +100,12 @@ export function useStreamChat({ roomId, accessToken, enabled = true, onLike }: U
   }, [send]);
 
   const sendAuctionStart = useCallback(
-    (durationSeconds: number) => {
-      send({ type: 'auction_start', duration_seconds: durationSeconds });
+    (durationSeconds: number, productId?: string) => {
+      send({
+        type: 'auction_start',
+        duration_seconds: durationSeconds,
+        ...(productId ? { product_id: productId } : {}),
+      });
     },
     [send]
   );

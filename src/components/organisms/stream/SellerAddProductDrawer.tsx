@@ -1,30 +1,45 @@
 /**
- * Drawer vidriado para agregar producto al stock del vivo — Figma 636-31420.
+ * Form in-live "Carga un producto" — pantalla completa clara (Figma 698:11652 / 698:11849 / 698:12046).
+ * Campos por modalidad (lógicos):
+ *  - Comprar Ahora: Precio
+ *  - Subasta Rápida: Mínimo de Oferta + Tiempo límite de subasta
+ *  - Sorteo: modo de participación (seguidores / todos / compradores)
+ *  Comunes: Fotos, Categoría, Título, Descripción, Cantidad, Peso, SKU.
  */
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import {
   View,
+  ScrollView,
   StyleSheet,
   Text as RNText,
   TextInput,
   TouchableOpacity,
   Image,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
-import { ImageUp, Plus, X } from 'lucide-react-native';
-import { StreamBottomSheet, streamSheetStyles } from './StreamBottomSheet';
-import { AddProductPhotoSourceDrawer } from '../addProduct/AddProductPhotoSourceDrawer';
+import { ArrowRight, ChevronLeft, ImageUp, Minus, Plus, X } from 'lucide-react-native';
+import { useInterestCategories } from '../../../hooks/useInterestCategories';
 import { useSellerLiveAddProduct } from '../../../hooks/useSellerLiveAddProduct';
 import { MAX_PRODUCT_PHOTOS } from '../../../hooks/useAddProductForm';
+import { SaleModeTabs } from '../../molecules/stream/SaleModeTabs';
+import { AddProductSelectField } from '../addProduct/AddProductSelectField';
+import { AddProductPackageTierDrawer } from '../addProduct/AddProductPackageTierDrawer';
+import { AddProductPhotoSourceDrawer } from '../addProduct/AddProductPhotoSourceDrawer';
+import { StartLiveCategoriesDrawer } from '../startLive/StartLiveCategoriesDrawer';
+import { addProductStyles, ADD_PRODUCT_COLORS } from '../addProduct/addProductStyles';
 import { FONT_FAMILY } from '../../../theme/typography';
+import type { LiveSaleMode, ProductListScope } from '../../../api/types';
 import type { SaleFormatId } from '../../../constants/productWeightPresets';
 
-const GLASS_PANEL = {
-  backgroundColor: 'rgba(2, 5, 15, 0.4)',
-  borderTopLeftRadius: 24,
-  borderTopRightRadius: 24,
-} as const;
+const RAFFLE_MODES = [
+  { id: 'followers_only', titleKey: 'stream.raffleFollowersOnly', descKey: 'stream.raffleFollowersOnlyDesc' },
+  { id: 'everyone', titleKey: 'stream.raffleEveryone', descKey: 'stream.raffleEveryoneDesc' },
+  { id: 'buyers', titleKey: 'stream.raffleBuyers', descKey: 'stream.raffleBuyersDesc' },
+] as const;
 
 export interface SellerAddProductDrawerProps {
   visible: boolean;
@@ -32,6 +47,8 @@ export interface SellerAddProductDrawerProps {
   roomId: string;
   categoryUuid: string | null;
   saleFormat?: SaleFormatId;
+  scope: ProductListScope;
+  defaultSaleMode?: LiveSaleMode;
   onSaved?: () => void;
 }
 
@@ -41,274 +58,426 @@ export const SellerAddProductDrawer: React.FC<SellerAddProductDrawerProps> = ({
   roomId,
   categoryUuid,
   saleFormat = 'individual',
+  scope,
+  defaultSaleMode = 'buy_now',
   onSaved,
 }) => {
   const { t } = useTranslation();
-  const [mediaPickerActive, setMediaPickerActive] = useState(false);
+  const { categories, loadOnce } = useInterestCategories();
 
-  const handleBeforeMediaPicker = useCallback(() => {
-    setMediaPickerActive(true);
-  }, []);
-
-  const handleAfterMediaPicker = useCallback(() => {
-    setMediaPickerActive(false);
-  }, []);
+  useEffect(() => {
+    if (visible) loadOnce();
+  }, [visible, loadOnce]);
 
   const form = useSellerLiveAddProduct({
     roomId,
     categoryUuid,
+    categories,
     saleFormat,
-    onAfterMediaPicker: handleAfterMediaPicker,
+    scope,
+    defaultSaleMode,
     onSuccess: () => {
       onSaved?.();
       onClose();
     },
   });
 
-  const { reset } = form;
+  const { reset, setLiveSaleMode } = form;
 
   useEffect(() => {
-    if (!visible) {
-      reset();
-    }
+    if (!visible) reset();
   }, [visible, reset]);
 
-  const handleClose = () => {
-    form.reset();
+  useEffect(() => {
+    if (visible) setLiveSaleMode(defaultSaleMode);
+  }, [visible, defaultSaleMode, setLiveSaleMode]);
+
+  const handleClose = useCallback(() => {
+    reset();
     onClose();
-  };
+  }, [reset, onClose]);
+
+  if (!visible) return null;
+
+  const saleMode = form.liveSaleMode;
 
   return (
-    <>
-      <StreamBottomSheet
-        visible={visible && !mediaPickerActive}
-        title={t('stream.addProductDrawerTitle')}
-        onClose={handleClose}
-        panelStyle={styles.panel}
-        contentContainerStyle={styles.content}
-        cancelLabel={t('addProduct.cancel')}
-        onCancelPress={handleClose}
-        footer={
-          <TouchableOpacity
-            style={[streamSheetStyles.primaryBtn, form.submitting && styles.btnDisabled]}
-            onPress={form.submit}
-            disabled={form.submitting}
-            activeOpacity={0.85}
-          >
-            {form.submitting ? (
-              <ActivityIndicator color="#FFFFFF" size="small" />
-            ) : (
-              <RNText style={streamSheetStyles.primaryBtnText}>{t('addProduct.save')}</RNText>
-            )}
+    <View style={styles.host}>
+      <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={handleClose} hitSlop={12} accessibilityRole="button">
+            <ChevronLeft size={24} color={ADD_PRODUCT_COLORS.title} />
           </TouchableOpacity>
-        }
-      >
-        <View style={styles.field}>
-          <RNText style={styles.fieldLabel}>{t('addProduct.fieldTitle')}</RNText>
-          <TextInput
-            style={styles.input}
-            value={form.title}
-            onChangeText={form.setTitle}
-            placeholder={t('addProduct.fieldTitlePlaceholder')}
-            placeholderTextColor="rgba(255,255,255,0.45)"
-          />
+          <RNText style={styles.headerTitle}>{t('stream.addProductDrawerTitle')}</RNText>
+          <View style={styles.headerSpacer} />
         </View>
 
-        <View style={styles.field}>
-          <RNText style={styles.fieldLabel}>{t('addProduct.fieldDescription')}</RNText>
-          <TextInput
-            style={[styles.input, styles.inputMultiline]}
-            value={form.description}
-            onChangeText={form.setDescription}
-            placeholder={t('addProduct.fieldDescriptionPlaceholder')}
-            placeholderTextColor="rgba(255,255,255,0.45)"
-            multiline
-            textAlignVertical="top"
-          />
-        </View>
+        <KeyboardAvoidingView
+          style={styles.flex}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+        <ScrollView
+          style={styles.flex}
+          contentContainerStyle={[addProductStyles.scrollContent, styles.scrollPad]}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
+          showsVerticalScrollIndicator={false}
+        >
+          <TouchableOpacity style={addProductStyles.tipsBanner} activeOpacity={0.85}>
+            <View style={addProductStyles.tipsTextCol}>
+              <RNText style={addProductStyles.tipsTitle}>{t('addProduct.tipsTitle')}</RNText>
+              <RNText style={addProductStyles.tipsBody}>{t('addProduct.tipsBody')}</RNText>
+            </View>
+            <View style={addProductStyles.tipsArrow}>
+              <ArrowRight size={20} color={ADD_PRODUCT_COLORS.primary} />
+            </View>
+          </TouchableOpacity>
 
-        <View style={styles.field}>
-          <RNText style={styles.fieldLabel}>{t('addProduct.fieldMinOffer')}</RNText>
-          <View style={styles.priceRow}>
-            <RNText style={styles.pricePrefix}>$</RNText>
-            <TextInput
-              style={[styles.input, styles.priceInput]}
-              value={form.minOfferPrice}
-              onChangeText={form.setMinOfferPrice}
-              placeholder={t('addProduct.fieldMinOfferPlaceholder')}
-              placeholderTextColor="rgba(255,255,255,0.45)"
-              keyboardType="decimal-pad"
-            />
-          </View>
-        </View>
+          <RNText style={addProductStyles.sectionTitle}>{t('addProduct.screenTitle')}</RNText>
 
-        <View style={styles.field}>
-          <RNText style={styles.fieldLabel}>{t('stream.addProductPhotosLabel')}</RNText>
           {form.photos.length === 0 ? (
-            <TouchableOpacity style={styles.photoBox} onPress={form.pickPhotos} activeOpacity={0.85}>
-              <ImageUp size={24} color="rgba(255,255,255,0.7)" />
-              <RNText style={styles.photoBoxHint}>{t('addProduct.photosLabel')}</RNText>
+            <TouchableOpacity style={addProductStyles.photoBox} onPress={form.pickPhotos} activeOpacity={0.85}>
+              <RNText style={addProductStyles.photoBoxLabel}>{t('addProduct.photosLabel')}</RNText>
+              <ImageUp size={24} color={ADD_PRODUCT_COLORS.muted} />
             </TouchableOpacity>
           ) : (
-            <View style={styles.photoRow}>
+            <View style={addProductStyles.photoRow}>
               {form.photos.map((p) => (
-                <View key={p.uri} style={styles.photoThumb}>
-                  <Image source={{ uri: p.uri }} style={styles.photoThumbImage} />
+                <View key={p.uri} style={addProductStyles.photoThumb}>
+                  <Image source={{ uri: p.uri }} style={addProductStyles.photoThumbImage} />
                   <TouchableOpacity
-                    style={styles.photoRemoveBtn}
+                    style={addProductStyles.photoRemoveBtn}
                     onPress={() => form.removePhoto(p.uri)}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    accessibilityLabel={t('addProduct.removePhoto')}
                   >
                     <X size={14} color="#FFFFFF" strokeWidth={2.5} />
                   </TouchableOpacity>
                 </View>
               ))}
               {form.canAddMorePhotos ? (
-                <TouchableOpacity
-                  style={styles.photoAddTile}
-                  onPress={form.pickPhotos}
-                  activeOpacity={0.85}
-                >
-                  <Plus size={20} color="#685CF0" />
+                <TouchableOpacity style={addProductStyles.photoAddTile} onPress={form.pickPhotos} activeOpacity={0.85}>
+                  <Plus size={20} color={ADD_PRODUCT_COLORS.primary} />
                 </TouchableOpacity>
               ) : null}
             </View>
           )}
-        </View>
-      </StreamBottomSheet>
 
-      {visible && !mediaPickerActive ? (
-        <View style={styles.subDrawerHost} pointerEvents="box-none">
-          <AddProductPhotoSourceDrawer
-            visible={form.activeDrawer === 'photos'}
-            presentation="overlay"
-            showCameraOption={false}
-            photoCount={form.photos.length}
-            maxPhotos={MAX_PRODUCT_PHOTOS}
-            onClose={() => form.setActiveDrawer('none')}
-            onBeforePicker={handleBeforeMediaPicker}
-            onAfterPicker={handleAfterMediaPicker}
-            onTakePhoto={form.openCamera}
-            onChooseGallery={form.openGallery}
-          />
-        </View>
-      ) : null}
-    </>
+          <View style={addProductStyles.fields}>
+            <AddProductSelectField
+              label={t('addProduct.fieldCategory')}
+              value={form.categoryLabel}
+              placeholder={t('addProduct.fieldCategoryPlaceholder')}
+              onPress={() => form.setActiveDrawer('category')}
+            />
+
+            <View style={addProductStyles.field}>
+              <RNText style={addProductStyles.fieldLabel}>{t('addProduct.fieldTitle')}</RNText>
+              <TextInput
+                style={addProductStyles.pillInput}
+                value={form.title}
+                onChangeText={form.setTitle}
+                placeholder={t('addProduct.fieldTitlePlaceholder')}
+                placeholderTextColor={ADD_PRODUCT_COLORS.placeholder}
+              />
+            </View>
+
+            <View style={addProductStyles.field}>
+              <RNText style={addProductStyles.fieldLabel}>{t('addProduct.fieldDescription')}</RNText>
+              <TextInput
+                style={[addProductStyles.pillInput, addProductStyles.pillInputMultiline]}
+                value={form.description}
+                onChangeText={form.setDescription}
+                placeholder={t('addProduct.fieldDescriptionPlaceholder')}
+                placeholderTextColor={ADD_PRODUCT_COLORS.placeholder}
+                multiline
+              />
+            </View>
+
+            <View style={addProductStyles.field}>
+              <RNText style={addProductStyles.fieldLabel}>{t('addProduct.fieldQuantity')}</RNText>
+              <View style={styles.stepperRow}>
+                <TouchableOpacity style={styles.stepperBtn} onPress={form.decrementQuantity}>
+                  <Minus size={20} color={ADD_PRODUCT_COLORS.text} />
+                </TouchableOpacity>
+                <View style={styles.stepperValueWrap}>
+                  <RNText style={styles.stepperValue}>{form.quantity}</RNText>
+                </View>
+                <TouchableOpacity style={styles.stepperBtn} onPress={form.incrementQuantity}>
+                  <Plus size={20} color={ADD_PRODUCT_COLORS.text} />
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+
+          <RNText style={addProductStyles.sectionTitle}>{t('addProduct.fieldPrice')}</RNText>
+          <SaleModeTabs value={saleMode} onChange={form.setLiveSaleMode} />
+
+          <View style={addProductStyles.fields}>
+            {saleMode === 'buy_now' ? (
+              <View style={addProductStyles.field}>
+                <RNText style={addProductStyles.fieldLabel}>{t('addProduct.fieldPrice')}</RNText>
+                <View style={addProductStyles.priceInputWrap}>
+                  <RNText style={addProductStyles.pricePrefix}>$</RNText>
+                  <TextInput
+                    style={addProductStyles.priceInput}
+                    value={form.price}
+                    onChangeText={form.setPrice}
+                    placeholder={t('addProduct.fieldMinOfferPlaceholder')}
+                    placeholderTextColor={ADD_PRODUCT_COLORS.placeholder}
+                    keyboardType="decimal-pad"
+                  />
+                </View>
+              </View>
+            ) : null}
+
+            {saleMode === 'auction' ? (
+              <>
+                <View style={addProductStyles.field}>
+                  <RNText style={addProductStyles.fieldLabel}>{t('stream.addProductMinBid')}</RNText>
+                  <View style={addProductStyles.priceInputWrap}>
+                    <RNText style={addProductStyles.pricePrefix}>$</RNText>
+                    <TextInput
+                      style={addProductStyles.priceInput}
+                      value={form.minBidPrice}
+                      onChangeText={form.setMinBidPrice}
+                      placeholder={t('addProduct.fieldMinOfferPlaceholder')}
+                      placeholderTextColor={ADD_PRODUCT_COLORS.placeholder}
+                      keyboardType="decimal-pad"
+                    />
+                  </View>
+                </View>
+                <View style={addProductStyles.field}>
+                  <RNText style={addProductStyles.fieldLabel}>{t('stream.addProductAuctionTime')}</RNText>
+                  <View style={addProductStyles.priceInputWrap}>
+                    <TextInput
+                      style={addProductStyles.priceInput}
+                      value={form.auctionDuration}
+                      onChangeText={form.setAuctionDuration}
+                      keyboardType="number-pad"
+                      placeholder="60"
+                      placeholderTextColor={ADD_PRODUCT_COLORS.placeholder}
+                    />
+                    <RNText style={styles.durationSuffix}>{t('stream.addProductSeconds')}</RNText>
+                  </View>
+                </View>
+              </>
+            ) : null}
+
+            {saleMode === 'raffle' ? (
+              <View style={styles.raffleGroup}>
+                {RAFFLE_MODES.map((mode) => {
+                  const active = form.raffleMode === mode.id;
+                  return (
+                    <TouchableOpacity
+                      key={mode.id}
+                      style={styles.raffleRow}
+                      onPress={() => form.setRaffleMode(mode.id)}
+                      activeOpacity={0.85}
+                    >
+                      <View style={styles.raffleTextCol}>
+                        <RNText style={styles.raffleTitle}>{t(mode.titleKey)}</RNText>
+                        <RNText style={styles.raffleDesc}>{t(mode.descKey)}</RNText>
+                      </View>
+                      <View style={[styles.raffleRadio, active && styles.raffleRadioOn]} />
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            ) : null}
+
+            <AddProductSelectField
+              label={t('addProduct.fieldWeight')}
+              value={form.weightLabel}
+              placeholder={t('addProduct.fieldWeightPlaceholder')}
+              onPress={() => form.setActiveDrawer('weight')}
+            />
+
+            <View style={addProductStyles.field}>
+              <RNText style={addProductStyles.fieldLabel}>{t('addProduct.fieldSku')}</RNText>
+              <TextInput
+                style={addProductStyles.pillInput}
+                value={form.sku}
+                onChangeText={form.setSku}
+                placeholder={t('addProduct.fieldSkuPlaceholder')}
+                placeholderTextColor={ADD_PRODUCT_COLORS.placeholder}
+                autoCapitalize="characters"
+              />
+            </View>
+          </View>
+
+          <View style={addProductStyles.actions}>
+            <TouchableOpacity
+              style={[addProductStyles.primaryBtn, form.submitting && addProductStyles.primaryBtnDisabled]}
+              onPress={form.submitPublish}
+              disabled={form.submitting}
+              activeOpacity={0.85}
+            >
+              {form.submitting ? (
+                <ActivityIndicator color="#FFFFFF" size="small" />
+              ) : (
+                <RNText style={addProductStyles.primaryBtnText}>{t('stream.publish')}</RNText>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={addProductStyles.cancelBtn}
+              onPress={form.submitDraft}
+              disabled={form.submitting}
+              activeOpacity={0.85}
+            >
+              <RNText style={addProductStyles.cancelBtnText}>{t('stream.saveDraft')}</RNText>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+
+      <View style={styles.drawerHost} pointerEvents="box-none">
+        <StartLiveCategoriesDrawer
+          visible={form.activeDrawer === 'category'}
+          selectionMode="single"
+          titleKey="addProduct.categoryTitle"
+          subtitleKey="addProduct.categorySubtitle"
+          initialSelected={form.categoryUuid ? [form.categoryUuid] : []}
+          onClose={() => form.setActiveDrawer('none')}
+          onContinue={(uuids) => {
+            if (uuids[0]) form.setCategoryUuid(uuids[0]);
+            form.setActiveDrawer('none');
+          }}
+        />
+        <AddProductPackageTierDrawer
+          visible={form.activeDrawer === 'weight'}
+          initialTier={form.packageTier}
+          initialManualKg={String(form.weightKg)}
+          onClose={() => form.setActiveDrawer('none')}
+          onConfirm={(tier, kg) => {
+            form.setPackageTier(tier, kg);
+            form.setActiveDrawer('none');
+          }}
+        />
+        <AddProductPhotoSourceDrawer
+          visible={form.activeDrawer === 'photos'}
+          presentation="overlay"
+          showCameraOption={false}
+          photoCount={form.photos.length}
+          maxPhotos={MAX_PRODUCT_PHOTOS}
+          onClose={() => form.setActiveDrawer('none')}
+          onTakePhoto={form.openCamera}
+          onChooseGallery={form.openGallery}
+        />
+      </View>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  panel: {
-    ...GLASS_PANEL,
-    maxHeight: '88%',
+  host: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#FFFFFF',
+    zIndex: 250,
+    elevation: 250,
   },
-  content: {
-    gap: 16,
-    width: '100%',
-    paddingBottom: 8,
+  safe: {
+    flex: 1,
   },
-  subDrawerHost: {
+  flex: {
+    flex: 1,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    height: 56,
+    paddingHorizontal: 16,
+  },
+  headerTitle: {
+    fontFamily: FONT_FAMILY.bold,
+    fontSize: 16,
+    lineHeight: 20,
+    color: ADD_PRODUCT_COLORS.title,
+  },
+  headerSpacer: {
+    width: 24,
+  },
+  scrollPad: {
+    paddingBottom: 40,
+  },
+  stepperRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  stepperBtn: {
+    width: 52,
+    height: 52,
+    borderRadius: 100,
+    borderWidth: 1,
+    borderColor: ADD_PRODUCT_COLORS.border,
+    backgroundColor: '#F4F2F2',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepperValueWrap: {
+    flex: 1,
+    minHeight: 52,
+    borderRadius: 100,
+    borderWidth: 1,
+    borderColor: ADD_PRODUCT_COLORS.border,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepperValue: {
+    fontFamily: FONT_FAMILY.semibold,
+    fontSize: 12,
+    color: ADD_PRODUCT_COLORS.text,
+  },
+  durationSuffix: {
+    fontFamily: FONT_FAMILY.semibold,
+    fontSize: 12,
+    lineHeight: 20,
+    color: ADD_PRODUCT_COLORS.text,
+    marginLeft: 8,
+  },
+  raffleGroup: {
+    gap: 24,
+  },
+  raffleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  raffleTextCol: {
+    flex: 1,
+    gap: 4,
+  },
+  raffleTitle: {
+    fontFamily: FONT_FAMILY.semibold,
+    fontSize: 14,
+    lineHeight: 20,
+    color: ADD_PRODUCT_COLORS.text,
+  },
+  raffleDesc: {
+    fontFamily: FONT_FAMILY.semibold,
+    fontSize: 12,
+    lineHeight: 16,
+    color: ADD_PRODUCT_COLORS.muted,
+  },
+  raffleRadio: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: ADD_PRODUCT_COLORS.borderAccent,
+    backgroundColor: 'rgba(104, 92, 240, 0.1)',
+  },
+  raffleRadioOn: {
+    borderWidth: 2,
+    borderColor: ADD_PRODUCT_COLORS.primary,
+    backgroundColor: ADD_PRODUCT_COLORS.primary,
+  },
+  drawerHost: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 300,
     elevation: 300,
-  },
-  field: {
-    gap: 8,
-    width: '100%',
-  },
-  fieldLabel: {
-    fontFamily: FONT_FAMILY.bold,
-    fontSize: 12,
-    lineHeight: 18,
-    color: '#FFFFFF',
-    letterSpacing: 0.06,
-    includeFontPadding: false,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: 'rgba(221, 221, 221, 0.6)',
-    borderRadius: 1000,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontFamily: FONT_FAMILY.bold,
-    fontSize: 12,
-    color: '#FFFFFF',
-    backgroundColor: 'rgba(255,255,255,0.08)',
-  },
-  inputMultiline: {
-    borderRadius: 16,
-    minHeight: 88,
-    paddingTop: 14,
-  },
-  priceRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  pricePrefix: {
-    fontFamily: FONT_FAMILY.bold,
-    fontSize: 14,
-    color: '#FFFFFF',
-  },
-  priceInput: {
-    flex: 1,
-  },
-  photoBox: {
-    borderWidth: 1,
-    borderColor: 'rgba(221, 221, 221, 0.45)',
-    borderRadius: 12,
-    minHeight: 120,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-  },
-  photoBoxHint: {
-    fontFamily: FONT_FAMILY.bold,
-    fontSize: 12,
-    lineHeight: 20,
-    color: 'rgba(255,255,255,0.75)',
-    textAlign: 'center',
-  },
-  photoRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  photoThumb: {
-    width: 72,
-    height: 72,
-    borderRadius: 8,
-    overflow: 'hidden',
-    position: 'relative',
-  },
-  photoThumbImage: {
-    width: '100%',
-    height: '100%',
-  },
-  photoRemoveBtn: {
-    position: 'absolute',
-    top: 4,
-    right: 4,
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  photoAddTile: {
-    width: 72,
-    height: 72,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(104, 92, 240, 0.6)',
-    backgroundColor: 'rgba(104, 92, 240, 0.12)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  btnDisabled: {
-    opacity: 0.65,
   },
 });

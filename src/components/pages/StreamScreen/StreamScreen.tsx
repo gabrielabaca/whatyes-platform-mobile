@@ -1,7 +1,7 @@
 /**
  * Stream Screen — viewer en vivo (buyer) — Figma 536-18831
  */
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   View,
   StyleSheet,
@@ -32,7 +32,10 @@ import { useFloatingHearts, FloatingHeartsLayer } from '../../molecules/Floating
 import { enableSpeakerphone, disableSpeakerphone, muteSpeakerOutput } from '../../../utils/audioRoute';
 import { useLiveKeepAwake } from '../../../hooks/useLiveKeepAwake';
 import { StreamBuyerOverlay } from '../../organisms/stream/StreamBuyerOverlay';
-import { StreamRoomProductsDrawer } from '../../organisms/stream/StreamRoomProductsDrawer';
+import {
+  StreamRoomProductsDrawer,
+  type LiveProductCardVM,
+} from '../../organisms/stream/StreamRoomProductsDrawer';
 import { StreamVideoScrim } from '../../organisms/stream/StreamVideoScrim';
 import { StreamPausedMedia } from '../../organisms/stream/StreamPausedMedia';
 import { UserProfileScreen } from '../UserProfileScreen';
@@ -278,6 +281,21 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({ stream, onClose }) =
       }
     })();
   }, [roomId, t]);
+
+  const productCards = useMemo<LiveProductCardVM[]>(
+    () =>
+      catalogItems.map((it) => ({
+        uuid: it.uuid,
+        title: it.title,
+        imageUrl: it.image_url,
+        priceCents: it.base_price_cents,
+        currency: it.currency,
+        articleCount: it.article_count ?? it.quantity_on_hand,
+        startsSoon: it.starts_soon,
+        auctionSecondsRemaining: it.auction_seconds_remaining,
+      })),
+    [catalogItems],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -536,7 +554,7 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({ stream, onClose }) =
         visible={productCatalogVisible}
         onClose={closeProductCatalog}
         loading={catalogLoading}
-        items={catalogItems}
+        items={productCards}
         errorMessage={catalogError}
       />
 

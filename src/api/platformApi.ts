@@ -496,6 +496,25 @@ export interface RoomCatalogProductItem {
   base_price_cents: number;
   image_url: string | null;
   quantity_on_hand: number;
+  article_count?: number;
+  scheduled_at?: number | null;
+  starts_soon?: boolean;
+  auction_seconds_remaining?: number | null;
+  is_pinned?: boolean;
+  is_active?: boolean;
+  live_sale_mode?: 'buy_now' | 'auction' | 'raffle' | string | null;
+}
+
+export interface RoomCatalogActionResponse {
+  room_id: string;
+  product_id: string;
+  action: string;
+  live_sale_mode?: string | null;
+  is_active?: boolean;
+  is_pinned?: boolean;
+  scheduled_at?: number | null;
+  auction_id?: string | null;
+  auction_seconds_remaining?: number | null;
 }
 
 export interface RoomCatalogResponse {
@@ -521,6 +540,87 @@ export async function getRoomCatalog(
   }
   return res.json() as Promise<RoomCatalogResponse>;
 }
+
+async function postRoomCatalogAction(
+  accessToken: string,
+  roomId: string,
+  productId: string,
+  action: string,
+  body?: Record<string, unknown>,
+): Promise<RoomCatalogActionResponse> {
+  const res = await fetch(
+    `${PLATFORM_HTTP_URL}/me/rooms/${encodeURIComponent(roomId)}/catalog/products/${encodeURIComponent(productId)}/${action}`,
+    {
+      method: 'POST',
+      headers: authHeaders(accessToken),
+      body: body ? JSON.stringify(body) : undefined,
+    },
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    const raw = (err as { detail?: unknown }).detail;
+    const msg = formatPlatformErrorDetail(raw) || `catalog action ${action}: ${res.status}`;
+    throw new Error(msg);
+  }
+  return res.json() as Promise<RoomCatalogActionResponse>;
+}
+
+export function setActiveCatalogProduct(
+  accessToken: string,
+  roomId: string,
+  productId: string,
+): Promise<RoomCatalogActionResponse> {
+  return postRoomCatalogAction(accessToken, roomId, productId, 'set-active');
+}
+
+export function pinCatalogProduct(
+  accessToken: string,
+  roomId: string,
+  productId: string,
+): Promise<RoomCatalogActionResponse> {
+  return postRoomCatalogAction(accessToken, roomId, productId, 'pin');
+}
+
+export function startCatalogProductAuction(
+  accessToken: string,
+  roomId: string,
+  productId: string,
+  body: { durationSeconds?: number; minBidCents?: number } = {},
+): Promise<RoomCatalogActionResponse> {
+  return postRoomCatalogAction(accessToken, roomId, productId, 'start-auction', {
+    ...(body.durationSeconds != null ? { duration_seconds: body.durationSeconds } : {}),
+    ...(body.minBidCents != null ? { min_bid_cents: body.minBidCents } : {}),
+  });
+}
+
+export function startCatalogProductRaffle(
+  accessToken: string,
+  roomId: string,
+  productId: string,
+  body: { participationMode: 'followers_only' | 'everyone' | 'buyers' },
+): Promise<RoomCatalogActionResponse> {
+  return postRoomCatalogAction(accessToken, roomId, productId, 'start-raffle', {
+    participation_mode: body.participationMode,
+  });
+}
+
+export function scheduleCatalogProduct(
+  accessToken: string,
+  roomId: string,
+  productId: string,
+  scheduledAt: number,
+): Promise<RoomCatalogActionResponse> {
+  return postRoomCatalogAction(accessToken, roomId, productId, 'schedule', {
+    scheduled_at: scheduledAt,
+  });
+}
+
+/** Alias del plan de flujo seller */
+export const setActiveRoomProduct = setActiveCatalogProduct;
+export const pinRoomProduct = pinCatalogProduct;
+export const scheduleRoomProduct = scheduleCatalogProduct;
+export const startRoomProductAuction = startCatalogProductAuction;
+export const startRoomProductRaffle = startCatalogProductRaffle;
 
 export interface UserShowItem {
   room_uuid: string;

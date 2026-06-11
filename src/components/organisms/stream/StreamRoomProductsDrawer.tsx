@@ -1,37 +1,33 @@
 import React from 'react';
 import {
-  View,
   StyleSheet,
   Text as RNText,
   FlatList,
-  Image,
   ActivityIndicator,
+  TouchableOpacity,
   type ListRenderItem,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { StreamBottomSheet } from './StreamBottomSheet';
+import { StreamBottomSheet, streamSheetStyles } from './StreamBottomSheet';
 import { FONT_FAMILY } from '../../../theme/typography';
-import type { RoomCatalogProductItem } from '../../../api/platformApi';
+import { SaleModeTabs, type LiveProductSaleMode } from '../../molecules/stream/SaleModeTabs';
+import { LiveProductCard, type LiveProductCardVM } from '../../molecules/stream/LiveProductCard';
+
+export type { LiveProductSaleMode, LiveProductCardVM };
 
 export interface StreamRoomProductsDrawerProps {
   visible: boolean;
   onClose: () => void;
   loading?: boolean;
-  items: RoomCatalogProductItem[];
+  items: LiveProductCardVM[];
   errorMessage?: string | null;
-}
-
-function formatCatalogPrice(cents: number, currency: string): string {
-  const major = cents / 100;
-  try {
-    return new Intl.NumberFormat('es-AR', {
-      style: 'currency',
-      currency: currency || 'ARS',
-      maximumFractionDigits: 0,
-    }).format(major);
-  } catch {
-    return `${major}`;
-  }
+  /** Modo seller: tabs, acciones y footer. Viewer: lista de solo lectura. */
+  interactive?: boolean;
+  saleMode?: LiveProductSaleMode;
+  onSaleModeChange?: (mode: LiveProductSaleMode) => void;
+  onStartProduct?: (item: LiveProductCardVM) => void;
+  onPinProduct?: (item: LiveProductCardVM) => void;
+  onAddProduct?: () => void;
 }
 
 export const StreamRoomProductsDrawer: React.FC<StreamRoomProductsDrawerProps> = ({
@@ -40,29 +36,37 @@ export const StreamRoomProductsDrawer: React.FC<StreamRoomProductsDrawerProps> =
   loading = false,
   items,
   errorMessage,
+  interactive = false,
+  saleMode = 'buy_now',
+  onSaleModeChange,
+  onStartProduct,
+  onPinProduct,
+  onAddProduct,
 }) => {
   const { t } = useTranslation();
 
-  const renderItem: ListRenderItem<RoomCatalogProductItem> = ({ item }) => (
-    <View style={styles.row}>
-      <View style={styles.thumbWrap}>
-        {item.image_url ? (
-          <Image source={{ uri: item.image_url }} style={styles.thumb} resizeMode="cover" />
-        ) : (
-          <View style={[styles.thumb, styles.thumbPlaceholder]} />
-        )}
-      </View>
-      <View style={styles.rowText}>
-        <RNText style={styles.title} numberOfLines={2}>
-          {item.title}
-        </RNText>
-        <RNText style={styles.price}>{formatCatalogPrice(item.base_price_cents, item.currency)}</RNText>
-        <RNText style={styles.stock}>
-          {t('stream.productsStock', { count: item.quantity_on_hand })}
-        </RNText>
-      </View>
-    </View>
+  const renderItem: ListRenderItem<LiveProductCardVM> = ({ item }) => (
+    <LiveProductCard
+      item={item}
+      interactive={interactive}
+      onStart={onStartProduct ? () => onStartProduct(item) : undefined}
+      onPin={onPinProduct ? () => onPinProduct(item) : undefined}
+    />
   );
+
+  const footer =
+    interactive && onAddProduct ? (
+      <TouchableOpacity
+        style={streamSheetStyles.primaryBtn}
+        onPress={onAddProduct}
+        activeOpacity={0.85}
+        accessibilityRole="button"
+      >
+        <RNText style={streamSheetStyles.primaryBtnText}>
+          {t('stream.addProductCta')} +
+        </RNText>
+      </TouchableOpacity>
+    ) : undefined;
 
   return (
     <StreamBottomSheet
@@ -72,7 +76,12 @@ export const StreamRoomProductsDrawer: React.FC<StreamRoomProductsDrawerProps> =
       panelStyle={styles.panel}
       contentContainerStyle={styles.content}
       scrollEnabled={false}
+      footer={footer}
     >
+      {interactive && onSaleModeChange ? (
+        <SaleModeTabs value={saleMode} onChange={onSaleModeChange} />
+      ) : null}
+
       {loading ? (
         <ActivityIndicator color="#FFFFFF" style={styles.loader} />
       ) : errorMessage ? (
@@ -86,7 +95,8 @@ export const StreamRoomProductsDrawer: React.FC<StreamRoomProductsDrawerProps> =
           renderItem={renderItem}
           scrollEnabled
           style={styles.list}
-          ItemSeparatorComponent={() => <View style={styles.sep} />}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
         />
       )}
     </StreamBottomSheet>
@@ -98,15 +108,19 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(2, 5, 15, 0.4)',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    maxHeight: 480,
+    maxHeight: '88%',
   },
   content: {
-    gap: 0,
+    gap: 24,
     width: '100%',
     minHeight: 120,
   },
   list: {
-    maxHeight: 400,
+    flexGrow: 0,
+    maxHeight: 420,
+  },
+  listContent: {
+    gap: 24,
   },
   loader: {
     marginVertical: 24,
@@ -126,52 +140,5 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.75)',
     textAlign: 'center',
     paddingVertical: 24,
-  },
-  sep: {
-    height: 1,
-    backgroundColor: 'rgba(221, 221, 221, 0.25)',
-    marginVertical: 12,
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  thumbWrap: {
-    borderRadius: 8,
-    overflow: 'hidden',
-  },
-  thumb: {
-    width: 56,
-    height: 56,
-    borderRadius: 8,
-    backgroundColor: '#333',
-  },
-  thumbPlaceholder: {
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.15)',
-  },
-  rowText: {
-    flex: 1,
-    minWidth: 0,
-    gap: 4,
-  },
-  title: {
-    fontFamily: FONT_FAMILY.semibold,
-    fontSize: 15,
-    lineHeight: 22,
-    color: '#FFFFFF',
-  },
-  price: {
-    fontFamily: FONT_FAMILY.bold,
-    fontSize: 16,
-    lineHeight: 22,
-    color: '#FDC700',
-  },
-  stock: {
-    fontFamily: FONT_FAMILY.regular,
-    fontSize: 12,
-    lineHeight: 16,
-    color: 'rgba(255,255,255,0.7)',
   },
 });

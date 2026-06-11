@@ -160,3 +160,8 @@ export interface LogoutRequest {
 export interface RefreshTokenRequest {
   refresh_token: string;
 }
+
+export type LiveSaleMode = 'buy_now' | 'auction' | 'raffle';
+export type RaffleParticipationMode = 'followers_only' | 'everyone' | 'buyers';
+export type ProductStatus = 'draft' | 'published';
+export type ProductListScope = 'global' | 'room_exclusive';

@@ -1,9 +1,16 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert } from 'react-native';
 import { createProduct, uploadProductImages } from '../api/productsApi';
+import type {
+  InterestCategoryItem,
+  LiveSaleMode,
+  ProductListScope,
+  RaffleParticipationMode,
+} from '../api/types';
 import { ApiError } from '../api/authApi';
-import type { SaleFormatId } from '../constants/productWeightPresets';
+import type { PackageTierId, SaleFormatId } from '../constants/productWeightPresets';
+import { PACKAGE_TIER_OPTIONS } from '../constants/productWeightPresets';
 import {
   launchPhotoCameraNow,
   launchPhotoLibraryNow,
@@ -12,7 +19,8 @@ import {
 } from '../utils/mediaPicker';
 import { MAX_PRODUCT_PHOTOS } from './useAddProductForm';
 
-export type SellerLivePhotoDrawer = 'none' | 'photos';
+/** Drawers que el form in-live puede abrir por encima de la pantalla. */
+export type SellerLiveDrawer = 'none' | 'photos' | 'category' | 'weight';
 
 export interface LocalPhoto {
   uri: string;
@@ -20,8 +28,18 @@ export interface LocalPhoto {
   name?: string;
 }
 
+const DEFAULT_TIER: PackageTierId = 'light';
+
+function tierDefaultKg(tier: PackageTierId): number {
+  return PACKAGE_TIER_OPTIONS.find((o) => o.id === tier)?.defaultKg ?? 0.25;
+}
+
 function sanitizeShortText(value: string, maxLength: number): string {
   return value.replace(/\s+/g, ' ').replace(/^\s/, '').slice(0, maxLength);
+}
+
+function sanitizeSku(value: string): string {
+  return value.toUpperCase().replace(/[^A-Z0-9-_]/g, '').slice(0, 32);
 }
 
 function sanitizePrice(value: string): string {
@@ -32,10 +50,18 @@ function sanitizePrice(value: string): string {
   return decimalParts.length > 0 ? `${cleanWhole || '0'}.${decimals}` : cleanWhole;
 }
 
+function sanitizeDuration(value: string): string {
+  return value.replace(/[^0-9]/g, '').slice(0, 3);
+}
+
 export interface SellerLiveAddProductDefaults {
+  /** Categoría inicial (del vivo); editable por el vendedor. */
   categoryUuid: string | null;
+  categories: InterestCategoryItem[];
   saleFormat: SaleFormatId;
   roomId: string;
+  scope: ProductListScope;
+  defaultSaleMode: LiveSaleMode;
 }
 
 export function useSellerLiveAddProduct(
@@ -45,13 +71,31 @@ export function useSellerLiveAddProduct(
   },
 ) {
   const { t } = useTranslation();
-  const { categoryUuid, saleFormat, roomId, onSuccess, onAfterMediaPicker } = options;
+  const {
+    categoryUuid: initialCategoryUuid,
+    categories,
+    saleFormat,
+    roomId,
+    scope,
+    defaultSaleMode,
+    onSuccess,
+    onAfterMediaPicker,
+  } = options;
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [minOfferPrice, setMinOfferPrice] = useState('');
+  const [price, setPrice] = useState('');
+  const [minBidPrice, setMinBidPrice] = useState('');
+  const [auctionDuration, setAuctionDuration] = useState('60');
+  const [sku, setSku] = useState('');
+  const [quantity, setQuantity] = useState(1);
+  const [liveSaleMode, setLiveSaleMode] = useState<LiveSaleMode>(defaultSaleMode);
+  const [categoryUuid, setCategoryUuid] = useState<string | null>(initialCategoryUuid);
+  const [packageTier, setPackageTier] = useState<PackageTierId>(DEFAULT_TIER);
+  const [weightKg, setWeightKg] = useState<number>(tierDefaultKg(DEFAULT_TIER));
+  const [raffleMode, setRaffleMode] = useState<RaffleParticipationMode>('everyone');
   const [photos, setPhotos] = useState<LocalPhoto[]>([]);
-  const [activeDrawer, setActiveDrawer] = useState<SellerLivePhotoDrawer>('none');
+  const [activeDrawer, setActiveDrawer] = useState<SellerLiveDrawer>('none');
   const [submitting, setSubmitting] = useState(false);
 
   const handleTitleChange = useCallback((value: string) => {
@@ -63,17 +107,55 @@ export function useSellerLiveAddProduct(
   }, []);
 
   const handlePriceChange = useCallback((value: string) => {
-    setMinOfferPrice(sanitizePrice(value));
+    setPrice(sanitizePrice(value));
   }, []);
+
+  const handleMinBidChange = useCallback((value: string) => {
+    setMinBidPrice(sanitizePrice(value));
+  }, []);
+
+  const handleSkuChange = useCallback((value: string) => {
+    setSku(sanitizeSku(value));
+  }, []);
+
+  const handleDurationChange = useCallback((value: string) => {
+    setAuctionDuration(sanitizeDuration(value));
+  }, []);
+
+  const handlePackageTierChange = useCallback((tier: PackageTierId, kg: number | null) => {
+    setPackageTier(tier);
+    setWeightKg(kg != null ? kg : tierDefaultKg(tier));
+  }, []);
+
+  const categoryLabel = useMemo(() => {
+    if (!categoryUuid) return null;
+    return categories.find((c) => c.uuid === categoryUuid)?.label ?? null;
+  }, [categoryUuid, categories]);
+
+  const weightLabel = useMemo(() => {
+    const opt = PACKAGE_TIER_OPTIONS.find((o) => o.id === packageTier);
+    if (!opt) return null;
+    const value = weightKg < 1 ? `${Math.round(weightKg * 1000)} g` : `${Number(weightKg.toFixed(2))} kg`;
+    return `${t(opt.labelKey)} · ${value}`;
+  }, [packageTier, weightKg, t]);
 
   const reset = useCallback(() => {
     setTitle('');
     setDescription('');
-    setMinOfferPrice('');
+    setPrice('');
+    setMinBidPrice('');
+    setAuctionDuration('60');
+    setSku('');
+    setQuantity(1);
+    setLiveSaleMode(defaultSaleMode);
+    setCategoryUuid(initialCategoryUuid);
+    setPackageTier(DEFAULT_TIER);
+    setWeightKg(tierDefaultKg(DEFAULT_TIER));
+    setRaffleMode('everyone');
     setPhotos([]);
     setActiveDrawer('none');
     setSubmitting(false);
-  }, []);
+  }, [defaultSaleMode, initialCategoryUuid]);
 
   const appendPhotos = useCallback(
     (incoming: LocalPhoto[]) => {
@@ -125,68 +207,155 @@ export function useSellerLiveAddProduct(
     setPhotos((prev) => prev.filter((p) => p.uri !== uri));
   }, []);
 
+  const incrementQuantity = useCallback(() => {
+    setQuantity((q) => Math.min(999, q + 1));
+  }, []);
+
+  const decrementQuantity = useCallback(() => {
+    setQuantity((q) => Math.max(1, q - 1));
+  }, []);
+
   const validate = useCallback((): string | null => {
     if (!title.trim()) return t('addProduct.errorTitle');
     if (!description.trim()) return t('addProduct.errorDescription');
     if (!photos.length) return t('addProduct.errorPhotos');
     if (!categoryUuid) return t('stream.addProductNoCategory');
-    const price = parseFloat(minOfferPrice.replace(',', '.'));
-    if (!Number.isFinite(price) || price <= 0) return t('addProduct.errorPrice');
-    return null;
-  }, [title, description, photos.length, categoryUuid, minOfferPrice, t]);
+    if (!(weightKg > 0)) return t('addProduct.errorWeight');
 
-  const submit = useCallback(async () => {
-    const err = validate();
-    if (err) {
-      Alert.alert(t('common.appName'), err);
-      return;
+    if (liveSaleMode === 'buy_now') {
+      const p = parseFloat(price.replace(',', '.'));
+      if (!Number.isFinite(p) || p <= 0) return t('addProduct.errorPrice');
     }
-    const price = parseFloat(minOfferPrice.replace(',', '.'));
-    setSubmitting(true);
-    try {
-      const imageUrls = await uploadProductImages(photos);
-      await createProduct({
-        title: title.trim(),
-        description: description.trim(),
-        base_price_cents: Math.round(price * 100),
-        image_urls: imageUrls,
-        interest_category_uuid: categoryUuid!,
-        sale_format: saleFormat,
-        package_tier: 'light',
-        weight_kg: 0.25,
-        condition: 'new',
-        room_id: roomId,
-        quantity_on_hand: 1,
-      });
-      onSuccess();
-      reset();
-    } catch (e) {
-      const msg = e instanceof ApiError ? e.message : t('addProduct.saveError');
-      Alert.alert(t('common.appName'), msg);
-    } finally {
-      setSubmitting(false);
+    if (liveSaleMode === 'auction') {
+      const minBid = parseFloat(minBidPrice.replace(',', '.'));
+      if (!Number.isFinite(minBid) || minBid <= 0) return t('addProduct.errorPrice');
+      const duration = parseInt(auctionDuration, 10);
+      if (!Number.isFinite(duration) || duration < 5 || duration > 300) {
+        return t('stream.addProductAuctionTime');
+      }
     }
+    return null;
   }, [
-    validate,
-    photos,
     title,
     description,
-    minOfferPrice,
+    photos.length,
     categoryUuid,
-    saleFormat,
-    roomId,
-    onSuccess,
-    reset,
+    weightKg,
+    liveSaleMode,
+    price,
+    minBidPrice,
+    auctionDuration,
     t,
   ]);
+
+  const buildPayload = useCallback(
+    (status: 'draft' | 'published') => {
+      let basePriceCents = 100;
+      let minBidCents: number | undefined;
+      let auctionDurationSeconds: number | undefined;
+
+      if (liveSaleMode === 'buy_now') {
+        basePriceCents = Math.round(parseFloat(price.replace(',', '.')) * 100);
+      } else if (liveSaleMode === 'auction') {
+        minBidCents = Math.round(parseFloat(minBidPrice.replace(',', '.')) * 100);
+        basePriceCents = minBidCents;
+        auctionDurationSeconds = Math.max(5, Math.min(300, parseInt(auctionDuration, 10) || 60));
+      }
+
+      return {
+        title: title.trim(),
+        description: description.trim(),
+        base_price_cents: basePriceCents,
+        image_urls: [] as string[],
+        interest_category_uuid: categoryUuid!,
+        sale_format: saleFormat,
+        package_tier: packageTier === 'custom' ? 'light' : packageTier,
+        weight_kg: weightKg,
+        condition: 'new' as const,
+        sku: sku.trim() || null,
+        scope,
+        quantity_on_hand: quantity,
+        room_id: roomId,
+        live_sale_mode: status === 'published' ? liveSaleMode : undefined,
+        min_bid_cents: minBidCents,
+        auction_duration_seconds: auctionDurationSeconds,
+        raffle_participation_mode: liveSaleMode === 'raffle' ? raffleMode : undefined,
+        status,
+      };
+    },
+    [
+      liveSaleMode,
+      price,
+      minBidPrice,
+      auctionDuration,
+      title,
+      description,
+      categoryUuid,
+      saleFormat,
+      packageTier,
+      weightKg,
+      scope,
+      quantity,
+      roomId,
+      sku,
+      raffleMode,
+    ],
+  );
+
+  const submitWithStatus = useCallback(
+    async (status: 'draft' | 'published') => {
+      const err = validate();
+      if (err) {
+        Alert.alert(t('common.appName'), err);
+        return;
+      }
+      setSubmitting(true);
+      try {
+        const imageUrls = await uploadProductImages(photos);
+        const payload = buildPayload(status);
+        await createProduct({ ...payload, image_urls: imageUrls });
+        onSuccess();
+        reset();
+      } catch (e) {
+        const msg = e instanceof ApiError ? e.message : t('addProduct.saveError');
+        Alert.alert(t('common.appName'), msg);
+      } finally {
+        setSubmitting(false);
+      }
+    },
+    [validate, photos, buildPayload, onSuccess, reset, t],
+  );
+
+  const submitPublish = useCallback(() => submitWithStatus('published'), [submitWithStatus]);
+  const submitDraft = useCallback(() => submitWithStatus('draft'), [submitWithStatus]);
 
   return {
     title,
     setTitle: handleTitleChange,
     description,
     setDescription: handleDescriptionChange,
-    minOfferPrice,
-    setMinOfferPrice: handlePriceChange,
+    price,
+    setPrice: handlePriceChange,
+    minBidPrice,
+    setMinBidPrice: handleMinBidChange,
+    auctionDuration,
+    setAuctionDuration: handleDurationChange,
+    sku,
+    setSku: handleSkuChange,
+    quantity,
+    incrementQuantity,
+    decrementQuantity,
+    liveSaleMode,
+    setLiveSaleMode,
+    categoryUuid,
+    setCategoryUuid,
+    categoryLabel,
+    packageTier,
+    weightKg,
+    weightLabel,
+    setPackageTier: handlePackageTierChange,
+    raffleMode,
+    setRaffleMode,
     photos,
     pickPhotos,
     openCamera,
@@ -196,7 +365,8 @@ export function useSellerLiveAddProduct(
     activeDrawer,
     setActiveDrawer,
     submitting,
-    submit,
+    submitPublish,
+    submitDraft,
     reset,
   };
 }
