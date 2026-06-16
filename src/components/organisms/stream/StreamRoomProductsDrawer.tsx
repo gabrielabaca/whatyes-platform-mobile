@@ -94,9 +94,11 @@ export const StreamRoomProductsDrawer: React.FC<StreamRoomProductsDrawerProps> =
           keyExtractor={(it) => it.uuid}
           renderItem={renderItem}
           scrollEnabled
+          nestedScrollEnabled
           style={styles.list}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="always"
         />
       )}
     </StreamBottomSheet>

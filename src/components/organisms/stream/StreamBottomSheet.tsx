@@ -140,19 +140,8 @@ export const StreamBottomSheet: React.FC<StreamBottomSheetProps> = ({
         style={[styles.sheet, { transform: [{ translateY }] }]}
         pointerEvents="box-none"
       >
-        <ScrollView
-          scrollEnabled={scrollEnabled}
-          nestedScrollEnabled
-          keyboardShouldPersistTaps="always"
-          showsVerticalScrollIndicator={false}
-          bounces={false}
-          contentContainerStyle={[
-            styles.scrollContent,
-            useFullPanel ? styles.scrollContentFull : styles.scrollContentBottom,
-            { paddingBottom: insets.bottom, minHeight: useFullPanel ? windowHeight : undefined },
-          ]}
-        >
-          {useFullPanel ? (
+        {(() => {
+          const panelContent = useFullPanel ? (
             <View
               style={[
                 styles.fullPanel,
@@ -164,8 +153,40 @@ export const StreamBottomSheet: React.FC<StreamBottomSheetProps> = ({
             </View>
           ) : (
             <View style={[styles.panel, panelStyle]}>{panelBody}</View>
-          )}
-        </ScrollView>
+          );
+
+          // Sin scroll del sheet: View plano (deja que el contenido — p. ej. un FlatList
+          // interno — maneje su propio scroll sin anidar VirtualizedList en ScrollView).
+          if (!scrollEnabled) {
+            return (
+              <View
+                style={[
+                  styles.scrollContent,
+                  useFullPanel ? styles.scrollContentFull : styles.scrollContentBottom,
+                  { paddingBottom: insets.bottom },
+                ]}
+              >
+                {panelContent}
+              </View>
+            );
+          }
+
+          return (
+            <ScrollView
+              nestedScrollEnabled
+              keyboardShouldPersistTaps="always"
+              showsVerticalScrollIndicator={false}
+              bounces={false}
+              contentContainerStyle={[
+                styles.scrollContent,
+                useFullPanel ? styles.scrollContentFull : styles.scrollContentBottom,
+                { paddingBottom: insets.bottom, minHeight: useFullPanel ? windowHeight : undefined },
+              ]}
+            >
+              {panelContent}
+            </ScrollView>
+          );
+        })()}
       </Animated.View>
     </View>
   );

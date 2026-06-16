@@ -5,6 +5,7 @@
 
 import { API_BASE_URL, API_ENDPOINTS } from './config';
 import { formatApiErrorMessage } from '../utils/formatApiErrorMessage';
+import { getJwtExpMs } from '../utils/jwt';
 import type {
   LoginRequest,
   TokenResponse,
@@ -272,25 +273,80 @@ export async function changePasswordConfirm(params: {
  * Refresh Token - Refrescar token de acceso
  * @param refreshToken Token de refresco
  */
-export async function refreshToken(refreshToken: string): Promise<TokenResponse> {
-  const request: RefreshTokenRequest = { refresh_token: refreshToken };
-  const response = await fetchApi<TokenResponse>(
-    API_ENDPOINTS.AUTH.REFRESH_TOKEN,
-    {
-      method: 'POST',
-      body: JSON.stringify(request),
-    }
-  );
+export async function refreshToken(refreshTokenValue: string): Promise<TokenResponse> {
+  const request: RefreshTokenRequest = { refresh_token: refreshTokenValue };
+  // El backend devuelve los tokens en la raíz: { access_token, refresh_token, token_type }.
+  const data = await fetchApi<Record<string, any>>(API_ENDPOINTS.AUTH.REFRESH_TOKEN, {
+    method: 'POST',
+    body: JSON.stringify(request),
+  });
 
-  // Almacenar nuevos tokens
-  if (response.data) {
-    await storeTokens({
-      access_token: response.data.access_token,
-      refresh_token: response.data.refresh_token,
-    });
+  const access = data?.data?.access_token ?? data?.access_token;
+  const refresh = data?.data?.refresh_token ?? data?.refresh_token;
+  if (access && refresh) {
+    await storeTokens({ access_token: access, refresh_token: refresh });
   }
 
-  return response;
+  return {
+    data: {
+      access_token: access,
+      refresh_token: refresh,
+      token_type: data?.token_type ?? data?.data?.token_type ?? 'bearer',
+    },
+  } as TokenResponse;
+}
+
+/**
+ * Refresca la sesión usando el refresh token guardado. Single-flight: llamadas
+ * concurrentes comparten la misma promesa.
+ * - Devuelve el nuevo access token, o null si no se pudo refrescar.
+ * - Si el refresh token es rechazado (401/403), limpia el storage para forzar re-login.
+ */
+let refreshSessionPromise: Promise<string | null> | null = null;
+
+export async function refreshSession(): Promise<string | null> {
+  if (refreshSessionPromise) {
+    return refreshSessionPromise;
+  }
+  refreshSessionPromise = (async () => {
+    try {
+      const rt = await storage.getRefreshToken();
+      if (!rt) {
+        return null;
+      }
+      const res = await refreshToken(rt);
+      return res.data?.access_token ?? (await storage.getAccessToken());
+    } catch (error) {
+      if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
+        // Refresh token inválido/expirado/revocado → forzar re-login.
+        await storage.clearAll();
+      }
+      // Errores de red u otros: no limpiar; se reintenta más tarde.
+      return null;
+    } finally {
+      refreshSessionPromise = null;
+    }
+  })();
+  return refreshSessionPromise;
+}
+
+/** Margen para refrescar antes de que venza el access token. */
+const TOKEN_REFRESH_SKEW_MS = 60_000;
+
+/**
+ * Devuelve un access token válido: si el guardado está vencido o por vencer,
+ * lo refresca primero. Null si no hay sesión o no se pudo refrescar.
+ */
+export async function ensureFreshAccessToken(): Promise<string | null> {
+  const access = await storage.getAccessToken();
+  if (!access) {
+    return null;
+  }
+  const expMs = getJwtExpMs(access);
+  if (expMs == null || expMs - Date.now() > TOKEN_REFRESH_SKEW_MS) {
+    return access;
+  }
+  return refreshSession();
 }
 
 /**

@@ -80,6 +80,31 @@ export function useStreamChat({ roomId, accessToken, enabled = true, onLike }: U
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Offset (segundos) entre el reloj del servidor y el del dispositivo.
+  // serverNow() = reloj local + offset. Imprescindible para que la cuenta regresiva
+  // de la subasta sea JUSTA entre dispositivos con la hora corrida.
+  const serverClockOffsetRef = useRef(0);
+  const [, setClockSynced] = useState(0); // fuerza recálculo del countdown al sincronizar
+
+  const serverNow = useCallback(
+    () => Math.floor(Date.now() / 1000) + serverClockOffsetRef.current,
+    []
+  );
+
+  /** Ajusta el offset a partir de un timestamp de servidor muestreado "alrededor de ahora". */
+  const syncClock = useCallback((serverEpochSec?: number) => {
+    if (typeof serverEpochSec !== 'number' || !Number.isFinite(serverEpochSec) || serverEpochSec <= 0) {
+      return;
+    }
+    const localNow = Math.floor(Date.now() / 1000);
+    const nextOffset = serverEpochSec - localNow;
+    // Solo actualizar si el cambio es significativo (>1s) para no rerenderizar de más.
+    if (Math.abs(nextOffset - serverClockOffsetRef.current) >= 1) {
+      serverClockOffsetRef.current = nextOffset;
+      setClockSynced((v) => v + 1);
+    }
+  }, []);
+
   const send = useCallback((payload: Record<string, any>) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify(payload));
@@ -150,6 +175,10 @@ export function useStreamChat({ roomId, accessToken, enabled = true, onLike }: U
       ws.onmessage = (event) => {
         try {
           const msg = JSON.parse(event.data) as any;
+          // Sincronizar reloj con cualquier timestamp de servidor disponible.
+          if (msg?.payload && typeof msg.payload.server_time === 'number') {
+            syncClock(msg.payload.server_time);
+          }
           if (msg.type === 'init' && msg.payload) {
             const list = Array.isArray(msg.payload.messages) ? msg.payload.messages : [];
             setMessages(list.map((item: WsPayloadMessage) => toChatMessage(item)));
@@ -169,7 +198,7 @@ export function useStreamChat({ roomId, accessToken, enabled = true, onLike }: U
               setRoomIntroVideoUrl(msg.payload.intro_video_url.trim());
             }
             const a = msg.payload.auction;
-            if (a && a.id && typeof a.ends_at === 'number' && a.ends_at > Math.floor(Date.now() / 1000)) {
+            if (a && a.id && typeof a.ends_at === 'number' && a.ends_at > serverNow()) {
               setAuction({
                 id: a.id,
                 durationSeconds: a.duration_seconds ?? 10,
@@ -191,6 +220,9 @@ export function useStreamChat({ roomId, accessToken, enabled = true, onLike }: U
           }
           if (msg.type === 'auction_start' && msg.payload) {
             const a = msg.payload;
+            // started_at es "ahora" en el reloj del servidor al iniciar la subasta:
+            // sirve para corregir el offset del dispositivo aunque el backend no envíe server_time.
+            if (typeof a.started_at === 'number') syncClock(a.started_at);
             if (a.id && typeof a.ends_at === 'number') {
               setAuction({
                 id: a.id,
@@ -275,31 +307,30 @@ export function useStreamChat({ roomId, accessToken, enabled = true, onLike }: U
 
   const [auctionSecondsRemaining, setAuctionSecondsRemaining] = useState<number | null>(null);
 
-  const now = Math.floor(Date.now() / 1000);
+  const now = serverNow();
   const isAuctionActive = auction !== null && auction.endsAt > now;
 
   useEffect(() => {
-    if (!auction || auction.endsAt <= Math.floor(Date.now() / 1000)) {
+    if (!auction || auction.endsAt <= serverNow()) {
       setAuctionSecondsRemaining(null);
       return;
     }
     const update = () => {
-      const n = Math.floor(Date.now() / 1000);
-      const remaining = Math.max(0, auction.endsAt - n);
+      const remaining = Math.max(0, auction.endsAt - serverNow());
       setAuctionSecondsRemaining(remaining);
       if (remaining <= 0) setAuction(null);
     };
     update();
     const id = setInterval(update, 1000);
     return () => clearInterval(id);
-  }, [auction?.id, auction?.endsAt]);
+  }, [auction?.id, auction?.endsAt, serverNow]);
 
   useEffect(() => {
     if (!auction || auction.endsAt <= now) return;
     const delay = (auction.endsAt - now) * 1000 + 500;
     const t = setTimeout(() => setAuction(null), delay);
     return () => clearTimeout(t);
-  }, [auction?.id, auction?.endsAt]);
+  }, [auction?.id, auction?.endsAt, now]);
 
   useEffect(() => {
     if (!auctionWinner) return;

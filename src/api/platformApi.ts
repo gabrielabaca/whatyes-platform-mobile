@@ -434,6 +434,59 @@ export async function getWebRTCCredentials(
   return res.json();
 }
 
+/**
+ * Inicia la grabación de la sala en vivo (ingestión WebRTC → KVS stream).
+ * Llamar después de arrancar el master. Solo el dueño de la sala en estado LIVE.
+ */
+export async function startRecording(accessToken: string, roomId: string): Promise<void> {
+  const url = `${PLATFORM_HTTP_URL}/stream/start-recording?room_id=${encodeURIComponent(roomId)}`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: authHeaders(accessToken),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    const raw = (err as { detail?: unknown }).detail;
+    const msg = formatPlatformErrorDetail(raw) || `startRecording: ${res.status}`;
+    throw new Error(msg);
+  }
+}
+
+export interface StreamUrlResponse {
+  url: string;
+  expires_in_seconds: number;
+}
+
+export class NoFragmentsError extends Error {
+  constructor(message = 'NO_FRAGMENTS') {
+    super(message);
+    this.name = 'NoFragmentsError';
+  }
+}
+
+/**
+ * URL firmada HLS para reproducir el stream grabado de una sala en vivo.
+ * Lanza NoFragmentsError si el broadcaster aún no envió video (503 NO_FRAGMENTS).
+ */
+export async function getStreamUrl(accessToken: string, roomId: string): Promise<StreamUrlResponse> {
+  const url = `${PLATFORM_HTTP_URL}/stream/url?room_id=${encodeURIComponent(roomId)}`;
+  const res = await fetch(url, { headers: authHeaders(accessToken) });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    const raw = (err as { detail?: unknown }).detail;
+    const code =
+      raw && typeof raw === 'object' && 'code' in raw
+        ? (raw as { code?: unknown }).code
+        : undefined;
+    if (res.status === 503 && code === 'NO_FRAGMENTS') {
+      throw new NoFragmentsError();
+    }
+    const msg = formatPlatformErrorDetail(raw) || `getStreamUrl: ${res.status}`;
+    throw new Error(msg);
+  }
+  return res.json();
+}
+
 export interface LiveCommerceSellerPayload {
   user_id: string;
 }

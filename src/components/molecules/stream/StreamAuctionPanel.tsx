@@ -54,7 +54,7 @@ export const StreamAuctionPanel: React.FC<StreamAuctionPanelProps> = ({
     <View style={styles.panel}>
       <View style={styles.left}>
         {showStatusRow && statusLabel ? (
-          <AuctionStatusRow label={statusLabel} />
+          <AuctionStatusRow label={statusLabel} winningKey={winningUsername} />
         ) : null}
         <RNText style={styles.title} numberOfLines={1}>
           {productTitle}

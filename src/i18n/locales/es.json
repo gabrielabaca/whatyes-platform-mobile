@@ -261,6 +261,11 @@
     "saveSuccessBody": "Ya podés usarlo en tus vivos y en tu catálogo.",
     "saveError": "No se pudo guardar el producto"
   },
+  "purchases": {
+    "emptyTitle": "Aún no tenés compras",
+    "emptySubtitle": "Cuando compres en un vivo, tus compras aparecerán acá.",
+    "openAccount": "Mi cuenta"
+  },
   "home": {
     "welcome": "¡Bienvenido!",
     "liveStreams": "Streams en Vivo",

@@ -4,9 +4,21 @@
  */
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { login as loginApi, getCurrentUser, logout as logoutApi, refreshToken, ApiError } from '../api';
+import { AppState, type AppStateStatus } from 'react-native';
+import {
+  login as loginApi,
+  getCurrentUser,
+  logout as logoutApi,
+  refreshSession,
+  ensureFreshAccessToken,
+  ApiError,
+} from '../api';
 import { storage } from '../utils/storage';
+import { getJwtExpMs } from '../utils/jwt';
 import type { User, LoginRequest } from '../api/types';
+
+/** Refrescar este margen antes de que venza el access token. */
+const PROACTIVE_REFRESH_SKEW_MS = 60_000;
 
 interface AuthContextType {
   user: User | null;
@@ -34,6 +46,69 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     checkAuthStatus();
   }, []);
 
+  // Refresh proactivo: mantiene vigente el access token mientras hay sesión y al
+  // volver del background (los timers de JS se congelan mientras la app está en background).
+  const hasSession = !!user;
+  useEffect(() => {
+    if (!hasSession) return;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let cancelled = false;
+
+    const forceLogoutLocal = async () => {
+      await storage.clearAll();
+      if (!cancelled) setUser(null);
+    };
+
+    const schedule = async () => {
+      if (cancelled) return;
+      if (timer) {
+        clearTimeout(timer);
+        timer = null;
+      }
+      const access = await storage.getAccessToken();
+      if (!access) {
+        await forceLogoutLocal();
+        return;
+      }
+      const expMs = getJwtExpMs(access);
+      if (expMs == null) return; // sin exp legible: no se programa refresh proactivo
+      const delay = Math.max(0, expMs - Date.now() - PROACTIVE_REFRESH_SKEW_MS);
+      timer = setTimeout(async () => {
+        const tok = await refreshSession();
+        if (cancelled) return;
+        if (tok) {
+          schedule();
+        } else {
+          const rt = await storage.getRefreshToken();
+          if (!cancelled && !rt) await forceLogoutLocal();
+          // error de red: se reintenta en el próximo foreground
+        }
+      }, delay);
+    };
+
+    const onAppState = (state: AppStateStatus) => {
+      if (state !== 'active') return;
+      ensureFreshAccessToken().then(async (tok) => {
+        if (cancelled) return;
+        if (tok) {
+          schedule();
+        } else {
+          const rt = await storage.getRefreshToken();
+          if (!cancelled && !rt) await forceLogoutLocal();
+        }
+      });
+    };
+
+    schedule();
+    const sub = AppState.addEventListener('change', onAppState);
+
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+      sub.remove();
+    };
+  }, [hasSession]);
+
   const checkAuthStatus = async () => {
     try {
       const token = await storage.getAccessToken();
@@ -53,7 +128,25 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           setUser(storedUserData);
         }
 
-        // Luego actualizar desde la API en segundo plano
+        // Asegurar un access token válido antes de llamar a la API:
+        // si el guardado está vencido, se refresca con el refresh token (7 días).
+        const freshToken = await ensureFreshAccessToken();
+        if (!freshToken) {
+          const stillHasSession = await storage.getRefreshToken();
+          if (!stillHasSession) {
+            // Refresh token inválido/expirado/revocado → cerrar sesión.
+            await storage.clearAll();
+            setUser(null);
+          } else if (!storedUserData) {
+            // Error de red sin usuario cacheado → mostrar login.
+            setUser(null);
+          }
+          // Error de red con usuario cacheado: se mantiene la sesión (modo offline);
+          // el scheduler / foreground reintentan el refresh.
+          return;
+        }
+
+        // Token válido → actualizar usuario desde la API.
         try {
           const userData = await getCurrentUser();
           if (userData.data) {
@@ -61,10 +154,28 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             await storage.setUserData(userData.data);
           }
         } catch (apiError) {
-          // Si hay error al obtener desde la API pero tenemos datos en storage,
-          // mantener los datos del storage pero intentar refrescar el token
-          if (!storedUserData) {
-            // Si no hay datos en storage y falla la API, limpiar tokens
+          if (apiError instanceof ApiError && apiError.status === 401) {
+            // Vencido entre medio: refrescar y reintentar una vez.
+            const retried = await refreshSession();
+            if (retried) {
+              try {
+                const userData = await getCurrentUser();
+                if (userData.data) {
+                  setUser(userData.data);
+                  await storage.setUserData(userData.data);
+                }
+              } catch {
+                if (!storedUserData) setUser(null);
+              }
+            } else {
+              const stillHasSession = await storage.getRefreshToken();
+              if (!stillHasSession) {
+                await storage.clearAll();
+                setUser(null);
+              }
+            }
+          } else if (!storedUserData) {
+            // Error de red sin usuario cacheado → limpiar.
             try {
               await storage.clearAll();
             } catch (storageError) {
@@ -72,7 +183,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             }
             setUser(null);
           }
-          // Si hay datos en storage, mantenerlos aunque falle la API
+          // Con usuario cacheado y error de red: mantener datos.
         }
       } else {
         // No hay token, limpiar datos del usuario
@@ -176,16 +287,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const refreshAuth = async () => {
     try {
-      const refreshTokenValue = await storage.getRefreshToken();
-      if (refreshTokenValue) {
-        await refreshToken(refreshTokenValue);
-        const userData = await getCurrentUser();
-        if (userData.data) {
-          setUser(userData.data);
-          await storage.setUserData(userData.data);
-        }
+      const newToken = await refreshSession();
+      if (!newToken) {
+        await logout();
+        return;
       }
-    } catch (error) {
+      const userData = await getCurrentUser();
+      if (userData.data) {
+        setUser(userData.data);
+        await storage.setUserData(userData.data);
+      }
+    } catch {
       // Si falla el refresh, hacer logout
       await logout();
     }

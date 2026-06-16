@@ -26,9 +26,12 @@ import {
 } from '../../../api/platformApi';
 import { startKinesisWebRTCViewer, stopKinesisWebRTCViewer } from '../../../native/KinesisWebRTCNative';
 import type { MediaStream } from 'react-native-webrtc';
+import { getViewerTransport } from '../../../api/config';
+import { HlsStreamPlayer } from '../../molecules/stream/HlsStreamPlayer';
 import { useStreamChat } from '../../../hooks/useStreamChat';
 import { AuctionWinnerOverlay } from '../../molecules/AuctionWinnerOverlay/AuctionWinnerOverlay';
 import { useFloatingHearts, FloatingHeartsLayer } from '../../molecules/FloatingHearts/FloatingHearts';
+import { useFloatingBids, FloatingBidsLayer } from '../../molecules/FloatingBids/FloatingBids';
 import { enableSpeakerphone, disableSpeakerphone, muteSpeakerOutput } from '../../../utils/audioRoute';
 import { useLiveKeepAwake } from '../../../hooks/useLiveKeepAwake';
 import { StreamBuyerOverlay } from '../../organisms/stream/StreamBuyerOverlay';
@@ -63,7 +66,10 @@ export interface StreamScreenProps {
 export const StreamScreen: React.FC<StreamScreenProps> = ({ stream, onClose }) => {
   const { t } = useTranslation();
   const [messageText, setMessageText] = useState('');
+  const viewerTransport = getViewerTransport();
+  const isHls = viewerTransport === 'hls';
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
+  const [hlsReady, setHlsReady] = useState(false);
   const [streamError, setStreamError] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(true);
   const [chatToken, setChatToken] = useState<string | null>(null);
@@ -117,6 +123,7 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({ stream, onClose }) =
     roomCoverUrl: wsCoverUrl,
     roomIntroVideoUrl: wsIntroVideoUrl,
   } = useStreamChat({ roomId, accessToken: chatToken, onLike: handleLikeEvent });
+  const { bidEvents, handleBidDone } = useFloatingBids(auctionBids);
 
   const effectiveCoverUrl = wsCoverUrl ?? roomCoverUrl;
   const effectiveIntroVideoUrl = wsIntroVideoUrl ?? roomIntroVideoUrl;
@@ -298,6 +305,11 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({ stream, onClose }) =
   );
 
   useEffect(() => {
+    // En modo HLS el video lo maneja <HlsStreamPlayer/>; no abrir peer WebRTC.
+    if (isHls) {
+      setIsConnecting(false);
+      return;
+    }
     let cancelled = false;
     (async () => {
       try {
@@ -349,7 +361,7 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({ stream, onClose }) =
       stopKinesisWebRTCViewer().catch(() => {});
       disableSpeakerphone();
     };
-  }, [roomId, onClose]);
+  }, [roomId, onClose, isHls]);
 
   useEffect(() => {
     if (!remoteStream) {
@@ -435,7 +447,8 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({ stream, onClose }) =
     );
   }
 
-  if ((isConnecting || !remoteStream) && !isStreamPaused) {
+  const videoReady = isHls ? hlsReady : !!remoteStream;
+  if ((isConnecting || !videoReady) && !isStreamPaused) {
     return (
       <View style={[styles.container, styles.loadingScreen]}>
         <View style={styles.loadingContent}>
@@ -473,7 +486,16 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({ stream, onClose }) =
     <View style={styles.container}>
       <StatusBar hidden />
 
-      {remoteStream ? (
+      {isHls ? (
+        <HlsStreamPlayer
+          roomId={roomId}
+          paused={isStreamPaused}
+          muted={isAudioMuted}
+          style={[styles.video, isStreamPaused && styles.videoWhilePaused]}
+          onReady={() => setHlsReady(true)}
+          onError={(err) => setStreamError(err.message)}
+        />
+      ) : remoteStream ? (
         <RTCView
           key={`viewer-rtc-${rtcViewEpoch}`}
           streamURL={remoteStream.toURL()}
@@ -496,6 +518,7 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({ stream, onClose }) =
 
       <AuctionWinnerOverlay winner={auctionWinner} />
       <FloatingHeartsLayer likeEvents={likeEvents} onLikeDone={handleLikeDone} />
+      <FloatingBidsLayer bidEvents={bidEvents} onBidDone={handleBidDone} />
       <FollowSuccessCelebration
         visible={followCelebrationVisible}
         sellerName={stream.sellerName}

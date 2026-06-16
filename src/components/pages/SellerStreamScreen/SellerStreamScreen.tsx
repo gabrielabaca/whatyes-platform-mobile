@@ -13,10 +13,8 @@ import {
   StatusBar,
   Dimensions,
   Platform,
-  TextInput,
   Alert,
   ActivityIndicator,
-  Modal,
   Keyboard,
   TouchableWithoutFeedback,
 } from 'react-native';
@@ -34,6 +32,7 @@ import {
   goLive,
   endStream,
   getWebRTCCredentials,
+  startRecording,
   getRoomLiveCommerce,
   getRoomCatalog,
   setActiveRoomProduct,
@@ -44,6 +43,7 @@ import {
   type RoomCatalogProductItem,
 } from '../../../api/platformApi';
 import { getUserPublicProfile, type UserPublicProfile } from '../../../api/profileApi';
+import { getViewerTransport } from '../../../api/config';
 import {
   startKinesisWebRTCMaster,
   stopKinesisWebRTCMaster,
@@ -55,6 +55,7 @@ import { useStreamChat } from '../../../hooks/useStreamChat';
 import { useLiveAutoCoverSnapshot } from '../../../hooks/useLiveAutoCoverSnapshot';
 import { AuctionWinnerOverlay } from '../../molecules/AuctionWinnerOverlay/AuctionWinnerOverlay';
 import { useFloatingHearts, FloatingHeartsLayer } from '../../molecules/FloatingHearts/FloatingHearts';
+import { useFloatingBids, FloatingBidsLayer } from '../../molecules/FloatingBids/FloatingBids';
 import { useLiveKeepAwake } from '../../../hooks/useLiveKeepAwake';
 import { PreLiveSetupOverlay } from '../../organisms/startLive/PreLiveSetupOverlay';
 import { StreamSellerOverlay } from '../../organisms/stream/StreamSellerOverlay';
@@ -100,9 +101,7 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
   const [catalogItems, setCatalogItems] = useState<RoomCatalogProductItem[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [catalogError, setCatalogError] = useState<string | null>(null);
-  const [saleMode, setSaleMode] = useState<LiveProductSaleMode>('buy_now');
-  const [showAuctionModal, setShowAuctionModal] = useState(false);
-  const [auctionDuration, setAuctionDuration] = useState('10');
+  const [saleMode, setSaleMode] = useState<LiveProductSaleMode>('auction');
   const [isMicMuted, setIsMicMuted] = useState(false);
   const [liveCoverUrl, setLiveCoverUrl] = useState<string | null>(null);
   const userProvidedCover = Boolean(resolvedStreamConfig.coverUrl?.trim());
@@ -116,7 +115,6 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
     viewerCount,
     sendChat,
     sendLike,
-    sendAuctionStart,
     sendStreamPause,
     sendStreamResume,
     isStreamPaused,
@@ -129,6 +127,8 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
     accessToken: token,
     onLike: handleLikeEvent,
   });
+
+  const { bidEvents, handleBidDone } = useFloatingBids(auctionBids);
 
   useLiveKeepAwake();
 
@@ -191,6 +191,13 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
               setLocalWebRTCStream(stream as unknown as MediaStream);
             },
           });
+          // Grabación (ingestión WebRTC → KVS) SOLO en modo HLS: al habilitar storage, AWS rompe el
+          // P2P master↔viewer, así que con viewers WebRTC en tiempo real NO debe activarse.
+          if (getViewerTransport() === 'hls') {
+            startRecording(accessToken, live.uuid).catch((recErr) => {
+              console.warn('[Seller] No se pudo iniciar la grabación:', recErr);
+            });
+          }
         } catch (e: unknown) {
           if (!cancelled) {
             setIsStreaming(false);
@@ -379,16 +386,6 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
       ],
     );
   }, [t, confirmEndStream]);
-
-  const handleStartAuction = useCallback(() => {
-    const duration = Math.max(5, Math.min(300, parseInt(auctionDuration, 10) || 10));
-    sendAuctionStart(duration);
-    setShowAuctionModal(false);
-  }, [auctionDuration, sendAuctionStart]);
-
-  const openAuctionModal = useCallback(() => {
-    setShowAuctionModal(true);
-  }, []);
 
   const { hasPermission, requestPermission } = useCameraPermission();
   const frontDevice = useCameraDevice('front');
@@ -592,6 +589,7 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
       <StreamVideoScrim />
       <AuctionWinnerOverlay winner={auctionWinner} />
       <FloatingHeartsLayer likeEvents={likeEvents} onLikeDone={handleLikeDone} />
+      <FloatingBidsLayer bidEvents={bidEvents} onBidDone={handleBidDone} />
 
       <StreamSellerOverlay
         sellerName={sellerName}
@@ -619,7 +617,6 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
         onFlipCamera={handleToggleCamera}
         onOpenProductCatalog={openProductCatalog}
         onAddPress={openAddProduct}
-        onStartAuction={openAuctionModal}
       />
 
       <SellerAddProductTypeDrawer
@@ -659,34 +656,6 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
         }}
       />
 
-      <Modal visible={showAuctionModal} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text variant="h3" className="text-white mb-2">{t('stream.sellerStartAuction')}</Text>
-            <Text variant="body" className="text-white/80 mb-4">{t('stream.auctionDurationHint')}</Text>
-            <TextInput
-              style={styles.modalInput}
-              placeholder="10"
-              placeholderTextColor="#9ca3af"
-              keyboardType="number-pad"
-              value={auctionDuration}
-              onChangeText={setAuctionDuration}
-            />
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={styles.modalCancelButton}
-                onPress={() => setShowAuctionModal(false)}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.modalCancelText}>{t('common.cancel')}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.modalStartButton} onPress={handleStartAuction} activeOpacity={0.7}>
-                <Text style={styles.modalStartText}>{t('stream.auctionStartCta')}</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
       </View>
     </TouchableWithoutFeedback>
   );
@@ -765,55 +734,5 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 8,
     marginTop: 12,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  modalContent: {
-    backgroundColor: 'rgba(30,30,30,0.98)',
-    borderRadius: 16,
-    padding: 24,
-    width: '100%',
-    maxWidth: 320,
-  },
-  modalInput: {
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    color: '#ffffff',
-    fontSize: 16,
-    marginBottom: 20,
-  },
-  modalButtons: {
-    flexDirection: 'row',
-    gap: 12,
-    justifyContent: 'flex-end',
-  },
-  modalCancelButton: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 8,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-  },
-  modalCancelText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  modalStartButton: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 8,
-    backgroundColor: '#685CF0',
-  },
-  modalStartText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '600',
   },
 });

@@ -12,6 +12,7 @@ import { StreamData } from '../../molecules/StreamCard';
 import { BuyerExploreScreen } from '../BuyerExploreScreen';
 import { BuyerCategoryStreamsScreen } from '../BuyerCategoryStreamsScreen';
 import { BuyerAccountScreen } from '../BuyerAccountScreen';
+import { BuyerPurchasesScreen } from '../BuyerPurchasesScreen';
 import { UserProfileScreen } from '../UserProfileScreen';
 import { BuyerKycModal } from '../../organisms/account/BuyerKycModal';
 import type { UserShowItem } from '../../../api/platformApi';
@@ -50,6 +51,7 @@ type HomePath =
   | { name: 'category'; category: InterestCategoryItem }
   | { name: 'sellerHub' }
   | { name: 'account' }
+  | { name: 'purchases' }
   | { name: 'profile'; userId?: string }
   | { name: 'addProduct'; returnTo?: 'home' | 'sellerHub' };
 
@@ -192,6 +194,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         setHomePath({ name: 'account' });
         return;
       }
+      if (tab === 'compras') {
+        setHomePath({ name: 'purchases' });
+        return;
+      }
       if (tab === 'create') {
         setHomePath({ name: 'sellerHub' });
         return;
@@ -200,7 +206,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         Alert.alert(t('common.appName'), t('home.placeholderScreen'));
       }
     },
-    [onStartNewStream, t]
+    [t]
   );
 
   if (!user) {
@@ -240,8 +246,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       ? 'create'
       : homePath.name === 'category'
         ? 'explore'
-        : homePath.name === 'profile'
-          ? 'account'
+        : homePath.name === 'purchases' || homePath.name === 'account' || homePath.name === 'profile'
+          ? 'compras'
           : bottomTab;
 
   const isSellerDashboard = isSeller && homePath.name === 'sellerHub';
@@ -376,6 +382,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               onBack={() => setHomePath({ name: 'explore' })}
               onStreamPress={handleStreamPress}
             />
+          ) : null}
+
+          {homePath.name === 'purchases' ? (
+            <BuyerPurchasesScreen onOpenAccount={() => setHomePath({ name: 'account' })} />
           ) : null}
 
           {homePath.name === 'account' ? (

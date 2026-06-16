@@ -7,7 +7,7 @@ import {
   IconPlus,
   IconBell,
   type SvgIconProps,
-  IconAccount,
+  IconShoppingBag,
 } from '../../icons';
 import { Text } from '../../atoms/Text';
 import { FONT_FAMILY } from '../../../theme/typography';
@@ -24,8 +24,8 @@ const ICON = 24;
 const ICON_WRAP = 40;
 const FAB_SIZE = 46;
 const RADIUS = 14;
-/** Borde superior alineado al diseño de referencia del layout principal. */
-const NAV_BORDER = '#71717B';
+/** Borde superior alineado al diseño (Figma 652:34535). */
+const NAV_BORDER = '#DDD';
 const MUTED = '#71717B';
 export const HomeBottomNav: React.FC<HomeBottomNavProps> = ({ activeTab, onTabPress }) => {
   const { t } = useTranslation();
@@ -39,7 +39,11 @@ export const HomeBottomNav: React.FC<HomeBottomNavProps> = ({ activeTab, onTabPr
     IconCmp,
   }: {
     tab: HomeBottomTab;
-    labelKey: 'home.tabHome' | 'home.tabExplore' | 'home.tabActivity' | 'home.tabAccount';
+    labelKey:
+      | 'home.tabHome'
+      | 'home.tabExplore'
+      | 'home.tabActivity'
+      | 'home.tabPurchases';
     IconCmp: React.FC<SvgIconProps>;
   }) => {
     const on = activeTab === tab;
@@ -54,7 +58,14 @@ export const HomeBottomNav: React.FC<HomeBottomNavProps> = ({ activeTab, onTabPr
         <View style={styles.iconWrap}>
           <IconCmp size={ICON} color={color} strokeWidth={2} />
         </View>
-        <Text style={[styles.label, { color }]}>{t(labelKey)}</Text>
+        <Text
+          style={[styles.label, { color }]}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.85}
+        >
+          {t(labelKey)}
+        </Text>
       </TouchableOpacity>
     );
   };
@@ -70,7 +81,7 @@ export const HomeBottomNav: React.FC<HomeBottomNavProps> = ({ activeTab, onTabPr
       <NavItem tab="explore" labelKey="home.tabExplore" IconCmp={IconSearch} />
       <CenterFab onPress={() => onTabPress('create')} />
       <NavItem tab="activity" labelKey="home.tabActivity" IconCmp={IconBell} />
-      <NavItem tab="account" labelKey="home.tabAccount" IconCmp={IconAccount} />
+      <NavItem tab="compras" labelKey="home.tabPurchases" IconCmp={IconShoppingBag} />
     </View>
   );
 };
@@ -95,9 +106,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     paddingVertical: 11,
-    gap: 26,
+    gap: 8,
     borderTopWidth: 0.7,
     borderTopColor: NAV_BORDER,
   },
@@ -105,6 +116,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    minWidth: 0,
     minHeight: 58,
     gap: 2,
   },
@@ -116,14 +128,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   label: {
+    width: '100%',
     fontFamily: FONT_FAMILY.regular,
     fontWeight: '500',
     fontSize: 12,
     lineHeight: 16,
+    textAlign: 'center',
     marginTop: 0,
   },
   fabSlot: {
-    flex: 1,
+    flexGrow: 0,
+    flexShrink: 0,
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 46,

@@ -262,6 +262,11 @@ export default {
     "saveSuccessBody": "You can now use it in your live streams and catalog.",
     "saveError": "Could not save product"
   },
+  "purchases": {
+    "emptyTitle": "No purchases yet",
+    "emptySubtitle": "When you buy in a live, your purchases will show up here.",
+    "openAccount": "My account"
+  },
   "home": {
     "welcome": "Welcome!",
     "liveStreams": "Live streams",
