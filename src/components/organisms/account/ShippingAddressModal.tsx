@@ -8,19 +8,18 @@ import {
   TouchableOpacity,
   TextInput,
   Text as RNText,
-  Animated,
-  KeyboardAvoidingView,
-  ScrollView,
   ActivityIndicator,
   Alert,
-  Platform,
   Modal,
   FlatList,
 } from 'react-native';
 import { X, ChevronDown } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { GlassBackdrop } from '../profile/GlassBackdrop';
+import {
+  GlassFullScreenModal,
+  type GlassFullScreenModalHandle,
+} from '../profile/GlassFullScreenModal';
 import { FONT_FAMILY } from '../../../theme/typography';
 import { COUNTRIES, type Country } from '../../molecules/CountrySelect/CountrySelect';
 import {
@@ -47,7 +46,7 @@ export const ShippingAddressModal: React.FC<ShippingAddressModalProps> = ({
 }) => {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
-  const slideAnim = useRef(new Animated.Value(1)).current;
+  const modalRef = useRef<GlassFullScreenModalHandle>(null);
 
   const [fullName, setFullName] = useState(defaultFullName);
   const [country, setCountry] = useState('');
@@ -65,13 +64,6 @@ export const ShippingAddressModal: React.FC<ShippingAddressModalProps> = ({
     if (!visible) {
       return;
     }
-    slideAnim.setValue(1);
-    Animated.spring(slideAnim, {
-      toValue: 0,
-      useNativeDriver: true,
-      tension: 68,
-      friction: 12,
-    }).start();
 
     let cancelled = false;
     (async () => {
@@ -107,18 +99,10 @@ export const ShippingAddressModal: React.FC<ShippingAddressModalProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [visible, defaultFullName, slideAnim]);
+  }, [visible, defaultFullName]);
 
   const handleClose = () => {
-    Animated.timing(slideAnim, {
-      toValue: 1,
-      duration: 220,
-      useNativeDriver: true,
-    }).start(({ finished }) => {
-      if (finished) {
-        onClose();
-      }
-    });
+    modalRef.current?.dismiss();
   };
 
   const handleUseLocation = () => {
@@ -177,15 +161,6 @@ export const ShippingAddressModal: React.FC<ShippingAddressModalProps> = ({
     }
   };
 
-  if (!visible) {
-    return null;
-  }
-
-  const translateY = slideAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, 800],
-  });
-
   const selectedCountry = COUNTRIES.find((c) => c.name === country || c.code === country);
   const filteredCountries = COUNTRIES.filter(
     (c) =>
@@ -194,128 +169,109 @@ export const ShippingAddressModal: React.FC<ShippingAddressModalProps> = ({
   );
 
   return (
-    <View style={styles.host} pointerEvents="box-none">
-      <GlassBackdrop />
-      <TouchableOpacity
-        style={styles.backdropPress}
-        activeOpacity={1}
-        onPress={handleClose}
-        accessibilityRole="button"
-        accessibilityLabel={t('account.shippingAddress.cancel')}
-      />
-
-      <Animated.View
-        style={[styles.sheet, { transform: [{ translateY }], paddingBottom: insets.bottom }]}
-        pointerEvents="box-none"
-      >
-        <KeyboardAvoidingView
-          style={styles.flex}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          pointerEvents="box-none"
-        >
-          <ScrollView
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-            bounces={false}
-            contentContainerStyle={styles.scrollContent}
-          >
-            <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
-              <RNText style={styles.title}>{t('account.shippingAddress.title')}</RNText>
+    <>
+      <GlassFullScreenModal
+        ref={modalRef}
+        visible={visible}
+        onClose={onClose}
+        backdropAccessibilityLabel={t('account.shippingAddress.cancel')}
+        header={
+          <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
+            <RNText style={styles.title}>{t('account.shippingAddress.title')}</RNText>
+            <TouchableOpacity
+              onPress={handleClose}
+              hitSlop={12}
+              style={styles.closeBtn}
+              accessibilityRole="button"
+              accessibilityLabel={t('account.shippingAddress.close')}
+            >
+              <X size={22} color="#FFFFFF" strokeWidth={2.2} />
+            </TouchableOpacity>
+          </View>
+        }
+        footer={
+          !loading ? (
+            <View style={styles.actions}>
               <TouchableOpacity
-                onPress={handleClose}
-                hitSlop={12}
-                style={styles.closeBtn}
-                accessibilityRole="button"
-                accessibilityLabel={t('account.shippingAddress.close')}
+                style={[styles.saveBtn, (!confirmed || saving) && styles.saveBtnDisabled]}
+                onPress={handleSave}
+                disabled={!confirmed || saving}
+                activeOpacity={0.88}
               >
-                <X size={22} color="#FFFFFF" strokeWidth={2.2} />
+                {saving ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <RNText style={styles.saveBtnText}>{t('account.shippingAddress.save')}</RNText>
+                )}
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleClose} hitSlop={12}>
+                <RNText style={styles.cancelText}>{t('account.shippingAddress.cancel')}</RNText>
               </TouchableOpacity>
             </View>
+          ) : null
+        }
+        contentContainerStyle={styles.scrollContent}
+      >
+        <TouchableOpacity onPress={handleUseLocation} activeOpacity={0.75} style={styles.locationLinkWrap}>
+          <RNText style={styles.locationLink}>{t('account.shippingAddress.useLocation')}</RNText>
+        </TouchableOpacity>
 
-            <TouchableOpacity onPress={handleUseLocation} activeOpacity={0.75} style={styles.locationLinkWrap}>
-              <RNText style={styles.locationLink}>{t('account.shippingAddress.useLocation')}</RNText>
-            </TouchableOpacity>
+        {loading ? (
+          <ActivityIndicator color="#FFFFFF" style={styles.loader} />
+        ) : (
+          <View style={styles.form}>
+            <FormField
+              label={t('account.shippingAddress.fullName')}
+              value={fullName}
+              onChangeText={setFullName}
+            />
+            <SelectField
+              label={t('account.shippingAddress.country')}
+              value={selectedCountry ? `${selectedCountry.flag} ${selectedCountry.name}` : ''}
+              placeholder={t('account.shippingAddress.selectPlaceholder')}
+              onPress={() => setCountryPickerVisible(true)}
+            />
+            <FormField
+              label={t('account.shippingAddress.address')}
+              value={addressLine1}
+              onChangeText={setAddressLine1}
+            />
+            <FormField
+              label={t('account.shippingAddress.city')}
+              value={city}
+              onChangeText={setCity}
+              placeholder={t('account.shippingAddress.selectPlaceholder')}
+            />
+            <FormField
+              label={t('account.shippingAddress.state')}
+              value={state}
+              onChangeText={setState}
+              placeholder={t('account.shippingAddress.selectPlaceholder')}
+            />
+            <FormField
+              label={t('account.shippingAddress.postalCode')}
+              value={postalCode}
+              onChangeText={setPostalCode}
+              keyboardType="default"
+            />
 
-            {loading ? (
-              <ActivityIndicator color="#FFFFFF" style={styles.loader} />
-            ) : (
-              <View style={styles.form}>
-                <FormField
-                  label={t('account.shippingAddress.fullName')}
-                  value={fullName}
-                  onChangeText={setFullName}
-                />
-                <SelectField
-                  label={t('account.shippingAddress.country')}
-                  value={selectedCountry ? `${selectedCountry.flag} ${selectedCountry.name}` : ''}
-                  placeholder={t('account.shippingAddress.selectPlaceholder')}
-                  onPress={() => setCountryPickerVisible(true)}
-                />
-                <FormField
-                  label={t('account.shippingAddress.address')}
-                  value={addressLine1}
-                  onChangeText={setAddressLine1}
-                />
-                <FormField
-                  label={t('account.shippingAddress.city')}
-                  value={city}
-                  onChangeText={setCity}
-                  placeholder={t('account.shippingAddress.selectPlaceholder')}
-                />
-                <FormField
-                  label={t('account.shippingAddress.state')}
-                  value={state}
-                  onChangeText={setState}
-                  placeholder={t('account.shippingAddress.selectPlaceholder')}
-                />
-                <FormField
-                  label={t('account.shippingAddress.postalCode')}
-                  value={postalCode}
-                  onChangeText={setPostalCode}
-                  keyboardType="default"
-                />
-
-                <TouchableOpacity
-                  style={styles.checkboxRow}
-                  onPress={() => setConfirmed((v) => !v)}
-                  activeOpacity={0.8}
-                  accessibilityRole="checkbox"
-                  accessibilityState={{ checked: confirmed }}
-                >
-                  <View style={[styles.checkbox, confirmed && styles.checkboxChecked]}>
-                    {confirmed ? <RNText style={styles.checkmark}>✓</RNText> : null}
-                  </View>
-                  <RNText style={styles.checkboxLabel}>
-                    {t('account.shippingAddress.confirmData')}
-                  </RNText>
-                </TouchableOpacity>
-
-                <View style={styles.actions}>
-                  <TouchableOpacity
-                    style={[styles.saveBtn, (!confirmed || saving) && styles.saveBtnDisabled]}
-                    onPress={handleSave}
-                    disabled={!confirmed || saving}
-                    activeOpacity={0.88}
-                  >
-                    {saving ? (
-                      <ActivityIndicator color="#FFFFFF" />
-                    ) : (
-                      <RNText style={styles.saveBtnText}>{t('account.shippingAddress.save')}</RNText>
-                    )}
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={handleClose} hitSlop={12}>
-                    <RNText style={styles.cancelText}>{t('account.shippingAddress.cancel')}</RNText>
-                  </TouchableOpacity>
-                </View>
+            <TouchableOpacity
+              style={styles.checkboxRow}
+              onPress={() => setConfirmed((v) => !v)}
+              activeOpacity={0.8}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: confirmed }}
+            >
+              <View style={[styles.checkbox, confirmed && styles.checkboxChecked]}>
+                {confirmed ? <RNText style={styles.checkmark}>✓</RNText> : null}
               </View>
-            )}
-
-            <View style={styles.homeIndicator}>
-              <View style={styles.homeIndicatorBar} />
-            </View>
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </Animated.View>
+              <RNText style={styles.checkboxLabel}>
+                {t('account.shippingAddress.confirmData')}
+              </RNText>
+            </TouchableOpacity>
+          </View>
+        )}
+      </GlassFullScreenModal>
 
       <Modal
         visible={countryPickerVisible}
@@ -366,7 +322,7 @@ export const ShippingAddressModal: React.FC<ShippingAddressModalProps> = ({
           </View>
         </View>
       </Modal>
-    </View>
+    </>
   );
 };
 
@@ -413,25 +369,9 @@ const SelectField: React.FC<{
 );
 
 const styles = StyleSheet.create({
-  host: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 200,
-    elevation: 200,
-  },
-  backdropPress: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 1,
-  },
-  sheet: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 2,
-  },
-  flex: {
-    flex: 1,
-  },
   scrollContent: {
     flexGrow: 1,
-    paddingBottom: 24,
+    paddingBottom: 16,
   },
   header: {
     flexDirection: 'row',
@@ -545,7 +485,8 @@ const styles = StyleSheet.create({
   actions: {
     gap: 24,
     alignItems: 'center',
-    marginTop: 8,
+    width: '100%',
+    paddingHorizontal: 24,
   },
   saveBtn: {
     width: '100%',
@@ -572,19 +513,6 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: CANCEL_GOLD,
     includeFontPadding: false,
-  },
-  homeIndicator: {
-    height: 31,
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    paddingBottom: 8,
-    marginTop: 8,
-  },
-  homeIndicatorBar: {
-    width: 134,
-    height: 5,
-    borderRadius: 100,
-    backgroundColor: '#C7C8CA',
   },
   pickerOverlay: {
     flex: 1,

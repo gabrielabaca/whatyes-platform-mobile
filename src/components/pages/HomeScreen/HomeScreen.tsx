@@ -22,6 +22,7 @@ import { useAuth } from '../../../hooks/useAuth';
 import { useBottomNavController } from '../../../context/BottomNavContext';
 import { useInterestCategories } from '../../../hooks/useInterestCategories';
 import { useBuyerLiveRoomPreviews } from '../../../hooks/useBuyerLiveRoomPreviews';
+import { previewToStreamData } from '../../../utils/streamPreviewToStreamData';
 import { themeColors } from '../../../theme/colors';
 import type { UserMe } from '../../../api/types';
 import type { InterestCategoryItem } from '../../../api/types';
@@ -39,6 +40,15 @@ import { AddProductScreen } from '../AddProductScreen';
 
 interface HomeScreenProps {
   onStreamPress?: (stream: StreamData | any) => void;
+  /**
+   * Llamado cuando el usuario toca un stream del grid; recibe la lista completa,
+   * el índice tocado y la categoría activa (para que el feed de swipe siga el mismo filtro).
+   */
+  onStreamsSwipePress?: (
+    streams: StreamData[],
+    index: number,
+    categoryUuid?: string
+  ) => void;
   onStartNewStream?: () => void;
   onEditDraft?: (draft: any) => void;
 }
@@ -67,6 +77,7 @@ const HomeNavBridge: React.FC<{
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({
   onStreamPress,
+  onStreamsSwipePress,
   onStartNewStream,
 }) => {
   const { t } = useTranslation();
@@ -140,21 +151,18 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     return s || '?';
   }, [user]);
 
-  const toStreamData = (p: LiveStreamPreviewModel): StreamData => ({
-    id: p.id,
-    sellerName: p.sellerName,
-    viewerCount: p.viewerCount,
-    streamingTime: t('home.liveBadge'),
-    thumbnail: p.thumbnail ?? p.sellerAvatarUrl ?? undefined,
-    title: p.title,
-    sellerAvatarUrl: p.sellerAvatarUrl,
-    sellerRating: p.rating ?? null,
-    sellerUserId: p.sellerUserId,
-    productImageUrl: p.thumbnail ?? p.sellerAvatarUrl ?? undefined,
-    productCount: 1,
-  });
+  const toStreamData = (p: LiveStreamPreviewModel): StreamData =>
+    previewToStreamData(p, t('home.liveBadge'));
 
   const handleStreamPress = (p: LiveStreamPreviewModel) => {
+    if (onStreamsSwipePress) {
+      const allStreams = filteredPreviews.map(toStreamData);
+      const index = filteredPreviews.indexOf(p);
+      const categoryUuid =
+        selectedCategoryId === ALL_CATEGORIES_ID ? undefined : selectedCategoryId;
+      onStreamsSwipePress(allStreams, Math.max(0, index), categoryUuid);
+      return;
+    }
     if (onStreamPress) {
       onStreamPress(toStreamData(p));
     }

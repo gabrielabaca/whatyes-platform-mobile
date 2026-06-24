@@ -7,14 +7,15 @@ import {
   StyleSheet,
   TouchableOpacity,
   Text as RNText,
-  Animated,
-  ScrollView,
   Switch,
 } from 'react-native';
 import { X } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { GlassBackdrop } from '../profile/GlassBackdrop';
+import {
+  GlassFullScreenModal,
+  type GlassFullScreenModalHandle,
+} from '../profile/GlassFullScreenModal';
 import { FONT_FAMILY } from '../../../theme/typography';
 import {
   getNotificationPreferences,
@@ -33,7 +34,7 @@ export interface NotificationsModalProps {
 export const NotificationsModal: React.FC<NotificationsModalProps> = ({ visible, onClose }) => {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
-  const slideAnim = useRef(new Animated.Value(1)).current;
+  const modalRef = useRef<GlassFullScreenModalHandle>(null);
 
   const [draft, setDraft] = useState<NotificationPreferences>({
     all: true,
@@ -46,13 +47,6 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ visible,
     if (!visible) {
       return;
     }
-    slideAnim.setValue(1);
-    Animated.spring(slideAnim, {
-      toValue: 0,
-      useNativeDriver: true,
-      tension: 68,
-      friction: 12,
-    }).start();
 
     let cancelled = false;
     (async () => {
@@ -72,18 +66,10 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ visible,
     return () => {
       cancelled = true;
     };
-  }, [visible, slideAnim]);
+  }, [visible]);
 
   const handleClose = () => {
-    Animated.timing(slideAnim, {
-      toValue: 1,
-      duration: 220,
-      useNativeDriver: true,
-    }).start(({ finished }) => {
-      if (finished) {
-        onClose();
-      }
-    });
+    modalRef.current?.dismiss();
   };
 
   const handleSave = async () => {
@@ -115,92 +101,64 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ visible,
     });
   };
 
-  if (!visible) {
-    return null;
-  }
-
-  const translateY = slideAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, 800],
-  });
-
   return (
-    <View style={styles.host} pointerEvents="box-none">
-      <GlassBackdrop />
-      <TouchableOpacity
-        style={styles.backdropPress}
-        activeOpacity={1}
-        onPress={handleClose}
-        accessibilityRole="button"
-        accessibilityLabel={t('account.notificationsModal.cancel')}
-      />
-
-      <Animated.View
-        style={[styles.sheet, { transform: [{ translateY }], paddingBottom: insets.bottom }]}
-        pointerEvents="box-none"
-      >
-        <ScrollView
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-          bounces={false}
-          contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 16 }]}
-        >
-          <View style={styles.header}>
-            <RNText style={styles.title}>{t('account.notificationsModal.title')}</RNText>
-            <TouchableOpacity
-              onPress={handleClose}
-              hitSlop={12}
-              style={styles.closeBtn}
-              accessibilityRole="button"
-              accessibilityLabel={t('account.notificationsModal.close')}
-            >
-              <X size={22} color="#FFFFFF" strokeWidth={2.2} />
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.toggles}>
-            <ToggleRow
-              label={t('account.notificationsModal.all')}
-              value={draft.all}
-              onValueChange={setAll}
-              disabled={loading}
-            />
-            <ToggleRow
-              label={t('account.notificationsModal.shippingTracking')}
-              value={draft.shippingTracking}
-              onValueChange={setShippingTracking}
-              disabled={loading}
-            />
-            <ToggleRow
-              label={t('account.notificationsModal.purchaseNotify')}
-              value={draft.purchaseNotify}
-              onValueChange={setPurchaseNotify}
-              disabled={loading}
-            />
-          </View>
-
-          <View style={styles.spacer} />
-
-          <View style={styles.actions}>
-            <TouchableOpacity
-              style={styles.saveBtn}
-              onPress={handleSave}
-              disabled={loading}
-              activeOpacity={0.88}
-            >
-              <RNText style={styles.saveBtnText}>{t('account.notificationsModal.save')}</RNText>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={handleClose} hitSlop={12}>
-              <RNText style={styles.cancelText}>{t('account.notificationsModal.cancel')}</RNText>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.homeIndicator}>
-            <View style={styles.homeIndicatorBar} />
-          </View>
-        </ScrollView>
-      </Animated.View>
-    </View>
+    <GlassFullScreenModal
+      ref={modalRef}
+      visible={visible}
+      onClose={onClose}
+      backdropAccessibilityLabel={t('account.notificationsModal.cancel')}
+      header={
+        <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
+          <RNText style={styles.title}>{t('account.notificationsModal.title')}</RNText>
+          <TouchableOpacity
+            onPress={handleClose}
+            hitSlop={12}
+            style={styles.closeBtn}
+            accessibilityRole="button"
+            accessibilityLabel={t('account.notificationsModal.close')}
+          >
+            <X size={22} color="#FFFFFF" strokeWidth={2.2} />
+          </TouchableOpacity>
+        </View>
+      }
+      footer={
+        <View style={styles.actions}>
+          <TouchableOpacity
+            style={styles.saveBtn}
+            onPress={handleSave}
+            disabled={loading}
+            activeOpacity={0.88}
+          >
+            <RNText style={styles.saveBtnText}>{t('account.notificationsModal.save')}</RNText>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={handleClose} hitSlop={12}>
+            <RNText style={styles.cancelText}>{t('account.notificationsModal.cancel')}</RNText>
+          </TouchableOpacity>
+        </View>
+      }
+      contentContainerStyle={styles.scrollContent}
+    >
+      <View style={styles.toggles}>
+        <ToggleRow
+          label={t('account.notificationsModal.all')}
+          value={draft.all}
+          onValueChange={setAll}
+          disabled={loading}
+        />
+        <ToggleRow
+          label={t('account.notificationsModal.shippingTracking')}
+          value={draft.shippingTracking}
+          onValueChange={setShippingTracking}
+          disabled={loading}
+        />
+        <ToggleRow
+          label={t('account.notificationsModal.purchaseNotify')}
+          value={draft.purchaseNotify}
+          onValueChange={setPurchaseNotify}
+          disabled={loading}
+        />
+      </View>
+    </GlassFullScreenModal>
   );
 };
 
@@ -224,29 +182,18 @@ const ToggleRow: React.FC<{
 );
 
 const styles = StyleSheet.create({
-  host: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 200,
-    elevation: 200,
-  },
-  backdropPress: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 1,
-  },
-  sheet: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 2,
-  },
   scrollContent: {
     flexGrow: 1,
     paddingHorizontal: 24,
-    paddingBottom: 24,
+    paddingBottom: 16,
     gap: 24,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingHorizontal: 24,
+    paddingBottom: 8,
   },
   title: {
     fontFamily: FONT_FAMILY.bold,
@@ -265,10 +212,6 @@ const styles = StyleSheet.create({
   toggles: {
     gap: 12,
     width: '100%',
-  },
-  spacer: {
-    flexGrow: 1,
-    minHeight: 24,
   },
   pillRow: {
     flexDirection: 'row',
@@ -294,6 +237,8 @@ const styles = StyleSheet.create({
   actions: {
     gap: 24,
     alignItems: 'center',
+    width: '100%',
+    paddingHorizontal: 24,
   },
   saveBtn: {
     width: '100%',
@@ -317,17 +262,5 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: CANCEL_GOLD,
     includeFontPadding: false,
-  },
-  homeIndicator: {
-    height: 31,
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    paddingBottom: 8,
-  },
-  homeIndicatorBar: {
-    width: 134,
-    height: 5,
-    borderRadius: 100,
-    backgroundColor: '#C7C8CA',
   },
 });

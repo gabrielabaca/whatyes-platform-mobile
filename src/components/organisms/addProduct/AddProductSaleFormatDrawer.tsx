@@ -1,7 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Modal,
-  StyleSheet,
   View,
   Text as RNText,
   TouchableOpacity,
@@ -44,67 +42,50 @@ export const AddProductSaleFormatDrawer: React.FC<AddProductSaleFormatDrawerProp
   }, [visible, initialValue]);
 
   return (
-    <Modal
+    <StreamBottomSheet
       visible={visible}
-      transparent
-      animationType="none"
-      statusBarTranslucent
-      onRequestClose={onClose}
+      title={t('addProduct.saleFormatTitle')}
+      onClose={onClose}
+      bottomPanel
+      panelStyle={panelStyle}
+      contentContainerStyle={addProductStyles.drawerBody}
+      footer={
+        <StartLivePrimaryButton
+          label={t('addProduct.confirm')}
+          onPress={() => selected && onConfirm(selected)}
+          disabled={!selected}
+        />
+      }
     >
-      <View style={styles.modalRoot}>
-        <StreamBottomSheet
-          visible={visible}
-          title={t('addProduct.saleFormatTitle')}
-          onClose={onClose}
-          bottomPanel
-          panelStyle={panelStyle}
-          contentContainerStyle={addProductStyles.drawerBody}
-          footer={
-            <StartLivePrimaryButton
-              label={t('addProduct.confirm')}
-              onPress={() => selected && onConfirm(selected)}
-              disabled={!selected}
-            />
-          }
-        >
-          <RNText style={addProductStyles.drawerHint}>{t('addProduct.saleFormatSelectHint')}</RNText>
+      <RNText style={addProductStyles.drawerHint}>{t('addProduct.saleFormatSelectHint')}</RNText>
 
-          <View style={addProductStyles.conditionList}>
-            {SALE_FORMAT_OPTIONS.map((opt) => {
-              const on = selected === opt.id;
-              const Icon = opt.id === 'individual' ? Package : PackageOpen;
-              return (
-                <TouchableOpacity
-                  key={opt.id}
-                  style={[addProductStyles.conditionRow, on && addProductStyles.conditionRowOn]}
-                  onPress={() => setSelected(opt.id)}
-                  activeOpacity={0.85}
-                >
-                  <View style={addProductStyles.conditionLeft}>
-                    <View style={addProductStyles.conditionIcon}>
-                      <Icon size={18} color="#18181B" strokeWidth={2} />
-                    </View>
-                    <View style={addProductStyles.saleFormatTextCol}>
-                      <RNText style={addProductStyles.conditionLabel}>{t(opt.labelKey)}</RNText>
-                      <RNText style={addProductStyles.photoOptionHint}>{t(opt.hintKey)}</RNText>
-                    </View>
-                  </View>
-                  <View style={[addProductStyles.conditionCheck, on && addProductStyles.conditionCheckOn]}>
-                    {on ? <Check size={12} color="#FFFFFF" strokeWidth={3} /> : null}
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </StreamBottomSheet>
+      <View style={addProductStyles.conditionList}>
+        {SALE_FORMAT_OPTIONS.map((opt) => {
+          const on = selected === opt.id;
+          const Icon = opt.id === 'individual' ? Package : PackageOpen;
+          return (
+            <TouchableOpacity
+              key={opt.id}
+              style={[addProductStyles.conditionRow, on && addProductStyles.conditionRowOn]}
+              onPress={() => setSelected(opt.id)}
+              activeOpacity={0.85}
+            >
+              <View style={addProductStyles.conditionLeft}>
+                <View style={addProductStyles.conditionIcon}>
+                  <Icon size={18} color="#18181B" strokeWidth={2} />
+                </View>
+                <View style={addProductStyles.saleFormatTextCol}>
+                  <RNText style={addProductStyles.conditionLabel}>{t(opt.labelKey)}</RNText>
+                  <RNText style={addProductStyles.photoOptionHint}>{t(opt.hintKey)}</RNText>
+                </View>
+              </View>
+              <View style={[addProductStyles.conditionCheck, on && addProductStyles.conditionCheckOn]}>
+                {on ? <Check size={12} color="#FFFFFF" strokeWidth={3} /> : null}
+              </View>
+            </TouchableOpacity>
+          );
+        })}
       </View>
-    </Modal>
+    </StreamBottomSheet>
   );
 };
-
-const styles = StyleSheet.create({
-  modalRoot: {
-    flex: 1,
-    backgroundColor: 'transparent',
-  },
-});

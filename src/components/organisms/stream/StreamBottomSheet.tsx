@@ -1,6 +1,7 @@
 /**
- * Drawer glass sobre live stream — mismo patrón que ShippingAddressModal (Figma 536-22836).
- * Blur + panel rgba(0,0,0,0.4) anclado abajo.
+ * Drawer glass — Figma 636-23638.
+ * bottomPanel: home visible arriba; panel inferior con glass blur (Figma 636-23638).
+ * fullHeight: blur glass a pantalla completa.
  */
 import React, { useEffect, useRef } from 'react';
 import {
@@ -10,13 +11,16 @@ import {
   Text as RNText,
   Animated,
   ScrollView,
+  Modal,
+  Platform,
   useWindowDimensions,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
 import { X } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { GlassBackdrop } from '../profile/GlassBackdrop';
+import { GlassBackdrop, DrawerPanelGlass } from '../profile/GlassBackdrop';
+import { drawerPanelGlassKey } from '../../../theme/glassTokens';
 import { FONT_FAMILY } from '../../../theme/typography';
 
 const PRIMARY = '#685CF0';
@@ -38,7 +42,17 @@ export interface StreamBottomSheetProps {
   onCancelPress?: () => void;
   /** Desactiva el scroll del sheet (p. ej. WebView con iframes de MP). */
   scrollEnabled?: boolean;
+  /**
+   * Modal RN separado. Por defecto false en bottomPanel: BlurView necesita la misma
+   * jerarquía nativa que la pantalla de fondo (en Modal no hay nada que difuminar).
+   */
+  nativeModal?: boolean;
 }
+
+/** Props compartidas para drawers inferiores (fondo visible + anclado abajo). */
+export const streamBottomDrawerProps = {
+  bottomPanel: true as const,
+} as const;
 
 export const StreamBottomSheet: React.FC<StreamBottomSheetProps> = ({
   visible,
@@ -53,11 +67,13 @@ export const StreamBottomSheet: React.FC<StreamBottomSheetProps> = ({
   cancelLabel,
   onCancelPress,
   scrollEnabled = true,
+  nativeModal,
 }) => {
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
   const slideAnim = useRef(new Animated.Value(1)).current;
   const useFullPanel = fullHeight || !bottomPanel;
+  const resolvedNativeModal = nativeModal ?? useFullPanel;
 
   useEffect(() => {
     if (!visible) return;
@@ -80,35 +96,36 @@ export const StreamBottomSheet: React.FC<StreamBottomSheetProps> = ({
     });
   };
 
-  if (!visible) return null;
-
   const translateY = slideAnim.interpolate({
     inputRange: [0, 1],
     outputRange: [0, 800],
   });
 
-  const panelBody = (
-    <>
-      <View style={styles.header}>
-        <RNText style={styles.title} numberOfLines={2}>
-          {title}
-        </RNText>
-        <TouchableOpacity
-          onPress={handleClose}
-          hitSlop={12}
-          style={styles.closeBtn}
-          accessibilityRole="button"
-        >
-          <X size={22} color="#FFFFFF" strokeWidth={2.2} />
-        </TouchableOpacity>
-      </View>
+  const header = (
+    <View style={styles.header}>
+      <RNText style={styles.title} numberOfLines={2} maxFontSizeMultiplier={1.15}>
+        {title}
+      </RNText>
+      <TouchableOpacity
+        onPress={handleClose}
+        hitSlop={12}
+        style={styles.closeBtn}
+        accessibilityRole="button"
+      >
+        <X size={22} color="#FFFFFF" strokeWidth={2.2} />
+      </TouchableOpacity>
+    </View>
+  );
 
-      <View style={[styles.body, useFullPanel && styles.bodyFull, contentContainerStyle]}>
-        {children}
-      </View>
+  const bodyContent = (
+    <View style={[styles.body, useFullPanel && styles.bodyFull, contentContainerStyle]}>
+      {children}
+    </View>
+  );
 
+  const footerArea = footer || cancelLabel ? (
+    <View style={styles.footerArea}>
       {footer}
-
       {cancelLabel ? (
         <TouchableOpacity
           onPress={onCancelPress ?? handleClose}
@@ -119,16 +136,107 @@ export const StreamBottomSheet: React.FC<StreamBottomSheetProps> = ({
           <RNText style={styles.cancelText}>{cancelLabel}</RNText>
         </TouchableOpacity>
       ) : null}
+    </View>
+  ) : null;
 
-      <View style={styles.homeIndicator}>
-        <View style={styles.homeIndicatorBar} />
-      </View>
-    </>
+  const scrollableBody = scrollEnabled ? (
+    <ScrollView
+      nestedScrollEnabled
+      keyboardShouldPersistTaps="always"
+      showsVerticalScrollIndicator={false}
+      bounces={false}
+      style={useFullPanel ? styles.scroll : styles.scrollBottom}
+      contentContainerStyle={styles.scrollInner}
+    >
+      {bodyContent}
+    </ScrollView>
+  ) : (
+    <View style={useFullPanel ? styles.scroll : styles.scrollBottom}>{bodyContent}</View>
   );
 
-  return (
-    <View style={styles.host} pointerEvents="box-none">
-      <GlassBackdrop />
+  const panelBottomPadding = Math.max(insets.bottom, 16);
+
+  const flatBottomPanel = StyleSheet.flatten(panelStyle) as ViewStyle | undefined;
+  const bottomPanelMaxHeight = flatBottomPanel?.maxHeight ?? windowHeight * 0.62;
+  const {
+    maxHeight: _bottomMaxH,
+    borderTopLeftRadius: _bottomRtl,
+    borderTopRightRadius: _bottomRtr,
+    ...bottomPanelContentStyle
+  } = flatBottomPanel ?? {};
+
+  const bottomPanelContentMaxHeight = bottomPanelMaxHeight - panelBottomPadding;
+
+  const bottomPanelScroll = scrollEnabled ? (
+    <ScrollView
+      nestedScrollEnabled
+      keyboardShouldPersistTaps="always"
+      showsVerticalScrollIndicator={false}
+      bounces={false}
+      style={styles.scrollBottomPanel}
+      contentContainerStyle={styles.scrollBottomInner}
+    >
+      {bodyContent}
+    </ScrollView>
+  ) : (
+    <View style={styles.scrollBottomPanel}>{bodyContent}</View>
+  );
+
+  const bottomPanelBlock = (
+    <View
+      style={[
+        styles.panelAnchor,
+        {
+          height: bottomPanelMaxHeight,
+          maxHeight: bottomPanelMaxHeight,
+          paddingBottom: panelBottomPadding,
+        },
+      ]}
+      collapsable={false}
+      {...(Platform.OS === 'ios' ? { needsOffscreenAlphaCompositing: true } : null)}
+    >
+      <DrawerPanelGlass key={drawerPanelGlassKey} />
+      <Animated.View style={[styles.panelAnimatedShell, { transform: [{ translateY }] }]}>
+        <View
+          style={[
+            styles.panelContent,
+            styles.panelContentBottom,
+            bottomPanelContentStyle,
+            { height: bottomPanelContentMaxHeight, maxHeight: bottomPanelContentMaxHeight },
+          ]}
+        >
+          <View style={styles.panelHeaderWrap}>{header}</View>
+          {bottomPanelScroll}
+          {footerArea ? <View style={styles.panelFooterWrap}>{footerArea}</View> : null}
+        </View>
+      </Animated.View>
+    </View>
+  );
+
+  const panelInner = useFullPanel ? (
+    <View
+      style={[
+        styles.fullPanel,
+        panelStyle,
+        {
+          paddingTop: insets.top + 16,
+          paddingBottom: panelBottomPadding,
+          minHeight: windowHeight,
+        },
+      ]}
+    >
+      {header}
+      {scrollableBody}
+      {footerArea}
+    </View>
+  ) : null;
+
+  const sheetContent = (
+    <View
+      style={[resolvedNativeModal ? styles.hostModal : styles.hostInline]}
+      pointerEvents="box-none"
+    >
+      {useFullPanel ? <GlassBackdrop /> : null}
       <TouchableOpacity
         style={styles.backdropPress}
         activeOpacity={1}
@@ -136,61 +244,49 @@ export const StreamBottomSheet: React.FC<StreamBottomSheetProps> = ({
         accessibilityRole="button"
       />
 
-      <Animated.View
-        style={[styles.sheet, { transform: [{ translateY }] }]}
-        pointerEvents="box-none"
-      >
-        {(() => {
-          const panelContent = useFullPanel ? (
-            <View
-              style={[
-                styles.fullPanel,
-                panelStyle,
-                { paddingTop: insets.top + 16, minHeight: windowHeight - insets.bottom },
-              ]}
-            >
-              {panelBody}
-            </View>
-          ) : (
-            <View style={[styles.panel, panelStyle]}>{panelBody}</View>
-          );
-
-          // Sin scroll del sheet: View plano (deja que el contenido — p. ej. un FlatList
-          // interno — maneje su propio scroll sin anidar VirtualizedList en ScrollView).
-          if (!scrollEnabled) {
-            return (
-              <View
-                style={[
-                  styles.scrollContent,
-                  useFullPanel ? styles.scrollContentFull : styles.scrollContentBottom,
-                  { paddingBottom: insets.bottom },
-                ]}
-              >
-                {panelContent}
-              </View>
-            );
-          }
-
-          return (
-            <ScrollView
-              nestedScrollEnabled
-              keyboardShouldPersistTaps="always"
-              showsVerticalScrollIndicator={false}
-              bounces={false}
-              contentContainerStyle={[
-                styles.scrollContent,
-                useFullPanel ? styles.scrollContentFull : styles.scrollContentBottom,
-                { paddingBottom: insets.bottom, minHeight: useFullPanel ? windowHeight : undefined },
-              ]}
-            >
-              {panelContent}
-            </ScrollView>
-          );
-        })()}
-      </Animated.View>
+      {useFullPanel ? (
+        <Animated.View
+          style={[styles.sheetFull, { transform: [{ translateY }] }]}
+          pointerEvents="box-none"
+        >
+          {panelInner}
+        </Animated.View>
+      ) : (
+        <View style={styles.sheetBottom} pointerEvents="box-none">
+          {bottomPanelBlock}
+        </View>
+      )}
     </View>
   );
+
+  if (!visible) {
+    return null;
+  }
+
+  if (!resolvedNativeModal) {
+    return sheetContent;
+  }
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="none"
+      statusBarTranslucent
+      onRequestClose={handleClose}
+    >
+      {sheetContent}
+    </Modal>
+  );
 };
+
+/** @deprecated Usar glass blur del panel; referencia de tint fallback */
+export { DRAWER_PANEL_TINT as STREAM_BOTTOM_PANEL_BG } from '../profile/GlassBackdrop';
+
+export const streamBottomPanelStyle = {
+  borderTopLeftRadius: 24,
+  borderTopRightRadius: 24,
+} as const;
 
 export const streamSheetStyles = StyleSheet.create({
   primaryBtn: {
@@ -227,46 +323,84 @@ export const streamSheetStyles = StyleSheet.create({
 });
 
 const styles = StyleSheet.create({
-  host: {
+  hostModal: {
+    flex: 1,
+    backgroundColor: 'transparent',
+  },
+  hostInline: {
     ...StyleSheet.absoluteFillObject,
-    zIndex: 200,
-    elevation: 200,
+    backgroundColor: 'transparent',
   },
   backdropPress: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 1,
   },
-  sheet: {
+  sheetFull: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 2,
   },
-  scrollContent: {
-    flexGrow: 1,
-  },
-  scrollContentBottom: {
-    justifyContent: 'flex-end',
-  },
-  scrollContentFull: {
-    justifyContent: 'flex-start',
+  sheetBottom: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 2,
+    width: '100%',
   },
   fullPanel: {
-    flexGrow: 1,
+    flex: 1,
     width: '100%',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingHorizontal: 24,
-    paddingBottom: 8,
     gap: 24,
   },
-  panel: {
-    backgroundColor: 'rgba(2, 5, 15, 0.4)',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+  panelAnchor: {
+    width: '100%',
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  panelAnimatedShell: {
+    flex: 1,
+    minHeight: 0,
+    width: '100%',
+  },
+  panelContent: {
     paddingHorizontal: 24,
     paddingTop: 24,
-    paddingBottom: 8,
-    gap: 24,
+    gap: 16,
+  },
+  panelContentBottom: {
     width: '100%',
+    flexDirection: 'column',
+    overflow: 'hidden',
+  },
+  panelHeaderWrap: {
+    flexShrink: 0,
+    width: '100%',
+  },
+  panelFooterWrap: {
+    flexShrink: 0,
+    width: '100%',
+    paddingTop: 4,
+  },
+  scroll: {
+    flex: 1,
+  },
+  scrollBottom: {
+    flexGrow: 0,
+    flexShrink: 1,
+  },
+  scrollBottomPanel: {
+    flex: 1,
+    minHeight: 0,
+    width: '100%',
+  },
+  scrollBottomInner: {
+    flexGrow: 0,
+  },
+  scrollInner: {
+    flexGrow: 1,
   },
   header: {
     flexDirection: 'row',
@@ -278,7 +412,6 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.bold,
     fontSize: 16,
     lineHeight: 20,
-    fontWeight: '800',
     color: '#FFFFFF',
     flex: 1,
     marginRight: 8,
@@ -295,7 +428,12 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   bodyFull: {
-    flex: 1,
+    flexGrow: 1,
+  },
+  footerArea: {
+    gap: 12,
+    width: '100%',
+    alignItems: 'center',
   },
   cancelWrap: {
     alignItems: 'center',
@@ -307,18 +445,5 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: CANCEL_GOLD,
     includeFontPadding: false,
-  },
-  homeIndicator: {
-    height: 31,
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    paddingBottom: 8,
-    width: '100%',
-  },
-  homeIndicatorBar: {
-    width: 134,
-    height: 5,
-    borderRadius: 100,
-    backgroundColor: '#C7C8CA',
   },
 });

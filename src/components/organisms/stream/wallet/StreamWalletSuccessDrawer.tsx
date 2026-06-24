@@ -6,7 +6,7 @@ import React, { useEffect } from 'react';
 import { View, StyleSheet, Text as RNText } from 'react-native';
 import { CreditCard, Wallet } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { StreamBottomSheet } from '../StreamBottomSheet';
+import { StreamBottomSheet, streamBottomPanelStyle } from '../StreamBottomSheet';
 import { FONT_FAMILY } from '../../../../theme/typography';
 
 export type SuccessPaymentMethod =
@@ -41,7 +41,7 @@ export const StreamWalletSuccessDrawer: React.FC<StreamWalletSuccessDrawerProps>
       visible={visible}
       title={t('stream.wallet.walletTitle')}
       onClose={onClose}
-      panelStyle={styles.panel}
+      panelStyle={streamBottomPanelStyle}
       contentContainerStyle={styles.content}
     >
       <View style={styles.row}>
@@ -83,11 +83,6 @@ function MethodIcon({ method }: { method?: SuccessPaymentMethod | null }) {
 }
 
 const styles = StyleSheet.create({
-  panel: {
-    backgroundColor: 'rgba(2, 5, 15, 0.4)',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-  },
   content: {
     paddingVertical: 8,
   },

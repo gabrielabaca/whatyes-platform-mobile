@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Plus, Check, CreditCard, Wallet } from 'lucide-react-native';
-import { StreamBottomSheet } from '../StreamBottomSheet';
+import { StreamBottomSheet, streamBottomPanelStyle } from '../StreamBottomSheet';
 import { FONT_FAMILY } from '../../../../theme/typography';
 import type { SavedCard } from '../../../../api/paymentsApi';
 import type { PreferredPaymentOrigin } from '../../../../utils/storage';
@@ -49,7 +49,7 @@ export const StreamPaymentMethodsDrawer: React.FC<StreamPaymentMethodsDrawerProp
       visible={visible}
       title={t('stream.wallet.methodsTitle')}
       onClose={onClose}
-      panelStyle={styles.panel}
+      panelStyle={streamBottomPanelStyle}
       contentContainerStyle={styles.content}
     >
       {loading ? (
@@ -148,11 +148,6 @@ function MethodPillRow({
 }
 
 const styles = StyleSheet.create({
-  panel: {
-    backgroundColor: 'rgba(2, 5, 15, 0.4)',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-  },
   content: {
     gap: 24,
     width: '100%',

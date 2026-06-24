@@ -5,7 +5,7 @@ import React from 'react';
 import { View, StyleSheet, TouchableOpacity, Text as RNText } from 'react-native';
 import { CalendarCheck, CloudUpload, Timer } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { StreamBottomSheet } from './StreamBottomSheet';
+import { StreamBottomSheet, streamBottomPanelStyle } from './StreamBottomSheet';
 import { FONT_FAMILY } from '../../../theme/typography';
 
 export type ProductListType = 'temporary' | 'permanent';
@@ -52,7 +52,7 @@ export const SellerAddProductTypeDrawer: React.FC<SellerAddProductTypeDrawerProp
       visible={visible}
       title={t('stream.addProductTypeTitle')}
       onClose={onClose}
-      panelStyle={styles.panel}
+      panelStyle={[streamBottomPanelStyle, styles.panel]}
       contentContainerStyle={styles.content}
       scrollEnabled
     >
@@ -85,9 +85,6 @@ export const SellerAddProductTypeDrawer: React.FC<SellerAddProductTypeDrawerProp
 
 const styles = StyleSheet.create({
   panel: {
-    backgroundColor: 'rgba(2, 5, 15, 0.4)',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
     maxHeight: '88%',
   },
   content: {

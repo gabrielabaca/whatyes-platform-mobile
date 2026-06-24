@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { CreditCard, Truck } from 'lucide-react-native';
-import { StreamBottomSheet } from '../StreamBottomSheet';
+import { StreamBottomSheet, streamBottomPanelStyle } from '../StreamBottomSheet';
 import { FONT_FAMILY } from '../../../../theme/typography';
 
 /** Figma 536-20085 — hub wallet */
@@ -49,7 +49,7 @@ export const StreamWalletHubDrawer: React.FC<StreamWalletHubDrawerProps> = ({
       visible={visible}
       title={t('stream.wallet.hubTitle')}
       onClose={onClose}
-      panelStyle={styles.panel}
+      panelStyle={streamBottomPanelStyle}
       contentContainerStyle={styles.content}
     >
       {loading ? (
@@ -118,11 +118,6 @@ function HubPillRow({
 }
 
 const styles = StyleSheet.create({
-  panel: {
-    backgroundColor: 'rgba(2, 5, 15, 0.4)',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-  },
   content: {
     gap: 24,
     width: '100%',

@@ -7,8 +7,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   Text as RNText,
-  Animated,
-  ScrollView,
   Alert,
   Modal,
   FlatList,
@@ -18,7 +16,7 @@ import {
 import { X, ChevronDown, ChevronRight } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { GlassBackdrop } from '../profile/GlassBackdrop';
+import { GlassFullScreenModal, type GlassFullScreenModalHandle } from '../profile/GlassFullScreenModal';
 import { FONT_FAMILY } from '../../../theme/typography';
 import { useTheme, type ThemePreference } from '../../../context/ThemeContext';
 import type { AppLanguage } from '../../../i18n/languagePreference';
@@ -52,7 +50,7 @@ export const PreferencesModal: React.FC<PreferencesModalProps> = ({
 }) => {
   const { t, i18n: i18nInstance } = useTranslation();
   const insets = useSafeAreaInsets();
-  const slideAnim = useRef(new Animated.Value(1)).current;
+  const modalRef = useRef<GlassFullScreenModalHandle>(null);
   const { themePreference, setThemePreference } = useTheme();
 
   const [draftTheme, setDraftTheme] = useState<ThemePreference>(themePreference);
@@ -68,27 +66,12 @@ export const PreferencesModal: React.FC<PreferencesModalProps> = ({
       return;
     }
     getRecordingDirectoryDisplay().then(setRecordingFolderPath).catch(() => {});
-    slideAnim.setValue(1);
-    Animated.spring(slideAnim, {
-      toValue: 0,
-      useNativeDriver: true,
-      tension: 68,
-      friction: 12,
-    }).start();
     setDraftTheme(themePreference);
     setDraftLanguage(i18nInstance.language === 'en' ? 'en' : 'es');
-  }, [visible, themePreference, i18nInstance.language, slideAnim]);
+  }, [visible, themePreference, i18nInstance.language]);
 
   const handleClose = () => {
-    Animated.timing(slideAnim, {
-      toValue: 1,
-      duration: 220,
-      useNativeDriver: true,
-    }).start(({ finished }) => {
-      if (finished) {
-        onClose();
-      }
-    });
+    modalRef.current?.dismiss();
   };
 
   const themeLabel = (key: ThemePreference) => {
@@ -146,37 +129,15 @@ export const PreferencesModal: React.FC<PreferencesModalProps> = ({
     setRecordingFolderPath(prefs.displayPath);
   };
 
-  if (!visible) {
-    return null;
-  }
-
-  const translateY = slideAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, 800],
-  });
-
   return (
-    <View style={styles.host} pointerEvents="box-none">
-      <GlassBackdrop />
-      <TouchableOpacity
-        style={styles.backdropPress}
-        activeOpacity={1}
-        onPress={handleClose}
-        accessibilityRole="button"
-        accessibilityLabel={t('account.preferencesModal.cancel')}
-      />
-
-      <Animated.View
-        style={[styles.sheet, { transform: [{ translateY }], paddingBottom: insets.bottom }]}
-        pointerEvents="box-none"
-      >
-        <ScrollView
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-          bounces={false}
-          contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 16 }]}
-        >
-          <View style={styles.header}>
+    <>
+      <GlassFullScreenModal
+        ref={modalRef}
+        visible={visible}
+        onClose={onClose}
+        backdropAccessibilityLabel={t('account.preferencesModal.cancel')}
+        header={
+          <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
             <RNText style={styles.title}>{t('account.preferencesModal.title')}</RNText>
             <TouchableOpacity
               onPress={handleClose}
@@ -188,7 +149,19 @@ export const PreferencesModal: React.FC<PreferencesModalProps> = ({
               <X size={22} color="#FFFFFF" strokeWidth={2.2} />
             </TouchableOpacity>
           </View>
-
+        }
+        footer={
+          <View style={styles.actions}>
+            <TouchableOpacity style={styles.saveBtn} onPress={handleSave} activeOpacity={0.88}>
+              <RNText style={styles.saveBtnText}>{t('account.preferencesModal.save')}</RNText>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={handleClose} hitSlop={12}>
+              <RNText style={styles.cancelText}>{t('account.preferencesModal.cancel')}</RNText>
+            </TouchableOpacity>
+          </View>
+        }
+        contentContainerStyle={styles.scrollContent}
+      >
           <View style={styles.section}>
             <RNText style={styles.sectionTitle}>{t('account.preferencesModal.accessibility')}</RNText>
 
@@ -252,21 +225,7 @@ export const PreferencesModal: React.FC<PreferencesModalProps> = ({
               onPress={handleDeleteAccount}
             />
           </View>
-
-          <View style={styles.actions}>
-            <TouchableOpacity style={styles.saveBtn} onPress={handleSave} activeOpacity={0.88}>
-              <RNText style={styles.saveBtnText}>{t('account.preferencesModal.save')}</RNText>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={handleClose} hitSlop={12}>
-              <RNText style={styles.cancelText}>{t('account.preferencesModal.cancel')}</RNText>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.homeIndicator}>
-            <View style={styles.homeIndicatorBar} />
-          </View>
-        </ScrollView>
-      </Animated.View>
+      </GlassFullScreenModal>
 
       <OptionPickerModal
         visible={themePickerVisible}
@@ -298,7 +257,7 @@ export const PreferencesModal: React.FC<PreferencesModalProps> = ({
         onClose={() => setLanguagePickerVisible(false)}
       />
 
-    </View>
+    </>
   );
 };
 
@@ -359,29 +318,18 @@ const OptionPickerModal: React.FC<{
 );
 
 const styles = StyleSheet.create({
-  host: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 200,
-    elevation: 200,
-  },
-  backdropPress: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 1,
-  },
-  sheet: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 2,
-  },
   scrollContent: {
     flexGrow: 1,
     paddingHorizontal: 24,
-    paddingBottom: 24,
+    paddingBottom: 16,
     gap: 24,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingHorizontal: 24,
+    paddingBottom: 8,
   },
   title: {
     fontFamily: FONT_FAMILY.bold,
@@ -460,6 +408,8 @@ const styles = StyleSheet.create({
   actions: {
     gap: 24,
     alignItems: 'center',
+    width: '100%',
+    paddingHorizontal: 24,
   },
   saveBtn: {
     width: '100%',
@@ -483,18 +433,6 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: CANCEL_GOLD,
     includeFontPadding: false,
-  },
-  homeIndicator: {
-    height: 31,
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    paddingBottom: 8,
-  },
-  homeIndicatorBar: {
-    width: 134,
-    height: 5,
-    borderRadius: 100,
-    backgroundColor: '#C7C8CA',
   },
   pickerOverlay: {
     flex: 1,

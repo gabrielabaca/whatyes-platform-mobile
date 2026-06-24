@@ -41,11 +41,19 @@ export const StartLiveTermsDrawer: React.FC<StartLiveTermsDrawerProps> = ({
       title={t('startLive.termsTitle')}
       onClose={onClose}
       {...startLiveWelcomeSheetProps}
-      contentContainerStyle={startLiveStyles.sheetContent}
-      scrollEnabled
+      contentContainerStyle={startLiveStyles.welcomeSheetContent}
+      scrollEnabled={false}
+      footer={
+        <StartLivePrimaryButton
+          label={t('startLive.termsCta')}
+          onPress={onContinue}
+          disabled={!accepted}
+          loading={busy}
+        />
+      }
     >
       <ScrollView
-        style={startLiveStyles.scrollBody}
+        style={startLiveStyles.welcomeScrollBody}
         showsVerticalScrollIndicator={false}
         nestedScrollEnabled
       >
@@ -56,14 +64,6 @@ export const StartLiveTermsDrawer: React.FC<StartLiveTermsDrawerProps> = ({
           onToggle={() => setAccepted((v) => !v)}
         />
       </ScrollView>
-      <View style={{ width: '100%' }}>
-        <StartLivePrimaryButton
-          label={t('startLive.termsCta')}
-          onPress={onContinue}
-          disabled={!accepted}
-          loading={busy}
-        />
-      </View>
     </StreamBottomSheet>
   );
 };

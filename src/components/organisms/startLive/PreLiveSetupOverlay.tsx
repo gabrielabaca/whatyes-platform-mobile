@@ -202,36 +202,32 @@ const ChoiceDrawer: React.FC<{
   onClose: () => void;
   onSelect: (value: string) => void;
 }> = ({ visible, title, options, value, onClose, onSelect }) => (
-  <Modal visible={visible} transparent animationType="none" statusBarTranslucent onRequestClose={onClose}>
-    <View style={styles.modalRoot}>
-      <StreamBottomSheet
-        visible={visible}
-        title={title}
-        onClose={onClose}
-        bottomPanel
-        panelStyle={panelStyle}
-        contentContainerStyle={styles.choiceBody}
+  <StreamBottomSheet
+    visible={visible}
+    title={title}
+    onClose={onClose}
+    bottomPanel
+    panelStyle={panelStyle}
+    contentContainerStyle={styles.choiceBody}
+  >
+    {options.map((option) => (
+      <TouchableOpacity
+        key={option.id}
+        style={styles.choiceRow}
+        onPress={() => {
+          onSelect(option.id);
+          onClose();
+        }}
+        activeOpacity={0.85}
       >
-        {options.map((option) => (
-          <TouchableOpacity
-            key={option.id}
-            style={styles.choiceRow}
-            onPress={() => {
-              onSelect(option.id);
-              onClose();
-            }}
-            activeOpacity={0.85}
-          >
-            <View style={styles.choiceTextCol}>
-              <RNText style={styles.choiceLabel}>{option.label}</RNText>
-              {option.body ? <RNText style={styles.choiceBodyText}>{option.body}</RNText> : null}
-            </View>
-            <RadioMark selected={value === option.id} />
-          </TouchableOpacity>
-        ))}
-      </StreamBottomSheet>
-    </View>
-  </Modal>
+        <View style={styles.choiceTextCol}>
+          <RNText style={styles.choiceLabel}>{option.label}</RNText>
+          {option.body ? <RNText style={styles.choiceBodyText}>{option.body}</RNText> : null}
+        </View>
+        <RadioMark selected={value === option.id} />
+      </TouchableOpacity>
+    ))}
+  </StreamBottomSheet>
 );
 
 const BlockedWordsDrawer: React.FC<{
@@ -258,19 +254,17 @@ const BlockedWordsDrawer: React.FC<{
   };
 
   return (
-    <Modal visible={visible} transparent animationType="none" statusBarTranslucent onRequestClose={onClose}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalRoot}>
-        <StreamBottomSheet
-          visible={visible}
-          title="Bloquear palabras"
-          onClose={onClose}
-          bottomPanel
-          panelStyle={panelStyle}
-          contentContainerStyle={styles.blockedBody}
-          footer={<StartLivePrimaryButton label="Guardar" onPress={() => onSave(sanitizeWords(draft))} />}
-          cancelLabel="Cancelar"
-          onCancelPress={onClose}
-        >
+    <StreamBottomSheet
+      visible={visible}
+      title="Bloquear palabras"
+      onClose={onClose}
+      bottomPanel
+      panelStyle={panelStyle}
+      contentContainerStyle={styles.blockedBody}
+      footer={<StartLivePrimaryButton label="Guardar" onPress={() => onSave(sanitizeWords(draft))} />}
+      cancelLabel="Cancelar"
+      onCancelPress={onClose}
+    >
           <RNText style={styles.drawerText}>
             Permite filtrar términos específicos para evitar que aparezcan en el chat o comentarios para mantener un ambiente respetuoso y libre de contenido inapropiado durante la transmisión.
           </RNText>
@@ -303,9 +297,7 @@ const BlockedWordsDrawer: React.FC<{
               ))}
             </View>
           ) : null}
-        </StreamBottomSheet>
-      </KeyboardAvoidingView>
-    </Modal>
+    </StreamBottomSheet>
   );
 };
 
@@ -341,20 +333,18 @@ const ModeratorsDrawer: React.FC<{
   };
 
   return (
-    <Modal visible={visible} transparent animationType="none" statusBarTranslucent onRequestClose={onClose}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalRoot}>
-        <StreamBottomSheet
-          visible={visible}
-          title="Seleccionar moderadores"
-          onClose={onClose}
-          bottomPanel={false}
-          fullHeight
-          panelStyle={panelStyle}
-          contentContainerStyle={styles.moderatorsBody}
-          footer={<StartLivePrimaryButton label="Guardar" onPress={() => onSave(draft)} />}
-          cancelLabel="Cancelar"
-          onCancelPress={onClose}
-        >
+    <StreamBottomSheet
+      visible={visible}
+      title="Seleccionar moderadores"
+      onClose={onClose}
+      bottomPanel={false}
+      fullHeight
+      panelStyle={panelStyle}
+      contentContainerStyle={styles.moderatorsBody}
+      footer={<StartLivePrimaryButton label="Guardar" onPress={() => onSave(draft)} />}
+      cancelLabel="Cancelar"
+      onCancelPress={onClose}
+    >
           <View style={styles.searchPill}>
             <TextInput
               style={styles.searchInput}
@@ -396,9 +386,7 @@ const ModeratorsDrawer: React.FC<{
               </RNText>
             )}
           </View>
-        </StreamBottomSheet>
-      </KeyboardAvoidingView>
-    </Modal>
+    </StreamBottomSheet>
   );
 };
 
@@ -1125,10 +1113,6 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.bold,
     fontSize: 14,
     color: '#FBBF24',
-  },
-  modalRoot: {
-    flex: 1,
-    backgroundColor: 'transparent',
   },
   choiceBody: {
     gap: 24,

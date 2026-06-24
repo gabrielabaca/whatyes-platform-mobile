@@ -53,6 +53,7 @@ export function mapPlatformRoomToPreview(r: PlatformRoom, t: TFunction): LiveStr
     title,
     viewerCount: pseudoViewers(r.uuid),
     thumbnail: coverThumb,
+    coverUrl: coverThumb ?? null,
     rating: 4.2 + (pseudoViewers(r.uuid) % 8) / 10,
     categoryLabel: interestCategories?.[0]?.label ?? null,
     interestCategories,

@@ -22,6 +22,8 @@ export interface StreamData {
   sellerUserId?: string;
   productImageUrl?: string;
   productCount?: number;
+  /** URL de portada de la sala para mostrar como fondo mientras carga el video. */
+  coverUrl?: string | null;
 }
 
 interface StreamCardProps {

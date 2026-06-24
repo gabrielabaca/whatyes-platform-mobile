@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   Alert,
+  Image,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { RTCView } from 'react-native-webrtc';
@@ -23,6 +24,7 @@ import {
   getRooms,
   type LiveCommerceResponse,
   type RoomCatalogProductItem,
+  type StreamWebRTCCredentialsResponse,
 } from '../../../api/platformApi';
 import { startKinesisWebRTCViewer, stopKinesisWebRTCViewer } from '../../../native/KinesisWebRTCNative';
 import type { MediaStream } from 'react-native-webrtc';
@@ -58,12 +60,22 @@ import {
   StreamMpWalletConnectModal,
 } from '../../organisms/stream/wallet';
 
+/** Tiempo máximo de espera del primer frame antes de reintentar/errorear la conexión WebRTC. */
+const CONNECT_TIMEOUT_MS = 12_000;
+/** Reintentos automáticos (con credenciales frescas) antes de mostrar error. */
+const MAX_CONNECT_ATTEMPTS = 2;
+
 export interface StreamScreenProps {
   stream: StreamData;
   onClose: () => void;
+  /**
+   * Credenciales WebRTC pre-fetacheadas por el contenedor de swipe.
+   * Cuando están presentes se omite el round-trip HTTP a /webrtc-credentials.
+   */
+  initialCreds?: StreamWebRTCCredentialsResponse | null;
 }
 
-export const StreamScreen: React.FC<StreamScreenProps> = ({ stream, onClose }) => {
+export const StreamScreen: React.FC<StreamScreenProps> = ({ stream, onClose, initialCreds }) => {
   const { t } = useTranslation();
   const [messageText, setMessageText] = useState('');
   const viewerTransport = getViewerTransport();
@@ -83,17 +95,22 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({ stream, onClose }) =
     stream.sellerUserId ?? null
   );
   const viewerCleanupRef = useRef<(() => void) | null>(null);
+  // Credenciales pre-fetacheadas: se usan una sola vez en el primer montaje.
+  const initialCredsRef = useRef<StreamWebRTCCredentialsResponse | null>(initialCreds ?? null);
   const { likeEvents, handleLikeDone, handleLikeEvent } = useFloatingHearts();
   const { isRecording, recordingTimeLabel, toggleRecording } = useLiveScreenRecording();
   const wallet = useStreamWalletFlow();
   const [sellerFollowInitial, setSellerFollowInitial] = useState(false);
-  // No usar stream.thumbnail como cover de pausa: puede contener el avatar del seller.
-  // El cover real se obtiene del WS (cover_url) o del GET /rooms, ambos sólo devuelven imágenes S3.
-  const [roomCoverUrl, setRoomCoverUrl] = useState<string | null>(null);
+  // Inicializar con stream.coverUrl para que la portada esté disponible inmediatamente
+  // sin esperar el GET /rooms. El WS o el getRooms pueden sobreescribirlo luego.
+  const [roomCoverUrl, setRoomCoverUrl] = useState<string | null>(stream.coverUrl ?? null);
   const [roomIntroVideoUrl, setRoomIntroVideoUrl] = useState<string | null>(null);
   const [isAudioMuted, setIsAudioMuted] = useState(false);
   const [rtcViewEpoch, setRtcViewEpoch] = useState(0);
   const wasStreamPausedRef = useRef(false);
+  // Reintento de conexión: connectAttempt dispara el effect; el ref lleva la cuenta persistente.
+  const [connectAttempt, setConnectAttempt] = useState(0);
+  const connectAttemptRef = useRef(0);
 
   const {
     isFollowing: isFollowingSeller,
@@ -332,6 +349,34 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({ stream, onClose }) =
       return;
     }
     let cancelled = false;
+    let receivedStream = false;
+    let handledFailure = false;
+    let connectTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const clearConnectTimer = () => {
+      if (connectTimer) {
+        clearTimeout(connectTimer);
+        connectTimer = null;
+      }
+    };
+
+    // Maneja un fallo de conexión: reintenta con credenciales frescas hasta
+    // MAX_CONNECT_ATTEMPTS; agotados los intentos, muestra error.
+    // `handledFailure` evita doble procesamiento (timeout + onError simultáneos).
+    const handleConnectFailure = (msg?: string) => {
+      if (cancelled || receivedStream || handledFailure) return;
+      handledFailure = true;
+      clearConnectTimer();
+      viewerCleanupRef.current?.();
+      viewerCleanupRef.current = null;
+      if (connectAttemptRef.current < MAX_CONNECT_ATTEMPTS) {
+        connectAttemptRef.current += 1;
+        setConnectAttempt((n) => n + 1); // re-dispara el effect → credenciales frescas
+      } else {
+        setStreamError(msg || 'Error de conexión WebRTC');
+      }
+    };
+
     (async () => {
       try {
         enableSpeakerphone();
@@ -342,18 +387,25 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({ stream, onClose }) =
           }
           return;
         }
-        const webrtcCreds = await getWebRTCCredentials(token, roomId, 'viewer');
+        // Primer intento: usar creds pre-fetcheadas si las hay (evita el round-trip HTTP).
+        // En reintentos siempre se piden frescas (las cacheadas pudieron vencer).
+        let webrtcCreds = initialCredsRef.current;
+        initialCredsRef.current = null;
+        if (!webrtcCreds) {
+          webrtcCreds = await getWebRTCCredentials(token, roomId, 'viewer');
+        }
+        if (cancelled) return;
+
         const cleanup = await startKinesisWebRTCViewer(
           webrtcCreds,
           (mediaStream) => {
-            if (!cancelled) {
-              setRemoteStream(mediaStream);
-            }
+            if (cancelled) return;
+            receivedStream = true;
+            clearConnectTimer();
+            setRemoteStream(mediaStream);
           },
           (err) => {
-            if (!cancelled) {
-              setStreamError(err?.message || 'Error de conexión WebRTC');
-            }
+            handleConnectFailure(err?.message);
           },
           () => {
             if (!cancelled) {
@@ -361,14 +413,19 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({ stream, onClose }) =
             }
           }
         );
-        if (!cancelled) {
-          viewerCleanupRef.current = cleanup;
+        if (cancelled) {
+          cleanup();
+          return;
         }
+        viewerCleanupRef.current = cleanup;
+
+        // Timeout: si no llega el primer frame en CONNECT_TIMEOUT_MS, reintentar/errorear.
+        connectTimer = setTimeout(() => {
+          handleConnectFailure('timeout');
+        }, CONNECT_TIMEOUT_MS);
       } catch (e: unknown) {
-        if (!cancelled) {
-          const msg = e instanceof Error ? e.message : 'No se pudo cargar el stream';
-          setStreamError(msg);
-        }
+        const msg = e instanceof Error ? e.message : 'No se pudo cargar el stream';
+        handleConnectFailure(msg);
       } finally {
         if (!cancelled) {
           setIsConnecting(false);
@@ -377,12 +434,12 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({ stream, onClose }) =
     })();
     return () => {
       cancelled = true;
+      clearConnectTimer();
       viewerCleanupRef.current?.();
       viewerCleanupRef.current = null;
-      stopKinesisWebRTCViewer().catch(() => {});
       disableSpeakerphone();
     };
-  }, [roomId, onClose, isHls]);
+  }, [roomId, onClose, isHls, connectAttempt]);
 
   useEffect(() => {
     if (!remoteStream) {
@@ -431,6 +488,14 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({ stream, onClose }) =
     }
   };
 
+  const handleRetryConnection = useCallback(() => {
+    connectAttemptRef.current = 0;
+    setStreamError(null);
+    setRemoteStream(null);
+    setIsConnecting(true);
+    setConnectAttempt((n) => n + 1);
+  }, []);
+
   const productTitle =
     liveCommerce?.active_product?.title?.trim() ||
     stream.title?.trim() ||
@@ -459,19 +524,37 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({ stream, onClose }) =
             Pide al streamer que confirme que la transmisión está activa y vuelve a intentar.
           </Text>
         ) : null}
-        <TouchableOpacity onPress={onClose} style={styles.errorBtn}>
-          <Text variant="body" className="text-white">
-            Cerrar
-          </Text>
-        </TouchableOpacity>
+        <View style={styles.errorActions}>
+          <TouchableOpacity onPress={handleRetryConnection} style={styles.retryBtn}>
+            <Text variant="body" className="text-white font-semibold">
+              {t('common.retry', 'Reintentar')}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={onClose} style={styles.errorBtn}>
+            <Text variant="body" className="text-white">
+              Cerrar
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   }
 
   const videoReady = isHls ? hlsReady : !!remoteStream;
   if ((isConnecting || !videoReady) && !isStreamPaused) {
+    const loadingCover = effectiveCoverUrl ?? stream.coverUrl ?? null;
     return (
       <View style={[styles.container, styles.loadingScreen]}>
+        {loadingCover ? (
+          <>
+            <Image
+              source={{ uri: loadingCover }}
+              style={StyleSheet.absoluteFill}
+              resizeMode="cover"
+            />
+            <View style={[StyleSheet.absoluteFill, styles.coverDim]} />
+          </>
+        ) : null}
         <View style={styles.loadingContent}>
           <View style={styles.logoWrap}>
             <HeaderLogo width={72} height={64} accessibilityLabel="PulpoLive" />
@@ -697,6 +780,9 @@ const styles = StyleSheet.create({
     paddingTop: 80,
     paddingBottom: 48,
   },
+  coverDim: {
+    backgroundColor: 'rgba(0,0,0,0.55)',
+  },
   loadingContent: {
     flex: 1,
     justifyContent: 'center',
@@ -727,6 +813,17 @@ const styles = StyleSheet.create({
     opacity: 0,
   },
 
+  errorActions: {
+    flexDirection: 'row',
+    gap: 12,
+    alignItems: 'center',
+  },
+  retryBtn: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    backgroundColor: '#685CF0',
+    borderRadius: 8,
+  },
   errorBtn: {
     padding: 12,
     backgroundColor: '#333',

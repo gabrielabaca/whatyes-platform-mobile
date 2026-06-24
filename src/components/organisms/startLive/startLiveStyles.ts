@@ -1,8 +1,11 @@
 import { StyleSheet } from 'react-native';
 import { FONT_FAMILY } from '../../../theme/typography';
 
+import { drawerPanelGlass } from '../../../theme/glassTokens';
+
 export const START_LIVE_COLORS = {
-  panel: 'rgba(2, 5, 15, 0.6)',
+  /** Tint de referencia del panel glass (ver glassTokens.ts). */
+  panel: drawerPanelGlass.ios.tintOverlay,
   primary: '#685CF0',
   text: '#FFFFFF',
   textMuted: '#D9D9D9',
@@ -17,7 +20,6 @@ export const START_LIVE_COLORS = {
 };
 
 export const startLivePanelStyle = {
-  backgroundColor: START_LIVE_COLORS.panel,
   borderTopLeftRadius: 24,
   borderTopRightRadius: 24,
 };
@@ -39,6 +41,18 @@ export const startLiveStyles = StyleSheet.create({
   sheetContent: {
     gap: 24,
     width: '100%',
+  },
+  /** Panel inferior bienvenida / términos — contenido compacto + scroll. */
+  welcomeSheetContent: {
+    gap: 12,
+    width: '100%',
+    paddingBottom: 4,
+  },
+  welcomeScrollBody: {
+    width: '100%',
+    flexGrow: 1,
+    flexShrink: 1,
+    minHeight: 0,
   },
   scrollBody: {
     gap: 12,
@@ -67,13 +81,13 @@ export const startLiveStyles = StyleSheet.create({
     includeFontPadding: false,
   },
   featureList: {
-    gap: 24,
+    gap: 16,
     width: '100%',
   },
   featureRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 24,
+    alignItems: 'flex-start',
+    gap: 12,
     width: '100%',
   },
   featureIconWrap: {
@@ -91,15 +105,15 @@ export const startLiveStyles = StyleSheet.create({
   },
   featureTitle: {
     fontFamily: FONT_FAMILY.bold,
-    fontSize: 16,
-    lineHeight: 20,
+    fontSize: 14,
+    lineHeight: 18,
     color: START_LIVE_COLORS.text,
     includeFontPadding: false,
   },
   featureBody: {
     fontFamily: FONT_FAMILY.semibold,
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 12,
+    lineHeight: 16,
     color: START_LIVE_COLORS.textMuted,
     includeFontPadding: false,
   },

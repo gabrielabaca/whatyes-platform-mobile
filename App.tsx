@@ -7,7 +7,7 @@
 
 import './global.css';
 import React, { useState, useEffect, useRef } from 'react';
-import { StatusBar, Linking } from 'react-native';
+import { StatusBar, Linking, View, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
@@ -24,13 +24,20 @@ import { OnboardingScreen } from './src/components/pages/OnboardingScreen';
 import { HomeScreen } from './src/components/pages/HomeScreen';
 import { LoadingScreen } from './src/components/pages/LoadingScreen';
 import { StreamScreen } from './src/components/pages/StreamScreen';
+import { StreamSwipeScreen } from './src/components/pages/StreamSwipeScreen';
 import { StreamConfigScreen } from './src/components/pages/StreamConfigScreen';
 import { SellerStreamScreen } from './src/components/pages/SellerStreamScreen';
 import type { StreamData } from './src/components/molecules/StreamCard';
 import type { StreamConfig } from './src/components/pages/StreamConfigScreen';
 
 type AuthScreen = 'onboarding' | 'login' | 'register' | 'forgot-password';
-type AppScreen = AuthScreen | 'home' | 'stream' | 'stream-config' | 'seller-stream';
+type AppScreen = AuthScreen | 'home' | 'stream' | 'stream-swipe' | 'stream-config' | 'seller-stream';
+
+const homeShellStyles = StyleSheet.create({
+  root: {
+    flex: 1,
+  },
+});
 
 /**
  * Componente para manejar la navegación basada en autenticación
@@ -40,6 +47,12 @@ function AuthenticatedAppShell({
   setCurrentScreen,
   selectedStream,
   setSelectedStream,
+  swipeStreams,
+  swipeInitialIndex,
+  swipeCategoryUuid,
+  setSwipeStreams,
+  setSwipeInitialIndex,
+  setSwipeCategoryUuid,
   streamDraft,
   setStreamDraft,
   activeStreamConfig,
@@ -49,6 +62,12 @@ function AuthenticatedAppShell({
   setCurrentScreen: (s: AppScreen) => void;
   selectedStream: StreamData | null;
   setSelectedStream: (s: StreamData | null) => void;
+  swipeStreams: StreamData[] | null;
+  swipeInitialIndex: number;
+  swipeCategoryUuid: string | undefined;
+  setSwipeStreams: (streams: StreamData[] | null) => void;
+  setSwipeInitialIndex: (i: number) => void;
+  setSwipeCategoryUuid: (c: string | undefined) => void;
   streamDraft: StreamConfig | null;
   setStreamDraft: (d: StreamConfig | null) => void;
   activeStreamConfig: StreamConfig | null;
@@ -71,6 +90,22 @@ function AuthenticatedAppShell({
           }}
         />
       </>
+    );
+  }
+
+  if (currentScreen === 'stream-swipe' && swipeStreams) {
+    return (
+      <StreamSwipeScreen
+        streams={swipeStreams}
+        initialIndex={swipeInitialIndex}
+        categoryUuid={swipeCategoryUuid}
+        onClose={() => {
+          setCurrentScreen('home');
+          setSwipeStreams(null);
+          setSwipeInitialIndex(0);
+          setSwipeCategoryUuid(undefined);
+        }}
+      />
     );
   }
 
@@ -104,11 +139,17 @@ function AuthenticatedAppShell({
   }
 
   return (
-    <>
+    <View style={homeShellStyles.root}>
       <HomeScreen
         onStreamPress={(stream) => {
           setSelectedStream(stream);
           setCurrentScreen('stream');
+        }}
+        onStreamsSwipePress={(streams, index, categoryUuid) => {
+          setSwipeStreams(streams);
+          setSwipeInitialIndex(index);
+          setSwipeCategoryUuid(categoryUuid);
+          setCurrentScreen('stream-swipe');
         }}
         onStartNewStream={openStartLiveWizard}
         onEditDraft={(draft) => {
@@ -122,7 +163,7 @@ function AuthenticatedAppShell({
           setCurrentScreen('seller-stream');
         }}
       />
-    </>
+    </View>
   );
 }
 
@@ -183,6 +224,9 @@ function AppNavigator() {
   }, []);
 
   const [selectedStream, setSelectedStream] = useState<StreamData | null>(null);
+  const [swipeStreams, setSwipeStreams] = useState<StreamData[] | null>(null);
+  const [swipeInitialIndex, setSwipeInitialIndex] = useState(0);
+  const [swipeCategoryUuid, setSwipeCategoryUuid] = useState<string | undefined>(undefined);
   const [streamDraft, setStreamDraft] = useState<StreamConfig | null>(null);
   const [activeStreamConfig, setActiveStreamConfig] = useState<StreamConfig | null>(null);
 
@@ -198,6 +242,12 @@ function AppNavigator() {
               setCurrentScreen={setCurrentScreen}
               selectedStream={selectedStream}
               setSelectedStream={setSelectedStream}
+              swipeStreams={swipeStreams}
+              swipeInitialIndex={swipeInitialIndex}
+              swipeCategoryUuid={swipeCategoryUuid}
+              setSwipeStreams={setSwipeStreams}
+              setSwipeInitialIndex={setSwipeInitialIndex}
+              setSwipeCategoryUuid={setSwipeCategoryUuid}
               streamDraft={streamDraft}
               setStreamDraft={setStreamDraft}
               activeStreamConfig={activeStreamConfig}

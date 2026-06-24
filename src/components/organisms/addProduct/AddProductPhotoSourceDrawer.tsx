@@ -1,6 +1,5 @@
 import React, { useCallback } from 'react';
 import {
-  Modal,
   Platform,
   StyleSheet,
   View,
@@ -25,8 +24,8 @@ export interface AddProductPhotoSourceDrawerProps {
   onTakePhoto: () => void;
   onChooseGallery: () => void;
   /**
-   * `overlay`: sin Modal RN (recomendado en iOS y sobre streams).
-   * `modal`: pantallas sin host absoluto.
+   * `overlay`: inline sobre host absoluto (streams / PreLive).
+   * `modal`: Modal RN vía StreamBottomSheet (pantallas normales).
    */
   presentation?: 'modal' | 'overlay';
   showCameraOption?: boolean;
@@ -52,6 +51,7 @@ export const AddProductPhotoSourceDrawer: React.FC<AddProductPhotoSourceDrawerPr
   const remaining = maxPhotos - photoCount;
   const atLimit = remaining <= 0;
   const panelStyle: StyleProp<ViewStyle> = [startLivePanelStyle, { paddingTop: 28 }];
+  const useOverlay = presentation === 'overlay';
 
   const runPickerAction = useCallback(
     (action: () => void) => {
@@ -92,6 +92,7 @@ export const AddProductPhotoSourceDrawer: React.FC<AddProductPhotoSourceDrawerPr
       title={t('addProduct.photoPickerTitle')}
       onClose={onClose}
       bottomPanel
+      nativeModal={!useOverlay}
       panelStyle={panelStyle}
       contentContainerStyle={addProductStyles.photoSourceBody}
       scrollEnabled={false}
@@ -132,29 +133,15 @@ export const AddProductPhotoSourceDrawer: React.FC<AddProductPhotoSourceDrawerPr
     </StreamBottomSheet>
   );
 
-  if (presentation === 'overlay') {
+  if (useOverlay) {
     if (!visible) return null;
     return <View style={styles.overlayHost}>{sheet}</View>;
   }
 
-  return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="none"
-      statusBarTranslucent
-      onRequestClose={onClose}
-    >
-      <View style={styles.modalRoot}>{sheet}</View>
-    </Modal>
-  );
+  return sheet;
 };
 
 const styles = StyleSheet.create({
-  modalRoot: {
-    flex: 1,
-    backgroundColor: 'transparent',
-  },
   overlayHost: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 350,

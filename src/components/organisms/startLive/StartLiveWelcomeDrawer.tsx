@@ -1,5 +1,4 @@
 import React from 'react';
-import { View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { StreamBottomSheet } from '../stream/StreamBottomSheet';
 import { startLiveWelcomeSheetProps, startLiveStyles } from './startLiveStyles';
@@ -46,16 +45,16 @@ export const StartLiveWelcomeDrawer: React.FC<StartLiveWelcomeDrawerProps> = ({
       title={t('startLive.welcome1Title')}
       onClose={onClose}
       {...startLiveWelcomeSheetProps}
-      contentContainerStyle={startLiveStyles.sheetContent}
-    >
-      <StartLiveFeatureList items={items} />
-      <View style={{ width: '100%' }}>
+      contentContainerStyle={startLiveStyles.welcomeSheetContent}
+      footer={
         <StartLivePrimaryButton
           label={t('startLive.welcome1Cta')}
           onPress={onContinue}
           loading={busy}
         />
-      </View>
+      }
+    >
+      <StartLiveFeatureList items={items} />
     </StreamBottomSheet>
   );
 };

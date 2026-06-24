@@ -1,7 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Modal,
-  StyleSheet,
   View,
   Text as RNText,
   TouchableOpacity,
@@ -41,61 +39,44 @@ export const AddProductConditionDrawer: React.FC<AddProductConditionDrawerProps>
   }, [visible, initialValue]);
 
   return (
-    <Modal
+    <StreamBottomSheet
       visible={visible}
-      transparent
-      animationType="none"
-      statusBarTranslucent
-      onRequestClose={onClose}
+      title={t('addProduct.conditionTitle')}
+      onClose={onClose}
+      bottomPanel
+      panelStyle={panelStyle}
+      contentContainerStyle={addProductStyles.drawerBody}
+      footer={
+        <StartLivePrimaryButton
+          label={t('addProduct.confirm')}
+          onPress={() => selected && onConfirm(selected)}
+          disabled={!selected}
+        />
+      }
     >
-      <View style={styles.modalRoot}>
-        <StreamBottomSheet
-          visible={visible}
-          title={t('addProduct.conditionTitle')}
-          onClose={onClose}
-          bottomPanel
-          panelStyle={panelStyle}
-          contentContainerStyle={addProductStyles.drawerBody}
-          footer={
-            <StartLivePrimaryButton
-              label={t('addProduct.confirm')}
-              onPress={() => selected && onConfirm(selected)}
-              disabled={!selected}
-            />
-          }
-        >
-          <View style={addProductStyles.conditionList}>
-            {PRODUCT_CONDITIONS.map((opt) => {
-              const on = selected === opt.id;
-              return (
-                <TouchableOpacity
-                  key={opt.id}
-                  style={[addProductStyles.conditionRow, on && addProductStyles.conditionRowOn]}
-                  onPress={() => setSelected(opt.id)}
-                  activeOpacity={0.85}
-                >
-                  <View style={addProductStyles.conditionLeft}>
-                    <View style={addProductStyles.conditionIcon}>
-                      <PieChart size={18} color="#18181B" strokeWidth={2} />
-                    </View>
-                    <RNText style={addProductStyles.conditionLabel}>{t(opt.labelKey)}</RNText>
-                  </View>
-                  <View style={[addProductStyles.conditionCheck, on && addProductStyles.conditionCheckOn]}>
-                    {on ? <Check size={12} color="#FFFFFF" strokeWidth={3} /> : null}
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </StreamBottomSheet>
+      <View style={addProductStyles.conditionList}>
+        {PRODUCT_CONDITIONS.map((opt) => {
+          const on = selected === opt.id;
+          return (
+            <TouchableOpacity
+              key={opt.id}
+              style={[addProductStyles.conditionRow, on && addProductStyles.conditionRowOn]}
+              onPress={() => setSelected(opt.id)}
+              activeOpacity={0.85}
+            >
+              <View style={addProductStyles.conditionLeft}>
+                <View style={addProductStyles.conditionIcon}>
+                  <PieChart size={18} color="#18181B" strokeWidth={2} />
+                </View>
+                <RNText style={addProductStyles.conditionLabel}>{t(opt.labelKey)}</RNText>
+              </View>
+              <View style={[addProductStyles.conditionCheck, on && addProductStyles.conditionCheckOn]}>
+                {on ? <Check size={12} color="#FFFFFF" strokeWidth={3} /> : null}
+              </View>
+            </TouchableOpacity>
+          );
+        })}
       </View>
-    </Modal>
+    </StreamBottomSheet>
   );
 };
-
-const styles = StyleSheet.create({
-  modalRoot: {
-    flex: 1,
-    backgroundColor: 'transparent',
-  },
-});

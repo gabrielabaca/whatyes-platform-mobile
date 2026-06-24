@@ -25,6 +25,8 @@ export interface LiveStreamPreviewModel {
   sellerInitials?: string;
   /** Epoch segundos (GET /rooms) para ordenar por recientes. */
   createdAt?: number;
+  /** URL de la imagen de portada de la sala (cover_url del room). Distinto de thumbnail que puede ser el avatar. */
+  coverUrl?: string | null;
 }
 
 /** Chip sintético "Todas" en el explorador de categorías */

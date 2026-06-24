@@ -1,30 +1,86 @@
 /**
- * Fondo vidrio — blur nativo + tint Figma rgba(2,5,15,0.4).
- * Requiere rebuild nativo: npm run android / npm run ios (no solo reload Metro).
+ * Fondo vidrio — blur nativo + tint.
+ * Tokens en src/theme/glassTokens.ts (editar ahí para tunear el drawer).
  */
 import React from 'react';
-import { Platform, StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { BlurView } from '@react-native-community/blur';
+import {
+  drawerPanelGlass,
+  drawerPanelGlassKey,
+  drawerPanelBlurProps,
+  modalGlass,
+} from '../../../theme/glassTokens';
 
-/** Figma 536:22799 */
-const TINT = 'rgba(2, 5, 15, 0.4)';
-const FALLBACK = 'rgba(2, 5, 15, 0.88)';
+export const DRAWER_PANEL_TINT =
+  Platform.OS === 'android'
+    ? drawerPanelGlass.android.overlayColor
+    : drawerPanelGlass.ios.tintOverlay;
+export const DRAWER_PANEL_TINT_IOS = drawerPanelGlass.ios.tintOverlay;
+export const DRAWER_PANEL_FALLBACK = drawerPanelGlass.fallback;
 
-export const GlassBackdrop: React.FC = () => (
+export type GlassBackdropVariant = 'modal';
+
+export interface GlassBackdropProps {
+  variant?: GlassBackdropVariant;
+}
+
+export const GlassBackdrop: React.FC<GlassBackdropProps> = () => (
   <View style={StyleSheet.absoluteFill} pointerEvents="none">
     <BlurView
       style={StyleSheet.absoluteFill}
       blurType="dark"
-      blurAmount={Platform.select({ ios: 30, android: 30, default: 30 })}
-      overlayColor={Platform.OS === 'android' ? TINT : undefined}
-      reducedTransparencyFallbackColor={FALLBACK}
+      blurAmount={modalGlass.blurAmount}
+      overlayColor={Platform.OS === 'android' ? modalGlass.tint : undefined}
+      reducedTransparencyFallbackColor={modalGlass.fallback}
     />
-    {Platform.OS === 'ios' ? <View style={[StyleSheet.absoluteFill, styles.tint]} /> : null}
+    {Platform.OS === 'ios' ? (
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: modalGlass.tint }]} />
+    ) : null}
   </View>
 );
 
+export interface DrawerPanelGlassProps {
+  style?: StyleProp<ViewStyle>;
+}
+
+/**
+ * Blur del panel inferior.
+ * Android: overlay negro en BlurView. iOS: blur + capa negra encima.
+ */
+export const DrawerPanelGlass: React.FC<DrawerPanelGlassProps> = ({ style }) => {
+  const blurProps = drawerPanelBlurProps;
+
+  return (
+    <View
+      style={[StyleSheet.absoluteFill, styles.drawerGlassClip, style]}
+      pointerEvents="none"
+      collapsable={false}
+    >
+      <BlurView
+        key={`drawer-blur-${drawerPanelGlassKey}`}
+        style={StyleSheet.absoluteFill}
+        blurType={drawerPanelGlass.blurType}
+        blurAmount={blurProps.blurAmount}
+        blurRadius={blurProps.blurRadius}
+        overlayColor={blurProps.overlayColor}
+        reducedTransparencyFallbackColor={drawerPanelGlass.fallback}
+        autoUpdate={Platform.OS === 'android'}
+      />
+      {blurProps.tintOverlay ? (
+        <View
+          key={`drawer-tint-${drawerPanelGlassKey}`}
+          style={[StyleSheet.absoluteFill, { backgroundColor: blurProps.tintOverlay }]}
+        />
+      ) : null}
+    </View>
+  );
+};
+
 const styles = StyleSheet.create({
-  tint: {
-    backgroundColor: TINT,
+  drawerGlassClip: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    ...(Platform.OS === 'ios' ? { overflow: 'hidden' as const } : null),
   },
 });

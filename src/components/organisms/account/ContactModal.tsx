@@ -9,11 +9,7 @@ import {
   TouchableOpacity,
   TextInput,
   Text as RNText,
-  Animated,
   Alert,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
   Image,
 } from 'react-native';
 import { X, ImageUp } from 'lucide-react-native';
@@ -21,7 +17,10 @@ import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { launchPhotoLibraryNow } from '../../../utils/mediaPicker';
 import { deferMediaPicker } from '../../../utils/deferMediaPicker';
-import { GlassBackdrop } from '../profile/GlassBackdrop';
+import {
+  GlassFullScreenModal,
+  type GlassFullScreenModalHandle,
+} from '../profile/GlassFullScreenModal';
 import { FONT_FAMILY } from '../../../theme/typography';
 
 const PRIMARY = '#685CF0';
@@ -36,11 +35,10 @@ export interface ContactModalProps {
 export const ContactModal: React.FC<ContactModalProps> = ({ visible, onClose }) => {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
-  const slideAnim = useRef(new Animated.Value(1)).current;
+  const modalRef = useRef<GlassFullScreenModalHandle>(null);
 
   const [message, setMessage] = useState('');
   const [evidenceUris, setEvidenceUris] = useState<string[]>([]);
-  const [backdropReady, setBackdropReady] = useState(false);
   const [interactionsReady, setInteractionsReady] = useState(false);
 
   const resetState = useCallback(() => {
@@ -50,36 +48,16 @@ export const ContactModal: React.FC<ContactModalProps> = ({ visible, onClose }) 
 
   useEffect(() => {
     if (!visible) {
-      setBackdropReady(false);
       setInteractionsReady(false);
       return;
     }
     resetState();
-    slideAnim.setValue(1);
-    Animated.spring(slideAnim, {
-      toValue: 0,
-      useNativeDriver: true,
-      tension: 68,
-      friction: 12,
-    }).start();
-    const backdropTimer = setTimeout(() => setBackdropReady(true), 400);
     const interactionsTimer = setTimeout(() => setInteractionsReady(true), 500);
-    return () => {
-      clearTimeout(backdropTimer);
-      clearTimeout(interactionsTimer);
-    };
-  }, [visible, resetState, slideAnim]);
+    return () => clearTimeout(interactionsTimer);
+  }, [visible, resetState]);
 
   const handleClose = () => {
-    Animated.timing(slideAnim, {
-      toValue: 1,
-      duration: 220,
-      useNativeDriver: true,
-    }).start(({ finished }) => {
-      if (finished) {
-        onClose();
-      }
-    });
+    modalRef.current?.dismiss();
   };
 
   const handlePickEvidence = () => {
@@ -111,58 +89,44 @@ export const ContactModal: React.FC<ContactModalProps> = ({ visible, onClose }) 
     Alert.alert(t('common.appName'), t('account.contactModal.sendNotAvailable'));
   };
 
-  if (!visible) {
-    return null;
-  }
-
-  const translateY = slideAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, 800],
-  });
-
   const canSend = message.trim().length > 0;
 
   return (
-    <View style={styles.host} pointerEvents="box-none">
-      <GlassBackdrop />
-      <TouchableOpacity
-        style={styles.backdropPress}
-        activeOpacity={1}
-        onPress={backdropReady ? handleClose : undefined}
-        disabled={!backdropReady}
-        accessibilityRole="button"
-        accessibilityLabel={t('account.contactModal.cancel')}
-      />
-
-      <Animated.View
-        style={[styles.sheet, { transform: [{ translateY }] }]}
-        pointerEvents="box-none"
-      >
-        <KeyboardAvoidingView
-          style={styles.flex}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          pointerEvents="box-none"
-        >
-          <View
-            style={[
-              styles.container,
-              { paddingTop: insets.top + 16, paddingBottom: insets.bottom },
-            ]}
+    <GlassFullScreenModal
+      ref={modalRef}
+      visible={visible}
+      onClose={onClose}
+      backdropDelayMs={400}
+      backdropAccessibilityLabel={t('account.contactModal.cancel')}
+      containerStyle={[styles.container, { paddingTop: insets.top + 16 }]}
+      scrollStyle={styles.contentScroll}
+      contentContainerStyle={styles.contentScrollInner}
+      header={
+        <View style={styles.header}>
+          <RNText style={styles.title}>{t('account.contactModal.title')}</RNText>
+          <TouchableOpacity onPress={handleClose} hitSlop={12}>
+            <X size={22} color="#FFFFFF" strokeWidth={2.2} />
+          </TouchableOpacity>
+        </View>
+      }
+      footer={
+        <View style={styles.footer}>
+          <TouchableOpacity
+            style={[styles.primaryBtn, !canSend && styles.primaryBtnDisabled]}
+            onPress={handleSend}
+            disabled={!canSend}
+            activeOpacity={0.88}
           >
-            <View style={styles.header}>
-              <RNText style={styles.title}>{t('account.contactModal.title')}</RNText>
-              <TouchableOpacity onPress={handleClose} hitSlop={12}>
-                <X size={22} color="#FFFFFF" strokeWidth={2.2} />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView
-              style={styles.contentScroll}
-              contentContainerStyle={styles.contentScrollInner}
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
-              bounces={false}
-            >
+            <RNText style={styles.primaryBtnText}>
+              {t('account.contactModal.send')}
+            </RNText>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={handleClose} hitSlop={12} activeOpacity={0.75}>
+            <RNText style={styles.cancelText}>{t('account.contactModal.cancel')}</RNText>
+          </TouchableOpacity>
+        </View>
+      }
+    >
               <View style={styles.fieldGroup}>
                 <RNText style={styles.fieldLabel}>
                   {t('account.contactModal.messageLabel')}
@@ -222,51 +186,11 @@ export const ContactModal: React.FC<ContactModalProps> = ({ visible, onClose }) 
                   )}
                 </View>
               </View>
-            </ScrollView>
-
-            <View style={styles.footer}>
-              <TouchableOpacity
-                style={[styles.primaryBtn, !canSend && styles.primaryBtnDisabled]}
-                onPress={handleSend}
-                disabled={!canSend}
-                activeOpacity={0.88}
-              >
-                <RNText style={styles.primaryBtnText}>
-                  {t('account.contactModal.send')}
-                </RNText>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={handleClose} hitSlop={12} activeOpacity={0.75}>
-                <RNText style={styles.cancelText}>{t('account.contactModal.cancel')}</RNText>
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.homeIndicator}>
-              <View style={styles.homeIndicatorBar} />
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Animated.View>
-    </View>
+    </GlassFullScreenModal>
   );
 };
 
 const styles = StyleSheet.create({
-  host: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 300,
-    elevation: 300,
-  },
-  backdropPress: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 1,
-  },
-  sheet: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 2,
-  },
-  flex: {
-    flex: 1,
-  },
   container: {
     flex: 1,
     paddingHorizontal: 24,
@@ -391,17 +315,5 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: CANCEL_GOLD,
     includeFontPadding: false,
-  },
-  homeIndicator: {
-    alignItems: 'center',
-    height: 31,
-    justifyContent: 'flex-end',
-    paddingBottom: 8,
-  },
-  homeIndicatorBar: {
-    width: 134,
-    height: 5,
-    borderRadius: 100,
-    backgroundColor: '#C7C8CA',
   },
 });

@@ -2,7 +2,7 @@ import React from 'react';
 import { View, StyleSheet, TouchableOpacity, Text as RNText } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Check } from 'lucide-react-native';
-import { StreamBottomSheet, streamSheetStyles } from '../StreamBottomSheet';
+import { StreamBottomSheet, streamBottomPanelStyle, streamSheetStyles } from '../StreamBottomSheet';
 import { FONT_FAMILY } from '../../../../theme/typography';
 
 /** Figma 536-20451 — intro wallet en vivo */
@@ -26,7 +26,7 @@ export const StreamWalletIntroDrawer: React.FC<StreamWalletIntroDrawerProps> = (
       visible={visible}
       title={t('stream.wallet.introTitle')}
       onClose={onClose}
-      panelStyle={styles.panel}
+      panelStyle={streamBottomPanelStyle}
       contentContainerStyle={styles.content}
     >
       <RNText style={styles.headline}>{t('stream.wallet.introHeadline')}</RNText>
@@ -62,11 +62,6 @@ export const StreamWalletIntroDrawer: React.FC<StreamWalletIntroDrawerProps> = (
 };
 
 const styles = StyleSheet.create({
-  panel: {
-    backgroundColor: 'rgba(2, 5, 15, 0.4)',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-  },
   content: {
     gap: 24,
     alignItems: 'center',

@@ -13,6 +13,9 @@ import { useTranslation } from 'react-i18next';
 import { CountrySelect } from '../../molecules/CountrySelect';
 import { startLiveStyles, START_LIVE_COLORS } from './startLiveStyles';
 
+/** Limita escalado de accesibilidad en textos del wizard (Android emulator suele venir en XL). */
+const START_LIVE_TEXT_SCALE = 1.15 as const;
+
 export interface StartLiveFeatureItem {
   title: string;
   body: string;
@@ -32,8 +35,12 @@ export const StartLiveFeatureRow: React.FC<{
       )}
     </View>
     <View style={startLiveStyles.featureTextCol}>
-      <RNText style={startLiveStyles.featureTitle}>{title}</RNText>
-      <RNText style={startLiveStyles.featureBody}>{body}</RNText>
+      <RNText style={startLiveStyles.featureTitle} maxFontSizeMultiplier={START_LIVE_TEXT_SCALE}>
+        {title}
+      </RNText>
+      <RNText style={startLiveStyles.featureBody} maxFontSizeMultiplier={START_LIVE_TEXT_SCALE}>
+        {body}
+      </RNText>
     </View>
   </View>
 );
@@ -66,7 +73,9 @@ export const StartLivePrimaryButton: React.FC<{
     {loading ? (
       <ActivityIndicator color="#FFFFFF" size="small" />
     ) : (
-      <RNText style={startLiveStyles.primaryBtnText}>{label}</RNText>
+      <RNText style={startLiveStyles.primaryBtnText} maxFontSizeMultiplier={START_LIVE_TEXT_SCALE}>
+        {label}
+      </RNText>
     )}
   </TouchableOpacity>
 );

@@ -10,15 +10,14 @@ import {
   Image,
   TextInput,
   Text as RNText,
-  Animated,
-  KeyboardAvoidingView,
-  ScrollView,
   ActivityIndicator,
   Alert,
-  Platform,
 } from 'react-native';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
-import { GlassBackdrop } from './GlassBackdrop';
+import {
+  GlassFullScreenModal,
+  type GlassFullScreenModalHandle,
+} from './GlassFullScreenModal';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Camera } from 'lucide-react-native';
@@ -51,7 +50,7 @@ export const EditProfileDrawer: React.FC<EditProfileDrawerProps> = ({
 }) => {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
-  const slideAnim = useRef(new Animated.Value(1)).current;
+  const modalRef = useRef<GlassFullScreenModalHandle>(null);
   const [displayName, setDisplayName] = useState(profile.display_name);
   const [bio, setBio] = useState(profile.bio ?? '');
   const emailLabel = profile.subtitle ?? '';
@@ -63,26 +62,11 @@ export const EditProfileDrawer: React.FC<EditProfileDrawerProps> = ({
       setDisplayName(profile.display_name);
       setBio(profile.bio ?? '');
       setAvatarUri(initialAvatarUri);
-      slideAnim.setValue(1);
-      Animated.spring(slideAnim, {
-        toValue: 0,
-        useNativeDriver: true,
-        tension: 68,
-        friction: 12,
-      }).start();
     }
-  }, [visible, profile, initialAvatarUri, slideAnim]);
+  }, [visible, profile, initialAvatarUri]);
 
   const handleClose = () => {
-    Animated.timing(slideAnim, {
-      toValue: 1,
-      duration: 220,
-      useNativeDriver: true,
-    }).start(({ finished }) => {
-      if (finished) {
-        onClose();
-      }
-    });
+    modalRef.current?.dismiss();
   };
 
   const pickAvatar = () => {
@@ -118,41 +102,33 @@ export const EditProfileDrawer: React.FC<EditProfileDrawerProps> = ({
     }
   };
 
-  if (!visible) {
-    return null;
-  }
-
-  const translateY = slideAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, 800],
-  });
-
   return (
-    <View style={styles.host} pointerEvents="box-none">
-      <GlassBackdrop />
-      <TouchableOpacity
-        style={styles.backdropPress}
-        activeOpacity={1}
-        onPress={handleClose}
-        accessibilityRole="button"
-        accessibilityLabel={t('profile.editCancel')}
-      />
-
-      <Animated.View
-        style={[styles.sheet, { transform: [{ translateY }], paddingBottom: insets.bottom }]}
-        pointerEvents="box-none"
-      >
-        <KeyboardAvoidingView
-          style={styles.flex}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          pointerEvents="box-none"
-        >
-          <ScrollView
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-            bounces={false}
-            contentContainerStyle={styles.scrollContent}
+    <GlassFullScreenModal
+      ref={modalRef}
+      visible={visible}
+      onClose={onClose}
+      backdropAccessibilityLabel={t('profile.editCancel')}
+      contentContainerStyle={styles.scrollContent}
+      footer={
+        <View style={styles.actions}>
+          <TouchableOpacity
+            style={styles.saveBtn}
+            onPress={handleSave}
+            disabled={saving}
+            activeOpacity={0.88}
           >
+            {saving ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <RNText style={styles.saveBtnText}>{t('profile.editSave')}</RNText>
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity onPress={handleClose} hitSlop={12}>
+            <RNText style={styles.cancelText}>{t('profile.editCancel')}</RNText>
+          </TouchableOpacity>
+        </View>
+      }
+    >
             <View style={[styles.coverWrap, { height: COVER_H }]}>
               {coverUri ? (
                 <Image source={{ uri: coverUri }} style={styles.coverImage} resizeMode="cover" />
@@ -202,32 +178,8 @@ export const EditProfileDrawer: React.FC<EditProfileDrawerProps> = ({
                 inputStyle={styles.bioInput}
               />
 
-              <View style={styles.actions}>
-                <TouchableOpacity
-                  style={styles.saveBtn}
-                  onPress={handleSave}
-                  disabled={saving}
-                  activeOpacity={0.88}
-                >
-                  {saving ? (
-                    <ActivityIndicator color="#FFFFFF" />
-                  ) : (
-                    <RNText style={styles.saveBtnText}>{t('profile.editSave')}</RNText>
-                  )}
-                </TouchableOpacity>
-                <TouchableOpacity onPress={handleClose} hitSlop={12}>
-                  <RNText style={styles.cancelText}>{t('profile.editCancel')}</RNText>
-                </TouchableOpacity>
-              </View>
             </View>
-
-            <View style={styles.homeIndicator}>
-              <View style={styles.homeIndicatorBar} />
-            </View>
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </Animated.View>
-    </View>
+    </GlassFullScreenModal>
   );
 };
 
@@ -278,26 +230,10 @@ const CoverGradient: React.FC = () => (
 );
 
 const styles = StyleSheet.create({
-  host: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 200,
-    elevation: 200,
-  },
-  backdropPress: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 1,
-  },
-  sheet: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 2,
-  },
-  flex: {
-    flex: 1,
-  },
   scrollContent: {
     flexGrow: 1,
     gap: 24,
-    paddingBottom: 24,
+    paddingBottom: 16,
   },
   coverWrap: {
     width: '100%',
@@ -416,7 +352,8 @@ const styles = StyleSheet.create({
   actions: {
     gap: 24,
     alignItems: 'center',
-    marginTop: 8,
+    width: '100%',
+    paddingHorizontal: 24,
   },
   saveBtn: {
     width: '100%',
@@ -440,17 +377,5 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: CANCEL_GOLD,
     includeFontPadding: false,
-  },
-  homeIndicator: {
-    height: 31,
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    paddingBottom: 8,
-  },
-  homeIndicatorBar: {
-    width: 134,
-    height: 5,
-    borderRadius: 100,
-    backgroundColor: '#C7C8CA',
   },
 });

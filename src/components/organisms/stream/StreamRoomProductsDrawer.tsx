@@ -8,7 +8,7 @@ import {
   type ListRenderItem,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { StreamBottomSheet, streamSheetStyles } from './StreamBottomSheet';
+import { StreamBottomSheet, streamBottomPanelStyle, streamSheetStyles } from './StreamBottomSheet';
 import { FONT_FAMILY } from '../../../theme/typography';
 import { SaleModeTabs, type LiveProductSaleMode } from '../../molecules/stream/SaleModeTabs';
 import { LiveProductCard, type LiveProductCardVM } from '../../molecules/stream/LiveProductCard';
@@ -73,7 +73,7 @@ export const StreamRoomProductsDrawer: React.FC<StreamRoomProductsDrawerProps> =
       visible={visible}
       title={t('stream.productsCatalogTitle')}
       onClose={onClose}
-      panelStyle={styles.panel}
+      panelStyle={[streamBottomPanelStyle, styles.panel]}
       contentContainerStyle={styles.content}
       scrollEnabled={false}
       footer={footer}
@@ -107,9 +107,6 @@ export const StreamRoomProductsDrawer: React.FC<StreamRoomProductsDrawerProps> =
 
 const styles = StyleSheet.create({
   panel: {
-    backgroundColor: 'rgba(2, 5, 15, 0.4)',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
     maxHeight: '88%',
   },
   content: {

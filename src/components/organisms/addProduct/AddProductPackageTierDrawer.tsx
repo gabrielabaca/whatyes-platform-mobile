@@ -1,7 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Modal,
-  StyleSheet,
   View,
   Text as RNText,
   TextInput,
@@ -78,86 +76,69 @@ export const AddProductPackageTierDrawer: React.FC<AddProductPackageTierDrawerPr
     tier != null && (!manualValue.trim() || parseManualWeightKg() != null);
 
   return (
-    <Modal
+    <StreamBottomSheet
       visible={visible}
-      transparent
-      animationType="none"
-      statusBarTranslucent
-      onRequestClose={onClose}
+      title={t('addProduct.weightTitle')}
+      onClose={onClose}
+      bottomPanel
+      panelStyle={panelStyle}
+      contentContainerStyle={addProductStyles.drawerBody}
+      footer={
+        <StartLivePrimaryButton
+          label={t('addProduct.confirm')}
+          onPress={handleConfirm}
+          disabled={!canConfirm}
+        />
+      }
     >
-      <View style={styles.modalRoot}>
-        <StreamBottomSheet
-          visible={visible}
-          title={t('addProduct.weightTitle')}
-          onClose={onClose}
-          bottomPanel
-          panelStyle={panelStyle}
-          contentContainerStyle={addProductStyles.drawerBody}
-          footer={
-            <StartLivePrimaryButton
-              label={t('addProduct.confirm')}
-              onPress={handleConfirm}
-              disabled={!canConfirm}
-            />
-          }
-        >
-          <RNText style={addProductStyles.drawerHint}>{t('addProduct.weightPackageHint')}</RNText>
+      <RNText style={addProductStyles.drawerHint}>{t('addProduct.weightPackageHint')}</RNText>
 
-          <View style={addProductStyles.tierList}>
-            {PACKAGE_TIER_OPTIONS.map((opt) => {
-              const selected = tier === opt.id;
-              return (
-                <TouchableOpacity
-                  key={opt.id}
-                  style={addProductStyles.tierRow}
-                  onPress={() => {
-                    setTier(opt.id);
-                    setManualValue('');
-                  }}
-                  activeOpacity={0.85}
-                >
-                  <View style={addProductStyles.tierTextCol}>
-                    <View style={addProductStyles.tierHeaderRow}>
-                      <RNText style={addProductStyles.tierTitle}>{t(opt.labelKey)}</RNText>
-                      <RNText style={addProductStyles.tierRange}>{t(opt.rangeKey)}</RNText>
-                    </View>
-                    <RNText style={addProductStyles.tierHint}>{t(opt.hintKey)}</RNText>
-                  </View>
-                  <View style={[addProductStyles.tierRadio, selected && addProductStyles.tierRadioOn]} />
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          <View style={addProductStyles.field}>
-            <RNText style={addProductStyles.manualWeightLabel}>{t('addProduct.manualWeight')}</RNText>
-            <View style={addProductStyles.manualWeightRow}>
-              <TextInput
-                style={addProductStyles.manualWeightInput}
-                value={manualValue}
-                onChangeText={setManualValue}
-                placeholder={manualPlaceholder}
-                placeholderTextColor="#D9D9D9"
-                keyboardType="decimal-pad"
-                editable={tier != null}
-              />
-              <RNText style={addProductStyles.manualWeightUnit}>{manualUnit}</RNText>
-            </View>
-            {tier ? (
-              <RNText style={addProductStyles.manualWeightHelp}>
-                {t('addProduct.manualWeightLimit', { max: manualMax, unit: manualUnit })}
-              </RNText>
-            ) : null}
-          </View>
-        </StreamBottomSheet>
+      <View style={addProductStyles.tierList}>
+        {PACKAGE_TIER_OPTIONS.map((opt) => {
+          const selected = tier === opt.id;
+          return (
+            <TouchableOpacity
+              key={opt.id}
+              style={addProductStyles.tierRow}
+              onPress={() => {
+                setTier(opt.id);
+                setManualValue('');
+              }}
+              activeOpacity={0.85}
+            >
+              <View style={addProductStyles.tierTextCol}>
+                <View style={addProductStyles.tierHeaderRow}>
+                  <RNText style={addProductStyles.tierTitle}>{t(opt.labelKey)}</RNText>
+                  <RNText style={addProductStyles.tierRange}>{t(opt.rangeKey)}</RNText>
+                </View>
+                <RNText style={addProductStyles.tierHint}>{t(opt.hintKey)}</RNText>
+              </View>
+              <View style={[addProductStyles.tierRadio, selected && addProductStyles.tierRadioOn]} />
+            </TouchableOpacity>
+          );
+        })}
       </View>
-    </Modal>
+
+      <View style={addProductStyles.field}>
+        <RNText style={addProductStyles.manualWeightLabel}>{t('addProduct.manualWeight')}</RNText>
+        <View style={addProductStyles.manualWeightRow}>
+          <TextInput
+            style={addProductStyles.manualWeightInput}
+            value={manualValue}
+            onChangeText={setManualValue}
+            placeholder={manualPlaceholder}
+            placeholderTextColor="#D9D9D9"
+            keyboardType="decimal-pad"
+            editable={tier != null}
+          />
+          <RNText style={addProductStyles.manualWeightUnit}>{manualUnit}</RNText>
+        </View>
+        {tier ? (
+          <RNText style={addProductStyles.manualWeightHelp}>
+            {t('addProduct.manualWeightLimit', { max: manualMax, unit: manualUnit })}
+          </RNText>
+        ) : null}
+      </View>
+    </StreamBottomSheet>
   );
 };
-
-const styles = StyleSheet.create({
-  modalRoot: {
-    flex: 1,
-    backgroundColor: 'transparent',
-  },
-});

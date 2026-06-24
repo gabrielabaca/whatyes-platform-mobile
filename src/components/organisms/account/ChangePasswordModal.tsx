@@ -9,17 +9,16 @@ import {
   TouchableOpacity,
   TextInput,
   Text as RNText,
-  Animated,
   ActivityIndicator,
   Alert,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
 } from 'react-native';
 import { X, Eye, EyeOff } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { GlassBackdrop } from '../profile/GlassBackdrop';
+import {
+  GlassFullScreenModal,
+  type GlassFullScreenModalHandle,
+} from '../profile/GlassFullScreenModal';
 import { FONT_FAMILY } from '../../../theme/typography';
 import { passwordMeetsPolicy } from '../../../utils/formValidation';
 import {
@@ -50,7 +49,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
 }) => {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
-  const slideAnim = useRef(new Animated.Value(1)).current;
+  const modalRef = useRef<GlassFullScreenModalHandle>(null);
   const otpInputRef = useRef<TextInput>(null);
 
   const [step, setStep] = useState<Step>('email');
@@ -60,7 +59,6 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [backdropReady, setBackdropReady] = useState(false);
   const [codeError, setCodeError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [confirmError, setConfirmError] = useState<string | null>(null);
@@ -86,20 +84,10 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
 
   useEffect(() => {
     if (!visible) {
-      setBackdropReady(false);
       return;
     }
     resetState();
-    slideAnim.setValue(1);
-    Animated.spring(slideAnim, {
-      toValue: 0,
-      useNativeDriver: true,
-      tension: 68,
-      friction: 12,
-    }).start();
-    const timer = setTimeout(() => setBackdropReady(true), 400);
-    return () => clearTimeout(timer);
-  }, [visible, resetState, slideAnim]);
+  }, [visible, resetState]);
 
   useEffect(() => {
     if (resendSecondsLeft <= 0) {
@@ -115,15 +103,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
     if (loading) {
       return;
     }
-    Animated.timing(slideAnim, {
-      toValue: 1,
-      duration: 220,
-      useNativeDriver: true,
-    }).start(({ finished }) => {
-      if (finished) {
-        onClose();
-      }
-    });
+    modalRef.current?.dismiss();
   };
 
   const handleSendCode = async () => {
@@ -224,15 +204,6 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
     }
   };
 
-  if (!visible) {
-    return null;
-  }
-
-  const translateY = slideAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, 800],
-  });
-
   const codeDigits = code.slice(0, OTP_LENGTH).split('');
   const activeOtpIndex = Math.min(codeDigits.length, OTP_LENGTH - 1);
   const canVerifyCode = code.length === OTP_LENGTH && !loading;
@@ -279,52 +250,91 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
   );
 
   return (
-    <View style={styles.host} pointerEvents="box-none">
-      <GlassBackdrop />
-      <TouchableOpacity
-        style={styles.backdropPress}
-        activeOpacity={1}
-        onPress={backdropReady ? handleClose : undefined}
-        disabled={!backdropReady}
-        accessibilityRole="button"
-        accessibilityLabel={t('account.changePasswordModal.cancel')}
-      />
+    <GlassFullScreenModal
+      ref={modalRef}
+      visible={visible}
+      onClose={onClose}
+      backdropDelayMs={400}
+      backdropAccessibilityLabel={t('account.changePasswordModal.cancel')}
+      containerStyle={[styles.container, { paddingTop: insets.top + 16 }]}
+      scrollStyle={styles.contentScroll}
+      contentContainerStyle={styles.contentScrollInner}
+      header={
+        <View style={styles.header}>
+          <RNText style={styles.title}>{t(titleKey)}</RNText>
+          <TouchableOpacity onPress={handleClose} hitSlop={12} disabled={loading}>
+            <X size={22} color="#FFFFFF" strokeWidth={2.2} />
+          </TouchableOpacity>
+        </View>
+      }
+      subHeader={
+        <RNText style={styles.subtitle}>
+          {step === 'code'
+            ? t(subtitleKey, { email: userEmail })
+            : t(subtitleKey)}
+        </RNText>
+      }
+      footer={
+        <View style={styles.footer}>
+          {step === 'email'
+            ? renderPrimaryButton(
+                t('account.changePasswordModal.sendCode'),
+                handleSendCode,
+                loading
+              )
+            : null}
+          {step === 'code'
+            ? renderPrimaryButton(
+                t('account.changePasswordModal.verifyCode'),
+                handleVerifyCode,
+                !canVerifyCode
+              )
+            : null}
+          {step === 'password'
+            ? renderPrimaryButton(
+                t('account.changePasswordModal.save'),
+                handleSavePassword,
+                !canSavePassword
+              )
+            : null}
 
-      <Animated.View
-        style={[styles.sheet, { transform: [{ translateY }] }]}
-        pointerEvents="box-none"
-      >
-        <KeyboardAvoidingView
-          style={styles.flex}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          pointerEvents="box-none"
-        >
-          <View
-            style={[
-              styles.container,
-              { paddingTop: insets.top + 16, paddingBottom: insets.bottom },
-            ]}
-          >
-            <View style={styles.header}>
-              <RNText style={styles.title}>{t(titleKey)}</RNText>
-              <TouchableOpacity onPress={handleClose} hitSlop={12} disabled={loading}>
-                <X size={22} color="#FFFFFF" strokeWidth={2.2} />
-              </TouchableOpacity>
+          {step === 'code' ? (
+            <View style={styles.resendRow}>
+              <RNText style={styles.resendHint}>
+                {t('account.changePasswordModal.noCodeReceived')}{' '}
+              </RNText>
+              {resendSecondsLeft > 0 ? (
+                <RNText style={styles.resendCooldown}>
+                  {t('account.changePasswordModal.resendIn', {
+                    seconds: resendSecondsLeft,
+                  })}
+                </RNText>
+              ) : (
+                <TouchableOpacity
+                  onPress={handleResendCode}
+                  disabled={loading}
+                  hitSlop={8}
+                >
+                  <RNText style={styles.resendLink}>
+                    {t('account.changePasswordModal.resendCode')}
+                  </RNText>
+                </TouchableOpacity>
+              )}
             </View>
+          ) : null}
 
-            <RNText style={styles.subtitle}>
-              {step === 'code'
-                ? t(subtitleKey, { email: userEmail })
-                : t(subtitleKey)}
-            </RNText>
-
-            <ScrollView
-              style={styles.contentScroll}
-              contentContainerStyle={styles.contentScrollInner}
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
-              bounces={false}
-            >
+          {step === 'email' || step === 'code'
+            ? renderSecondaryAction(
+                t('account.changePasswordModal.tryAnotherWay'),
+                handleClose
+              )
+            : renderSecondaryAction(
+                t('account.changePasswordModal.cancel'),
+                handleClose
+              )}
+        </View>
+      }
+    >
               {step === 'email' ? (
                 <View style={styles.fieldGroup}>
                   <RNText style={styles.fieldLabel}>
@@ -466,94 +476,11 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
                   ) : null}
                 </View>
               ) : null}
-            </ScrollView>
-
-            <View style={styles.footer}>
-              {step === 'email'
-                ? renderPrimaryButton(
-                    t('account.changePasswordModal.sendCode'),
-                    handleSendCode,
-                    loading
-                  )
-                : null}
-              {step === 'code'
-                ? renderPrimaryButton(
-                    t('account.changePasswordModal.verifyCode'),
-                    handleVerifyCode,
-                    !canVerifyCode
-                  )
-                : null}
-              {step === 'password'
-                ? renderPrimaryButton(
-                    t('account.changePasswordModal.save'),
-                    handleSavePassword,
-                    !canSavePassword
-                  )
-                : null}
-
-              {step === 'code' ? (
-                <View style={styles.resendRow}>
-                  <RNText style={styles.resendHint}>
-                    {t('account.changePasswordModal.noCodeReceived')}{' '}
-                  </RNText>
-                  {resendSecondsLeft > 0 ? (
-                    <RNText style={styles.resendCooldown}>
-                      {t('account.changePasswordModal.resendIn', {
-                        seconds: resendSecondsLeft,
-                      })}
-                    </RNText>
-                  ) : (
-                    <TouchableOpacity
-                      onPress={handleResendCode}
-                      disabled={loading}
-                      hitSlop={8}
-                    >
-                      <RNText style={styles.resendLink}>
-                        {t('account.changePasswordModal.resendCode')}
-                      </RNText>
-                    </TouchableOpacity>
-                  )}
-                </View>
-              ) : null}
-
-              {step === 'email' || step === 'code'
-                ? renderSecondaryAction(
-                    t('account.changePasswordModal.tryAnotherWay'),
-                    handleClose
-                  )
-                : renderSecondaryAction(
-                    t('account.changePasswordModal.cancel'),
-                    handleClose
-                  )}
-            </View>
-
-            <View style={styles.homeIndicator}>
-              <View style={styles.homeIndicatorBar} />
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Animated.View>
-    </View>
+    </GlassFullScreenModal>
   );
 };
 
 const styles = StyleSheet.create({
-  host: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 300,
-    elevation: 300,
-  },
-  backdropPress: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 1,
-  },
-  sheet: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 2,
-  },
-  flex: {
-    flex: 1,
-  },
   container: {
     flex: 1,
     paddingHorizontal: 24,
@@ -730,17 +657,5 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.regular,
     fontSize: 12,
     color: 'rgba(255,255,255,0.55)',
-  },
-  homeIndicator: {
-    alignItems: 'center',
-    height: 31,
-    justifyContent: 'flex-end',
-    paddingBottom: 8,
-  },
-  homeIndicatorBar: {
-    width: 134,
-    height: 5,
-    borderRadius: 100,
-    backgroundColor: '#C7C8CA',
   },
 });
