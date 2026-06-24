@@ -6,7 +6,7 @@
  */
 
 import './global.css';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { StatusBar, Linking } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ThemeProvider, useTheme } from './src/context/ThemeContext';
@@ -130,6 +130,16 @@ function AppNavigator() {
   const { isAuthenticated, isBootstrapping } = useAuth();
   const [authScreen, setAuthScreen] = useState<AuthScreen>('onboarding');
   const [currentScreen, setCurrentScreen] = useState<AppScreen>('onboarding');
+  const prevAuthenticated = useRef(false);
+
+  // Si la sesión vence en medio del uso (refresh fallido), ir directo al login.
+  useEffect(() => {
+    if (isBootstrapping) return;
+    if (!isAuthenticated && prevAuthenticated.current) {
+      setAuthScreen('login');
+    }
+    prevAuthenticated.current = isAuthenticated;
+  }, [isAuthenticated, isBootstrapping]);
 
   /** JWT post-verify pero onboarding comprador incompleto: abrir registro para restaurar paso */
   useEffect(() => {

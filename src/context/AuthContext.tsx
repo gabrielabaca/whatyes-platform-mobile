@@ -59,6 +59,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (!cancelled) setUser(null);
     };
 
+    const shouldForceLogout = async (): Promise<boolean> => {
+      const rt = await storage.getRefreshToken();
+      if (!rt) return true;
+      // Si hay refresh token pero el refresh falló, solo forzar logout cuando
+      // el access token ya venció (sesión irrecuperable). Si aún es válido,
+      // es un error de red transitorio → mantener sesión y reintentar.
+      const access = await storage.getAccessToken();
+      const expMs = access ? getJwtExpMs(access) : null;
+      return !access || expMs === null || expMs <= Date.now();
+    };
+
     const schedule = async () => {
       if (cancelled) return;
       if (timer) {
@@ -79,9 +90,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         if (tok) {
           schedule();
         } else {
-          const rt = await storage.getRefreshToken();
-          if (!cancelled && !rt) await forceLogoutLocal();
-          // error de red: se reintenta en el próximo foreground
+          if (!cancelled && (await shouldForceLogout())) await forceLogoutLocal();
+          // Si el access token aún es válido: error de red, se reintenta en el próximo foreground.
         }
       }, delay);
     };
@@ -93,8 +103,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         if (tok) {
           schedule();
         } else {
-          const rt = await storage.getRefreshToken();
-          if (!cancelled && !rt) await forceLogoutLocal();
+          if (!cancelled && (await shouldForceLogout())) await forceLogoutLocal();
+          // Si el access token aún es válido: error de red, se reintenta la próxima vez.
         }
       });
     };
@@ -137,12 +147,21 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             // Refresh token inválido/expirado/revocado → cerrar sesión.
             await storage.clearAll();
             setUser(null);
-          } else if (!storedUserData) {
-            // Error de red sin usuario cacheado → mostrar login.
-            setUser(null);
+          } else {
+            // Hay refresh token pero el refresh falló (error de red u otro).
+            // Si el access token original ya venció, la sesión está irrecuperable
+            // en este momento → forzar login. Solo mantener sesión offline cuando
+            // el access token aún es válido (refresh proactivo fallido por red).
+            const expMs = getJwtExpMs(token);
+            const accessExpired = expMs === null || expMs <= Date.now();
+            if (accessExpired) {
+              await storage.clearAll();
+              setUser(null);
+            } else if (!storedUserData) {
+              setUser(null);
+            }
+            // Access token aún válido + error de red: modo offline, se reintenta.
           }
-          // Error de red con usuario cacheado: se mantiene la sesión (modo offline);
-          // el scheduler / foreground reintentan el refresh.
           return;
         }
 
