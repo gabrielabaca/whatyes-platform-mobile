@@ -110,6 +110,10 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
 
   const { likeEvents, handleLikeDone, handleLikeEvent } = useFloatingHearts();
 
+  const handleStreamEnded = useCallback(() => {
+    onEndStream();
+  }, [onEndStream]);
+
   const {
     messages,
     viewerCount,
@@ -117,6 +121,7 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
     sendLike,
     sendStreamPause,
     sendStreamResume,
+    disconnectPermanently,
     isStreamPaused,
     isAuctionActive,
     auctionSecondsRemaining,
@@ -125,7 +130,10 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
   } = useStreamChat({
     roomId,
     accessToken: token,
+    role: 'master',
+    reconnect: true,
     onLike: handleLikeEvent,
+    onStreamEnded: handleStreamEnded,
   });
 
   const { bidEvents, handleBidDone } = useFloatingBids(auctionBids);
@@ -359,6 +367,7 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
   }, []);
 
   const confirmEndStream = useCallback(async () => {
+    disconnectPermanently();
     try {
       await stopKinesisWebRTCMaster();
     } catch {
@@ -374,7 +383,7 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
       }
     }
     onEndStream();
-  }, [token, roomId, onEndStream]);
+  }, [token, roomId, onEndStream, disconnectPermanently]);
 
   const handleEndStream = useCallback(() => {
     Alert.alert(

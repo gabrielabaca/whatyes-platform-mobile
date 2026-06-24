@@ -108,6 +108,22 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({ stream, onClose }) =
   });
 
   const roomId = stream.id;
+
+  const handleStreamEnded = useCallback(
+    (reason?: string) => {
+      stopKinesisWebRTCViewer().catch(() => {});
+      setRemoteStream(null);
+      const message =
+        reason === 'master_absent'
+          ? t('stream.endedByBroadcasterDisconnect')
+          : t('stream.endedByBroadcaster');
+      Alert.alert(t('stream.endStreamConfirmTitle'), message, [
+        { text: t('common.ok'), onPress: onClose },
+      ]);
+    },
+    [onClose, t],
+  );
+
   const {
     messages,
     viewerCount,
@@ -122,7 +138,12 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({ stream, onClose }) =
     isStreamPaused,
     roomCoverUrl: wsCoverUrl,
     roomIntroVideoUrl: wsIntroVideoUrl,
-  } = useStreamChat({ roomId, accessToken: chatToken, onLike: handleLikeEvent });
+  } = useStreamChat({
+    roomId,
+    accessToken: chatToken,
+    onLike: handleLikeEvent,
+    onStreamEnded: handleStreamEnded,
+  });
   const { bidEvents, handleBidDone } = useFloatingBids(auctionBids);
 
   const effectiveCoverUrl = wsCoverUrl ?? roomCoverUrl;

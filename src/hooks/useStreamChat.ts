@@ -12,7 +12,12 @@ interface UseStreamChatOptions {
   roomId: string | null;
   accessToken: string | null;
   enabled?: boolean;
+  /** Broadcaster: envía master_ping y puede registrar presencia en el servidor. */
+  role?: 'master' | 'viewer';
+  /** Si false, no reconecta al cerrar el WS (salida intencional del vivo). Default true. */
+  reconnect?: boolean;
   onLike?: (like: LikeEvent) => void;
+  onStreamEnded?: (reason?: string) => void;
 }
 
 interface WsPayloadMessage {
@@ -65,7 +70,15 @@ export interface AuctionWinner {
   amount: number;
 }
 
-export function useStreamChat({ roomId, accessToken, enabled = true, onLike }: UseStreamChatOptions) {
+export function useStreamChat({
+  roomId,
+  accessToken,
+  enabled = true,
+  role = 'viewer',
+  reconnect = true,
+  onLike,
+  onStreamEnded,
+}: UseStreamChatOptions) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [viewerCount, setViewerCount] = useState(0);
   const [likesCount, setLikesCount] = useState(0);
@@ -79,6 +92,16 @@ export function useStreamChat({ roomId, accessToken, enabled = true, onLike }: U
   const [roomIntroVideoUrl, setRoomIntroVideoUrl] = useState<string | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reconnectEnabledRef = useRef(reconnect);
+  const onStreamEndedRef = useRef(onStreamEnded);
+
+  useEffect(() => {
+    reconnectEnabledRef.current = reconnect;
+  }, [reconnect]);
+
+  useEffect(() => {
+    onStreamEndedRef.current = onStreamEnded;
+  }, [onStreamEnded]);
 
   // Offset (segundos) entre el reloj del servidor y el del dispositivo.
   // serverNow() = reloj local + offset. Imprescindible para que la cuenta regresiva
@@ -151,6 +174,17 @@ export function useStreamChat({ roomId, accessToken, enabled = true, onLike }: U
     send({ type: 'stream_resume' });
   }, [send]);
 
+  const disconnectPermanently = useCallback(() => {
+    reconnectEnabledRef.current = false;
+    if (reconnectTimer.current) {
+      clearTimeout(reconnectTimer.current);
+      reconnectTimer.current = null;
+    }
+    wsRef.current?.close();
+    wsRef.current = null;
+    setIsConnected(false);
+  }, []);
+
   useEffect(() => {
     if (!enabled || !roomId || !accessToken) return;
 
@@ -168,7 +202,9 @@ export function useStreamChat({ roomId, accessToken, enabled = true, onLike }: U
         wsRef.current = null;
         if (!destroyed) {
           setIsConnected(false);
-          reconnectTimer.current = setTimeout(connect, 3000);
+          if (reconnectEnabledRef.current) {
+            reconnectTimer.current = setTimeout(connect, 3000);
+          }
         }
       };
       ws.onerror = () => { if (!destroyed) setError('Error de conexión'); };
@@ -265,6 +301,12 @@ export function useStreamChat({ roomId, accessToken, enabled = true, onLike }: U
             setIsStreamPaused(Boolean(msg.payload.paused));
             return;
           }
+          if (msg.type === 'stream_ended') {
+            const reason =
+              typeof msg.payload?.reason === 'string' ? msg.payload.reason : undefined;
+            onStreamEndedRef.current?.(reason);
+            return;
+          }
           if (msg.type === 'cover_updated' && msg.payload) {
             const url = msg.payload.cover_url;
             if (typeof url === 'string' && url.trim()) {
@@ -303,7 +345,15 @@ export function useStreamChat({ roomId, accessToken, enabled = true, onLike }: U
       wsRef.current = null;
       setIsConnected(false);
     };
-  }, [roomId, accessToken, enabled, onLike]);
+  }, [roomId, accessToken, enabled, onLike, syncClock, serverNow]);
+
+  useEffect(() => {
+    if (role !== 'master' || !isConnected) return;
+    const ping = () => send({ type: 'master_ping' });
+    ping();
+    const id = setInterval(ping, 20_000);
+    return () => clearInterval(id);
+  }, [role, isConnected, send]);
 
   const [auctionSecondsRemaining, setAuctionSecondsRemaining] = useState<number | null>(null);
 
@@ -350,6 +400,7 @@ export function useStreamChat({ roomId, accessToken, enabled = true, onLike }: U
     sendBid,
     sendStreamPause,
     sendStreamResume,
+    disconnectPermanently,
     isStreamPaused,
     roomCoverUrl,
     roomIntroVideoUrl,

@@ -473,6 +473,8 @@
     "endStream": "Finalizar transmisión",
     "endStreamConfirmTitle": "Finalizar Stream",
     "endStreamConfirmMessage": "¿Seguro que deseas finalizar el stream?",
+    "endedByBroadcaster": "El vendedor finalizó la transmisión.",
+    "endedByBroadcasterDisconnect": "La transmisión finalizó porque el vendedor se desconectó.",
     "sellerMoreTitle": "Opciones del vivo",
     "sellerStartAuction": "Iniciar subasta",
     "sellerAddProduct": "Agregar producto",

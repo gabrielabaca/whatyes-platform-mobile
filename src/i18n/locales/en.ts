@@ -474,6 +474,8 @@ export default {
     "endStream": "End broadcast",
     "endStreamConfirmTitle": "End stream",
     "endStreamConfirmMessage": "Are you sure you want to end the stream?",
+    "endedByBroadcaster": "The broadcaster ended the live stream.",
+    "endedByBroadcasterDisconnect": "The live stream ended because the broadcaster disconnected.",
     "sellerMoreTitle": "Live options",
     "sellerStartAuction": "Start auction",
     "sellerAddProduct": "Add product",
