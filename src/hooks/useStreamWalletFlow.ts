@@ -73,6 +73,25 @@ export function useStreamWalletFlow() {
     }
   }, []);
 
+  /**
+   * Chequea (sin abrir el hub) si el usuario ya configuró domicilio de envío y
+   * método de pago. Actualiza el estado del hub como efecto secundario.
+   */
+  const isWalletConfigured = useCallback(async (): Promise<boolean> => {
+    const [shipping, cardList, pref] = await Promise.all([
+      getShippingAddress().catch(() => ({})),
+      listSavedCards().catch(() => [] as SavedCard[]),
+      storage.getPreferredPaymentOrigin(),
+    ]);
+    const okShipping = hasShippingData(shipping);
+    const okPayment = cardList.length > 0 || pref === 'MP_WALLET';
+    setHasShipping(okShipping);
+    setHasPayment(okPayment);
+    setCards(cardList);
+    setPreferredOrigin(pref);
+    return okShipping && okPayment;
+  }, []);
+
   const isKycVerified = useCallback(async (): Promise<boolean> => {
     const me = user as UserMe | null;
     if (me?.identity_kyc_verified) {
@@ -253,6 +272,7 @@ export function useStreamWalletFlow() {
     shippingActionLabel,
     paymentActionLabel,
     openWallet,
+    isWalletConfigured,
     closeAll,
     goToHub,
     returnToHub,

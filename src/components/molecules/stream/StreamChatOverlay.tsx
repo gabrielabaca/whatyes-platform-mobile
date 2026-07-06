@@ -13,7 +13,7 @@ export const StreamChatOverlay: React.FC<StreamChatOverlayProps> = ({ messages }
   const visible = messages.slice(-VISIBLE_MESSAGES);
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} pointerEvents="box-none">
       {visible.map((msg) => (
         <StreamChatBubble key={msg.id} username={msg.username} message={msg.message} />
       ))}

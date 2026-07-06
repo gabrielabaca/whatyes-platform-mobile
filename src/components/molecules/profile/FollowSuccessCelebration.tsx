@@ -26,6 +26,9 @@ export interface FollowSuccessCelebrationProps {
   onDismiss?: () => void;
   /** Duración visible antes de auto-ocultar (ms). */
   durationMs?: number;
+  /** Textos custom del toast; por defecto los de follow. */
+  title?: string;
+  body?: string;
 }
 
 export const FollowSuccessCelebration: React.FC<FollowSuccessCelebrationProps> = ({
@@ -33,6 +36,8 @@ export const FollowSuccessCelebration: React.FC<FollowSuccessCelebrationProps> =
   sellerName,
   onDismiss,
   durationMs = 3600,
+  title,
+  body,
 }) => {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
@@ -118,9 +123,11 @@ export const FollowSuccessCelebration: React.FC<FollowSuccessCelebrationProps> =
             <IconBell size={22} color={PRIMARY} strokeWidth={2} />
           </View>
           <View style={styles.toastTextCol}>
-            <RNText style={styles.toastTitle}>{t('profile.followSuccessTitle')}</RNText>
+            <RNText style={styles.toastTitle}>
+              {title ?? t('profile.followSuccessTitle')}
+            </RNText>
             <RNText style={styles.toastBody} numberOfLines={2}>
-              {t('profile.followSuccessBody', { name: displayName })}
+              {body ?? t('profile.followSuccessBody', { name: displayName })}
             </RNText>
           </View>
         </View>

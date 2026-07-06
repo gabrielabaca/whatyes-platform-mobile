@@ -42,6 +42,8 @@ import {
   type LiveProductCardVM,
 } from '../../organisms/stream/StreamRoomProductsDrawer';
 import { StreamVideoScrim } from '../../organisms/stream/StreamVideoScrim';
+import { StreamFollowSellerDrawer } from '../../organisms/stream/StreamFollowSellerDrawer';
+import { StreamShippingRateDrawer } from '../../organisms/stream/StreamShippingRateDrawer';
 import { StreamPausedMedia } from '../../organisms/stream/StreamPausedMedia';
 import { UserProfileScreen } from '../UserProfileScreen';
 import { useSellerFollow } from '../../../hooks/useSellerFollow';
@@ -49,6 +51,7 @@ import { FollowSuccessCelebration } from '../../molecules/profile';
 import { getUserPublicProfile } from '../../../api/profileApi';
 import { useLiveScreenRecording } from '../../../hooks/useLiveScreenRecording';
 import { useStreamWalletFlow } from '../../../hooks/useStreamWalletFlow';
+import { useProductShippingQuote } from '../../../hooks/useProductShippingQuote';
 import { ShippingAddressModal } from '../../organisms/account/ShippingAddressModal';
 import { BuyerKycModal } from '../../organisms/account/BuyerKycModal';
 import {
@@ -62,6 +65,8 @@ import {
 
 /** Tiempo máximo de espera del primer frame antes de reintentar/errorear la conexión WebRTC. */
 const CONNECT_TIMEOUT_MS = 12_000;
+/** Espera antes de los prompts automáticos del vivo (seguir vendedor / configurar wallet). */
+const AUTO_PROMPTS_DELAY_MS = 15_000;
 /** Reintentos automáticos (con credenciales frescas) antes de mostrar error. */
 const MAX_CONNECT_ATTEMPTS = 2;
 
@@ -201,6 +206,8 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({ stream, onClose, ini
     };
   }, [chatToken, roomId]);
 
+  // isAuctionActive en deps: al iniciar/terminar una subasta puede cambiar el
+  // producto activo, así que se refresca el contexto de comercio del vivo.
   useEffect(() => {
     let cancelled = false;
     if (!chatToken || !roomId) return;
@@ -214,7 +221,126 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({ stream, onClose, ini
     return () => {
       cancelled = true;
     };
-  }, [chatToken, roomId]);
+  }, [chatToken, roomId, isAuctionActive]);
+
+  const activeProductId = liveCommerce?.active_product?.uuid ?? null;
+  const {
+    quote: shippingQuote,
+    shippingAddress,
+    sellerPickupAddress,
+    refresh: refreshShippingQuote,
+  } = useProductShippingQuote({
+    roomId,
+    productId: activeProductId,
+  });
+
+  // Al cerrar una subasta se registra la compra del ganador: recotizar porque el
+  // próximo envío puede pasar a gratis (combinado con esa compra).
+  useEffect(() => {
+    if (!isAuctionActive) {
+      void refreshShippingQuote();
+    }
+  }, [isAuctionActive, refreshShippingQuote]);
+
+  // Drawer "Tasa de Envío" (Figma 698-7308): se abre desde el link del panel de
+  // subasta solo si el comprador ya tiene domicilio configurado; si no, se lo
+  // manda directo al modal de domicilio del wallet.
+  const [shippingRateDrawerVisible, setShippingRateDrawerVisible] = useState(false);
+  const hasShippingAddressConfigured = Boolean(
+    shippingAddress?.address_line1?.trim() && shippingAddress?.postal_code?.trim()
+  );
+  const shippingAddressLabel = [
+    shippingAddress?.address_line1?.trim(),
+    shippingAddress?.city?.trim(),
+    shippingAddress?.state?.trim(),
+  ]
+    .filter(Boolean)
+    .join(', ');
+
+  const handlePressShippingRate = useCallback(() => {
+    if (hasShippingAddressConfigured) {
+      setShippingRateDrawerVisible(true);
+    } else {
+      wallet.openShipping();
+    }
+  }, [hasShippingAddressConfigured, wallet.openShipping]);
+
+  const handleEditShippingAddress = useCallback(() => {
+    setShippingRateDrawerVisible(false);
+    wallet.openShipping();
+  }, [wallet.openShipping]);
+
+  // ---- Auto-prompts del vivo (Figma 698-5913 / 698-6121) ----
+  // A los 15s: si no sigue al vendedor → drawer de follow; al resolverse (o si
+  // ya lo sigue), si falta configurar pago o domicilio → intro del wallet.
+  // Cada prompt se evalúa una sola vez por vivo y no pisa drawers abiertos.
+  const [followPromptVisible, setFollowPromptVisible] = useState(false);
+  const autoPromptFiredRef = useRef(false);
+  const setupPromptCheckedRef = useRef(false);
+  // Snapshot del estado actual para leer valores frescos dentro del timer.
+  const autoPromptStateRef = useRef({
+    isFollowingSeller: false,
+    walletStep: 'closed' as string,
+    productCatalogVisible: false,
+    sellerProfileOpen: false,
+    hasSellerId: false,
+  });
+  autoPromptStateRef.current = {
+    isFollowingSeller,
+    walletStep: wallet.step,
+    productCatalogVisible,
+    sellerProfileOpen: sellerProfileUserId != null,
+    hasSellerId: resolvedSellerUserId != null,
+  };
+
+  const maybeShowSetupPrompt = useCallback(async () => {
+    if (setupPromptCheckedRef.current) return;
+    setupPromptCheckedRef.current = true;
+    try {
+      const configured = await wallet.isWalletConfigured();
+      const s = autoPromptStateRef.current;
+      if (
+        !configured &&
+        s.walletStep === 'closed' &&
+        !s.productCatalogVisible &&
+        !s.sellerProfileOpen
+      ) {
+        wallet.openWallet();
+      }
+    } catch {
+      // Sin red o sin sesión: no interrumpir el vivo.
+    }
+  }, [wallet.isWalletConfigured, wallet.openWallet]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (autoPromptFiredRef.current) return;
+      autoPromptFiredRef.current = true;
+      const s = autoPromptStateRef.current;
+      const busy = s.walletStep !== 'closed' || s.productCatalogVisible || s.sellerProfileOpen;
+      if (busy) return;
+      if (!s.isFollowingSeller && s.hasSellerId) {
+        setFollowPromptVisible(true);
+      } else {
+        void maybeShowSetupPrompt();
+      }
+    }, AUTO_PROMPTS_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [maybeShowSetupPrompt]);
+
+  const handleFollowPromptFollow = useCallback(() => {
+    setFollowPromptVisible(false);
+    void (async () => {
+      await toggleSellerFollow();
+      await maybeShowSetupPrompt();
+    })();
+  }, [toggleSellerFollow, maybeShowSetupPrompt]);
+
+  const handleFollowPromptDismiss = useCallback(() => {
+    setFollowPromptVisible(false);
+    void maybeShowSetupPrompt();
+  }, [maybeShowSetupPrompt]);
+  // ---- fin auto-prompts ----
 
   useEffect(() => {
     if (stream.sellerUserId) {
@@ -637,6 +763,7 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({ stream, onClose, ini
         productImageUrls={productImageUrlsForStack}
         itemCount={itemStockCount}
         productBasePriceCents={productBasePriceCents}
+        hasActiveProduct={Boolean(liveCommerce?.active_product)}
         viewerCount={displayViewerCount}
         messages={messages}
         messageText={messageText}
@@ -665,6 +792,8 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({ stream, onClose, ini
         }}
         isAudioMuted={isAudioMuted}
         onToggleAudio={handleToggleAudio}
+        shippingQuote={shippingQuote}
+        onPressShipping={handlePressShippingRate}
       />
 
       {sellerProfileUserId ? (
@@ -683,6 +812,23 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({ stream, onClose, ini
         loading={catalogLoading}
         items={productCards}
         errorMessage={catalogError}
+      />
+
+      <StreamShippingRateDrawer
+        visible={shippingRateDrawerVisible}
+        quote={shippingQuote}
+        addressLabel={shippingAddressLabel}
+        sellerAddressLabel={sellerPickupAddress}
+        onClose={() => setShippingRateDrawerVisible(false)}
+        onEditAddress={handleEditShippingAddress}
+      />
+
+      <StreamFollowSellerDrawer
+        visible={followPromptVisible}
+        sellerName={stream.sellerName}
+        onClose={handleFollowPromptDismiss}
+        onFollow={handleFollowPromptFollow}
+        onNotNow={handleFollowPromptDismiss}
       />
 
       <StreamWalletIntroDrawer
@@ -714,6 +860,7 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({ stream, onClose, ini
         }}
         onSaved={() => {
           void wallet.onShippingSaved();
+          void refreshShippingQuote();
         }}
       />
       <BuyerKycModal

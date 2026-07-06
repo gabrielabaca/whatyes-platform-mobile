@@ -2,18 +2,26 @@
  * Tab Reviews del perfil — Figma 536-22214.
  */
 import React from 'react';
-import { View, StyleSheet, ActivityIndicator, Text as RNText } from 'react-native';
+import {
+  View,
+  StyleSheet,
+  ActivityIndicator,
+  Text as RNText,
+  TouchableOpacity,
+} from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { StarRating } from '../../molecules/profile/StarRating';
 import { ProfileReviewRow } from './ProfileReviewRow';
 import { FONT_FAMILY } from '../../../theme/typography';
-import type { UserReviewsListResponse } from '../../../api/profileApi';
+import type { UserReviewListItem, UserReviewsListResponse } from '../../../api/profileApi';
 
 const PRIMARY = '#685CF0';
 
 export interface ProfileReviewsSectionProps {
   data: UserReviewsListResponse | null;
   loading: boolean;
+  /** Tocar una reseña abre el detalle (Figma 698-10329). */
+  onPressReview?: (review: UserReviewListItem) => void;
 }
 
 function formatCategoryScore(value: number): string {
@@ -24,6 +32,7 @@ function formatCategoryScore(value: number): string {
 export const ProfileReviewsSection: React.FC<ProfileReviewsSectionProps> = ({
   data,
   loading,
+  onPressReview,
 }) => {
   const { t } = useTranslation();
 
@@ -55,9 +64,19 @@ export const ProfileReviewsSection: React.FC<ProfileReviewsSectionProps> = ({
       </View>
 
       <View style={styles.list}>
-        {data.items.map((review) => (
-          <ProfileReviewRow key={review.uuid} review={review} />
-        ))}
+        {data.items.map((review) =>
+          onPressReview ? (
+            <TouchableOpacity
+              key={review.uuid}
+              onPress={() => onPressReview(review)}
+              activeOpacity={0.75}
+            >
+              <ProfileReviewRow review={review} />
+            </TouchableOpacity>
+          ) : (
+            <ProfileReviewRow key={review.uuid} review={review} />
+          )
+        )}
       </View>
     </View>
   );

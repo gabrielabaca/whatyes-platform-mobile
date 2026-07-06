@@ -2,11 +2,12 @@ import React from 'react';
 import { View, Text as RNText, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { ChevronRight } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { StreamPriceText } from '../../atoms/stream/StreamPriceText';
+import { StreamPriceText, formatStreamPrice } from '../../atoms/stream/StreamPriceText';
 import { StreamCountdownText } from '../../atoms/stream/StreamCountdownText';
 import { AuctionStatusRow } from '../../atoms/AuctionStatusRow';
 import { FONT_FAMILY } from '../../../theme/typography';
 import { STREAM_COLORS } from './streamTokens';
+import type { ShippingQuoteState } from '../../../hooks/useProductShippingQuote';
 
 export type StreamAuctionPanelVariant = 'buyer' | 'seller';
 
@@ -20,6 +21,10 @@ export interface StreamAuctionPanelProps {
   variant?: StreamAuctionPanelVariant;
   /** Tocar la fila "N artículos" (misma acción que el stack de fotos). */
   onPressItemsRow?: () => void;
+  /** Cotización de envío hacia el domicilio del comprador (Figma 698-8349). */
+  shippingQuote?: ShippingQuoteState;
+  /** Tocar la fila de envío cuando falta domicilio (abre wallet → shipping). */
+  onPressShipping?: () => void;
 }
 
 export const StreamAuctionPanel: React.FC<StreamAuctionPanelProps> = ({
@@ -31,6 +36,8 @@ export const StreamAuctionPanel: React.FC<StreamAuctionPanelProps> = ({
   isAuctionActive,
   variant = 'buyer',
   onPressItemsRow,
+  shippingQuote,
+  onPressShipping,
 }) => {
   const { t } = useTranslation();
 
@@ -41,6 +48,32 @@ export const StreamAuctionPanel: React.FC<StreamAuctionPanelProps> = ({
     }
     Alert.alert(t('common.appName'), t('stream.comingSoon'));
   };
+
+  const quote = shippingQuote ?? { status: 'idle' as const };
+  let shippingText: string | null = null;
+  let shippingIsFree = false;
+  let shippingIsCta = false;
+  switch (quote.status) {
+    case 'quoted':
+      shippingText = t('stream.shippingRateValue', {
+        amount: formatStreamPrice(Math.round(quote.priceCents / 100), quote.currency),
+      });
+      break;
+    case 'free':
+      shippingText = t('stream.shippingFree');
+      shippingIsFree = true;
+      break;
+    case 'address_required':
+      shippingText = t('stream.shippingAddAddress');
+      shippingIsCta = true;
+      break;
+    case 'loading':
+      shippingText = t('stream.shippingRateLoading');
+      break;
+    default:
+      // idle | unavailable: mantener la etiqueta sola como en el diseño base.
+      shippingText = t('stream.shippingRate');
+  }
 
   const statusLabel = winningUsername
     ? t('stream.winning', { username: winningUsername })
@@ -67,13 +100,32 @@ export const StreamAuctionPanel: React.FC<StreamAuctionPanelProps> = ({
             <ChevronRight size={16} color={STREAM_COLORS.white} />
           </TouchableOpacity>
         ) : null}
+        {/* Figma 698-8349: la tasa de envío va bajo "N artículos", en la columna
+            izquierda. Siempre es un link: abre el domicilio de envío del wallet. */}
+        {variant === 'buyer' && shippingText ? (
+          <TouchableOpacity
+            onPress={onPressShipping}
+            disabled={!onPressShipping}
+            activeOpacity={0.8}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={t('stream.shippingRate')}
+          >
+            <RNText
+              style={[
+                styles.shippingLabel,
+                shippingIsFree && styles.shippingFree,
+                shippingIsCta && styles.shippingCta,
+              ]}
+            >
+              {shippingText}
+            </RNText>
+          </TouchableOpacity>
+        ) : null}
       </View>
       <View style={styles.right}>
         <StreamPriceText amount={currentPrice} />
         <StreamCountdownText seconds={secondsRemaining} />
-        {variant === 'buyer' ? (
-          <RNText style={styles.shippingLabel}>{t('stream.shippingRate')}</RNText>
-        ) : null}
       </View>
     </View>
   );
@@ -81,8 +133,10 @@ export const StreamAuctionPanel: React.FC<StreamAuctionPanelProps> = ({
 
 const styles = StyleSheet.create({
   panel: {
+    // Figma 698-8349: columna izquierda (título / artículos / tasa de envío) y
+    // derecha (precio + tiempo) centradas verticalmente entre sí.
     flexDirection: 'row',
-    alignItems: 'flex-end',
+    alignItems: 'center',
     width: '100%',
     gap: 8,
   },
@@ -121,5 +175,11 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     color: STREAM_COLORS.white,
     includeFontPadding: false,
+  },
+  shippingFree: {
+    color: STREAM_COLORS.priceGold,
+  },
+  shippingCta: {
+    textDecorationLine: 'underline',
   },
 });

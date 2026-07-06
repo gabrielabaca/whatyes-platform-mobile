@@ -1,5 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, StyleSheet, Keyboard, Platform, type KeyboardEvent } from 'react-native';
+import {
+  View,
+  StyleSheet,
+  Keyboard,
+  Platform,
+  Pressable,
+  type KeyboardEvent,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   StreamSellerHeader,
@@ -10,6 +17,7 @@ import {
   StreamBidBar,
 } from '../../molecules/stream';
 import type { ChatMessage, AuctionBid } from '../../../hooks/useStreamChat';
+import type { ShippingQuoteState } from '../../../hooks/useProductShippingQuote';
 
 const BID_INCREMENT = 1000;
 const DEFAULT_BID = 10000;
@@ -25,6 +33,8 @@ export interface StreamBuyerOverlayProps {
   itemCount?: number;
   /** Precio base del producto (centavos); la oferta visible es max(puja, base). */
   productBasePriceCents?: number;
+  /** Hay un producto activo en venta o subasta (live-commerce). */
+  hasActiveProduct?: boolean;
   viewerCount: number;
   messages: ChatMessage[];
   messageText: string;
@@ -49,6 +59,10 @@ export interface StreamBuyerOverlayProps {
   onFollowSeller?: () => void;
   isAudioMuted?: boolean;
   onToggleAudio?: () => void;
+  /** Cotización de envío del producto activo hacia el domicilio del comprador. */
+  shippingQuote?: ShippingQuoteState;
+  /** Tocar la fila de envío cuando falta domicilio (abre wallet → shipping). */
+  onPressShipping?: () => void;
 }
 
 export const StreamBuyerOverlay: React.FC<StreamBuyerOverlayProps> = ({
@@ -59,6 +73,7 @@ export const StreamBuyerOverlay: React.FC<StreamBuyerOverlayProps> = ({
   productImageUrls: productImageUrlsProp,
   itemCount = 1,
   productBasePriceCents = 0,
+  hasActiveProduct = false,
   viewerCount,
   messages,
   messageText,
@@ -81,6 +96,8 @@ export const StreamBuyerOverlay: React.FC<StreamBuyerOverlayProps> = ({
   onFollowSeller,
   isAudioMuted,
   onToggleAudio,
+  shippingQuote,
+  onPressShipping,
 }) => {
   const insets = useSafeAreaInsets();
   const [keyboardHeight, setKeyboardHeight] = useState(0);
@@ -139,6 +156,15 @@ export const StreamBuyerOverlay: React.FC<StreamBuyerOverlayProps> = ({
       ]}
       pointerEvents="box-none"
     >
+      {isKeyboardVisible ? (
+        <Pressable
+          style={styles.keyboardDismissBackdrop}
+          onPress={Keyboard.dismiss}
+          accessibilityRole="button"
+          accessibilityLabel="Ocultar teclado"
+        />
+      ) : null}
+
       <StreamSellerHeader
         sellerName={sellerName}
         avatarUrl={sellerAvatarUrl}
@@ -149,8 +175,11 @@ export const StreamBuyerOverlay: React.FC<StreamBuyerOverlayProps> = ({
         onFollowPress={onFollowSeller}
       />
 
-      <View style={[styles.contentBlock, { paddingBottom: contentPaddingBottom }]}>
-        <View style={styles.midRow}>
+      <View
+        style={[styles.contentBlock, { paddingBottom: contentPaddingBottom }]}
+        pointerEvents="box-none"
+      >
+        <View style={styles.midRow} pointerEvents="box-none">
           <StreamChatOverlay messages={messages} />
           <StreamActionRail
             onExit={onExit}
@@ -173,21 +202,27 @@ export const StreamBuyerOverlay: React.FC<StreamBuyerOverlayProps> = ({
           onProductStackPress={onOpenProductCatalog}
         />
 
-        <StreamAuctionPanel
-          productTitle={productTitle}
-          itemCount={itemCount}
-          winningUsername={winningUsername}
-          currentPrice={currentPrice}
-          secondsRemaining={auctionSecondsRemaining}
-          isAuctionActive={isAuctionActive}
-          onPressItemsRow={onOpenProductCatalog}
-        />
+        {hasActiveProduct ? (
+          <StreamAuctionPanel
+            productTitle={productTitle}
+            itemCount={itemCount}
+            winningUsername={winningUsername}
+            currentPrice={currentPrice}
+            secondsRemaining={auctionSecondsRemaining}
+            isAuctionActive={isAuctionActive}
+            onPressItemsRow={onOpenProductCatalog}
+            shippingQuote={shippingQuote}
+            onPressShipping={onPressShipping}
+          />
+        ) : null}
 
-        <StreamBidBar
-          bidAmount={suggestedBid}
-          onBid={() => onBid(suggestedBid)}
-          isAuctionActive={isAuctionActive}
-        />
+        {hasActiveProduct ? (
+          <StreamBidBar
+            bidAmount={suggestedBid}
+            onBid={() => onBid(suggestedBid)}
+            isAuctionActive={isAuctionActive}
+          />
+        ) : null}
       </View>
     </View>
   );
@@ -219,5 +254,8 @@ const styles = StyleSheet.create({
     gap: 8,
     minHeight: 120,
     width: '100%',
+  },
+  keyboardDismissBackdrop: {
+    ...StyleSheet.absoluteFillObject,
   },
 });

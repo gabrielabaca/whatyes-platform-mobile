@@ -15,8 +15,6 @@ import {
   Platform,
   Alert,
   ActivityIndicator,
-  Keyboard,
-  TouchableWithoutFeedback,
 } from 'react-native';
 import { Camera, useCameraDevice, useCameraPermission } from 'react-native-vision-camera';
 import { RTCView } from 'react-native-webrtc';
@@ -560,8 +558,7 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
   const activeDevice = device || (cameraPosition === 'front' ? backDevice : frontDevice);
 
   return (
-    <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-      <View style={styles.container}>
+    <View style={styles.container}>
       <StatusBar hidden />
 
       {localWebRTCStream ? (
@@ -665,8 +662,7 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
         }}
       />
 
-      </View>
-    </TouchableWithoutFeedback>
+    </View>
   );
 };
 

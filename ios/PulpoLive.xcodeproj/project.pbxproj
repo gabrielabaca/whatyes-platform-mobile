@@ -19,6 +19,7 @@
 		C1A2B3012CA456740066601 /* LiveCoverCapture.m in Sources */ = {isa = PBXBuildFile; fileRef = C1A2B3022CA456740066602 /* LiveCoverCapture.m */; };
 		F6D409F3F0D24607A677A338 /* Mulish-Italic-Variable.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 394757E24B75439AACC04854 /* Mulish-Italic-Variable.ttf */; };
 		FACAB738756B4297B7CFDBBE /* Mulish-Variable.ttf in Resources */ = {isa = PBXBuildFile; fileRef = D13261782A774E72A05E8577 /* Mulish-Variable.ttf */; };
+		A6DB5061A21E4F20A8AF2C03 /* PlusJakartaSans-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = EE4F6F362F5D47138755CF12 /* PlusJakartaSans-Bold.ttf */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -41,6 +42,7 @@
 		C6A2DCA868794AD8A8597FC7 /* Mulish-SemiBold.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; name = "Mulish-SemiBold.ttf"; path = "../assets/fonts/Mulish-SemiBold.ttf"; sourceTree = "<group>"; };
 		D13261782A774E72A05E8577 /* Mulish-Variable.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; name = "Mulish-Variable.ttf"; path = "../assets/fonts/Mulish-Variable.ttf"; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
+		EE4F6F362F5D47138755CF12 /* PlusJakartaSans-Bold.ttf */ = {isa = PBXFileReference; name = "PlusJakartaSans-Bold.ttf"; path = "../assets/fonts/PlusJakartaSans-Bold.ttf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -88,6 +90,7 @@
 				389039A9B5804E04A547967C /* Mulish-Regular.ttf */,
 				8538E93CFC054C33839115CB /* Mulish-Bold.ttf */,
 				C6A2DCA868794AD8A8597FC7 /* Mulish-SemiBold.ttf */,
+				EE4F6F362F5D47138755CF12 /* PlusJakartaSans-Bold.ttf */,
 			);
 			name = Resources;
 			sourceTree = "<group>";
@@ -199,6 +202,7 @@
 				57085ACA83904334BC555375 /* Mulish-Regular.ttf in Resources */,
 				C043932823B54D488D8B7D6C /* Mulish-Bold.ttf in Resources */,
 				775276EE2D3A405A852EF396 /* Mulish-SemiBold.ttf in Resources */,
+				A6DB5061A21E4F20A8AF2C03 /* PlusJakartaSans-Bold.ttf in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -300,7 +304,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 11;
+				CURRENT_PROJECT_VERSION = 12;
 				DEVELOPMENT_TEAM = BXPX2K67MN;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = PulpoLive/Info.plist;
@@ -331,7 +335,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 11;
+				CURRENT_PROJECT_VERSION = 12;
 				DEVELOPMENT_TEAM = BXPX2K67MN;
 				INFOPLIST_FILE = PulpoLive/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.1;

@@ -167,11 +167,21 @@ function AuthenticatedAppShell({
   );
 }
 
+/** Duración mínima del splash animado: el bootstrap de sesión suele tardar
+ * milisegundos y la animación de marca no llegaba a verse. */
+const MIN_SPLASH_MS = 2500;
+
 function AppNavigator() {
   const { isAuthenticated, isBootstrapping } = useAuth();
   const [authScreen, setAuthScreen] = useState<AuthScreen>('onboarding');
   const [currentScreen, setCurrentScreen] = useState<AppScreen>('onboarding');
   const prevAuthenticated = useRef(false);
+  const [minSplashElapsed, setMinSplashElapsed] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setMinSplashElapsed(true), MIN_SPLASH_MS);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Si la sesión vence en medio del uso (refresh fallido), ir directo al login.
   useEffect(() => {
@@ -230,7 +240,7 @@ function AppNavigator() {
   const [streamDraft, setStreamDraft] = useState<StreamConfig | null>(null);
   const [activeStreamConfig, setActiveStreamConfig] = useState<StreamConfig | null>(null);
 
-  if (isBootstrapping) {
+  if (isBootstrapping || !minSplashElapsed) {
     return <LoadingScreen />;
   }
 

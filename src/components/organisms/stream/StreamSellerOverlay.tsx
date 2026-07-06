@@ -1,5 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, KeyboardAvoidingView, Keyboard, Platform } from 'react-native';
+import {
+  View,
+  StyleSheet,
+  KeyboardAvoidingView,
+  Keyboard,
+  Platform,
+  Pressable,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   StreamSellerHeader,
@@ -127,6 +134,15 @@ export const StreamSellerOverlay: React.FC<StreamSellerOverlayProps> = ({
       pointerEvents="box-none"
       keyboardVerticalOffset={0}
     >
+      {isKeyboardVisible ? (
+        <Pressable
+          style={styles.keyboardDismissBackdrop}
+          onPress={Keyboard.dismiss}
+          accessibilityRole="button"
+          accessibilityLabel="Ocultar teclado"
+        />
+      ) : null}
+
       <StreamSellerHeader
         variant="seller"
         sellerName={sellerName}
@@ -135,9 +151,12 @@ export const StreamSellerOverlay: React.FC<StreamSellerOverlayProps> = ({
         viewerCount={viewerCount}
       />
 
-      <View style={[styles.contentBlock, { paddingBottom: contentPaddingBottom }]}>
+      <View
+        style={[styles.contentBlock, { paddingBottom: contentPaddingBottom }]}
+        pointerEvents="box-none"
+      >
         <View style={styles.chatBlock}>
-          <View style={styles.chatRailRow}>
+          <View style={styles.chatRailRow} pointerEvents="box-none">
             <StreamChatOverlay messages={visibleMessages} />
             <StreamActionRail
               variant="seller"
@@ -213,5 +232,8 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     gap: 8,
     width: '100%',
+  },
+  keyboardDismissBackdrop: {
+    ...StyleSheet.absoluteFillObject,
   },
 });

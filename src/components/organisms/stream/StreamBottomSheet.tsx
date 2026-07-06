@@ -26,6 +26,19 @@ import { FONT_FAMILY } from '../../../theme/typography';
 const PRIMARY = '#685CF0';
 const CANCEL_GOLD = '#FDC700';
 
+function resolvePanelMaxHeightPx(
+  maxHeight: ViewStyle['maxHeight'] | undefined,
+  windowHeight: number,
+): number {
+  if (maxHeight == null) return windowHeight * 0.62;
+  if (typeof maxHeight === 'number' && Number.isFinite(maxHeight)) return maxHeight;
+  if (typeof maxHeight === 'string') {
+    const pctMatch = maxHeight.trim().match(/^(\d+(?:\.\d+)?)%$/);
+    if (pctMatch) return windowHeight * (parseFloat(pctMatch[1]) / 100);
+  }
+  return windowHeight * 0.62;
+}
+
 export interface StreamBottomSheetProps {
   visible: boolean;
   title: string;
@@ -118,7 +131,14 @@ export const StreamBottomSheet: React.FC<StreamBottomSheetProps> = ({
   );
 
   const bodyContent = (
-    <View style={[styles.body, useFullPanel && styles.bodyFull, contentContainerStyle]}>
+    <View
+      style={[
+        styles.body,
+        useFullPanel && styles.bodyFull,
+        !scrollEnabled && bottomPanel && styles.bodyEmbeddedScroll,
+        contentContainerStyle,
+      ]}
+    >
       {children}
     </View>
   );
@@ -157,7 +177,7 @@ export const StreamBottomSheet: React.FC<StreamBottomSheetProps> = ({
   const panelBottomPadding = Math.max(insets.bottom, 16);
 
   const flatBottomPanel = StyleSheet.flatten(panelStyle) as ViewStyle | undefined;
-  const bottomPanelMaxHeight = flatBottomPanel?.maxHeight ?? windowHeight * 0.62;
+  const bottomPanelMaxHeightPx = resolvePanelMaxHeightPx(flatBottomPanel?.maxHeight, windowHeight);
   const {
     maxHeight: _bottomMaxH,
     borderTopLeftRadius: _bottomRtl,
@@ -165,7 +185,7 @@ export const StreamBottomSheet: React.FC<StreamBottomSheetProps> = ({
     ...bottomPanelContentStyle
   } = flatBottomPanel ?? {};
 
-  const bottomPanelContentMaxHeight = bottomPanelMaxHeight - panelBottomPadding;
+  const bottomPanelContentMaxHeight = bottomPanelMaxHeightPx - panelBottomPadding;
 
   const bottomPanelScroll = scrollEnabled ? (
     <ScrollView
@@ -187,8 +207,8 @@ export const StreamBottomSheet: React.FC<StreamBottomSheetProps> = ({
       style={[
         styles.panelAnchor,
         {
-          height: bottomPanelMaxHeight,
-          maxHeight: bottomPanelMaxHeight,
+          height: bottomPanelMaxHeightPx,
+          maxHeight: bottomPanelMaxHeightPx,
           paddingBottom: panelBottomPadding,
         },
       ]}
@@ -238,7 +258,10 @@ export const StreamBottomSheet: React.FC<StreamBottomSheetProps> = ({
     >
       {useFullPanel ? <GlassBackdrop /> : null}
       <TouchableOpacity
-        style={styles.backdropPress}
+        style={[
+          styles.backdropPress,
+          !useFullPanel ? { bottom: bottomPanelMaxHeightPx } : null,
+        ]}
         activeOpacity={1}
         onPress={handleClose}
         accessibilityRole="button"
@@ -330,6 +353,9 @@ const styles = StyleSheet.create({
   hostInline: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'transparent',
+    // Por encima de StreamSellerOverlay / StreamBuyerOverlay (zIndex 10) y overlays de subasta.
+    zIndex: 200,
+    elevation: 200,
   },
   backdropPress: {
     ...StyleSheet.absoluteFillObject,
@@ -429,6 +455,10 @@ const styles = StyleSheet.create({
   },
   bodyFull: {
     flexGrow: 1,
+  },
+  bodyEmbeddedScroll: {
+    flex: 1,
+    minHeight: 0,
   },
   footerArea: {
     gap: 12,

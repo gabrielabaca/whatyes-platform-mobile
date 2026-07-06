@@ -20,6 +20,10 @@
     {
       "path": "assets/fonts/Mulish-Variable.ttf",
       "sha1": "5345ed552b99de1690864fd4e69b886d4a03ed03"
+    },
+    {
+      "path": "assets/fonts/PlusJakartaSans-Bold.ttf",
+      "sha1": "725f9514c93b5356230588f805f771d2c8381487"
     }
   ]
 }

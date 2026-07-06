@@ -15,9 +15,17 @@ import { BuyerAccountScreen } from '../BuyerAccountScreen';
 import { BuyerPurchasesScreen } from '../BuyerPurchasesScreen';
 import { UserProfileScreen } from '../UserProfileScreen';
 import { BuyerKycModal } from '../../organisms/account/BuyerKycModal';
-import type { UserShowItem } from '../../../api/platformApi';
+import {
+  getMySalesSummary,
+  getUserShows,
+  type PurchaseItem,
+  type UserShowItem,
+} from '../../../api/platformApi';
+import { ActivityScreen } from '../ActivityScreen/ActivityScreen';
+import { PurchaseDetailScreen } from '../PurchaseDetailScreen/PurchaseDetailScreen';
 import { getUserPublicProfile } from '../../../api/profileApi';
 import { getSellerOnboardingStatus } from '../../../api/sellerOnboardingApi';
+import { storage } from '../../../utils/storage';
 import { useAuth } from '../../../hooks/useAuth';
 import { useBottomNavController } from '../../../context/BottomNavContext';
 import { useInterestCategories } from '../../../hooks/useInterestCategories';
@@ -62,7 +70,9 @@ type HomePath =
   | { name: 'sellerHub' }
   | { name: 'account' }
   | { name: 'purchases' }
-  | { name: 'profile'; userId?: string }
+  | { name: 'activity' }
+  | { name: 'purchaseDetail'; purchase: PurchaseItem }
+  | { name: 'profile'; userId?: string; returnTo?: 'account' | 'activity' }
   | { name: 'addProduct'; returnTo?: 'home' | 'sellerHub' };
 
 /** Debe renderizarse dentro de GeneralLayout (BottomNavProvider). */
@@ -96,6 +106,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const [bottomTab, setBottomTab] = useState<HomeBottomTab>('home');
   const [homePath, setHomePath] = useState<HomePath>({ name: 'home' });
   const [soldCount, setSoldCount] = useState(0);
+  const [salesTotalCents, setSalesTotalCents] = useState(0);
+  const [pastLives, setPastLives] = useState<UserShowItem[]>([]);
   const [showFirstLiveCta, setShowFirstLiveCta] = useState(true);
   const [kycVisible, setKycVisible] = useState(false);
 
@@ -105,6 +117,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     }
   }, [isBuyer, isSeller, loadOnce]);
 
+  // Datos del hub del vendedor (Figma 636-30524): total de ventas para la card
+  // de pagos, cantidad de vendidos y lives pasados. Se recarga al entrar al hub
+  // (homePath) para reflejar ventas de un vivo recién terminado.
+  const isSellerHubOpen = isSeller && homePath.name === 'sellerHub';
   useEffect(() => {
     if (!isSeller || !user?.uuid) {
       return;
@@ -127,11 +143,30 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           setShowFirstLiveCta(true);
         }
       }
+      try {
+        const token = await storage.getAccessToken();
+        if (!token || cancelled) return;
+        const [summary, endedShows] = await Promise.all([
+          getMySalesSummary(token).catch(() => null),
+          getUserShows(token, user.uuid, { status: 'ended', limit: 20 }).catch(
+            () => [] as UserShowItem[]
+          ),
+        ]);
+        if (cancelled) return;
+        if (summary) {
+          // La tabla de ventas es la fuente real: pisa el sold_count estático del perfil.
+          setSoldCount(summary.sold_count);
+          setSalesTotalCents(summary.total_amount_cents);
+        }
+        setPastLives(endedShows);
+      } catch {
+        // Sin red: se mantienen los valores previos.
+      }
     })();
     return () => {
       cancelled = true;
     };
-  }, [isSeller, user?.uuid]);
+  }, [isSeller, user?.uuid, isSellerHubOpen]);
 
   const filteredPreviews = useMemo(() => {
     if (selectedCategoryId === ALL_CATEGORIES_ID) {
@@ -211,7 +246,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         return;
       }
       if (tab === 'activity') {
-        Alert.alert(t('common.appName'), t('home.placeholderScreen'));
+        setHomePath({ name: 'activity' });
       }
     },
     [t]
@@ -254,9 +289,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       ? 'create'
       : homePath.name === 'category'
         ? 'explore'
-        : homePath.name === 'purchases' || homePath.name === 'account' || homePath.name === 'profile'
-          ? 'compras'
-          : bottomTab;
+        : homePath.name === 'activity' || homePath.name === 'purchaseDetail'
+          ? 'activity'
+          : homePath.name === 'purchases' || homePath.name === 'account' || homePath.name === 'profile'
+            ? 'compras'
+            : bottomTab;
 
   const isSellerDashboard = isSeller && homePath.name === 'sellerHub';
 
@@ -265,9 +302,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     homePath.name === 'explore' ||
     homePath.name === 'category' ||
     homePath.name === 'sellerHub' ||
+    homePath.name === 'activity' ||
     homePath.name === 'addProduct';
 
-  const paymentsAmount = t('sellerHome.paymentsAmount', { amount: '0' });
+  const paymentsAmount = t('sellerHome.paymentsAmount', {
+    amount: new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 }).format(
+      Math.round(salesTotalCents / 100)
+    ),
+  });
 
   return (
     <GeneralLayout hideChrome menuOptions={[]} containerStyle={styles.homeRoot}>
@@ -305,6 +347,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               onPressGoLive={() => onStartNewStream?.()}
               onPressAddProduct={() => setHomePath({ name: 'addProduct', returnTo: 'sellerHub' })}
               onPressFirstLiveCta={() => onStartNewStream?.()}
+              pastLives={pastLives}
+              onPressPastLive={handleProfileShowPress}
             />
           ) : null}
 
@@ -396,6 +440,25 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             <BuyerPurchasesScreen onOpenAccount={() => setHomePath({ name: 'account' })} />
           ) : null}
 
+          {homePath.name === 'activity' ? (
+            <ActivityScreen
+              isSeller={isSeller}
+              onOpenPurchase={(purchase) =>
+                setHomePath({ name: 'purchaseDetail', purchase })
+              }
+            />
+          ) : null}
+
+          {homePath.name === 'purchaseDetail' ? (
+            <PurchaseDetailScreen
+              purchase={homePath.purchase}
+              onBack={() => setHomePath({ name: 'activity' })}
+              onOpenSellerProfile={(sellerUserId) =>
+                setHomePath({ name: 'profile', userId: sellerUserId, returnTo: 'activity' })
+              }
+            />
+          ) : null}
+
           {homePath.name === 'account' ? (
             <BuyerAccountScreen
               profileImageUri={profileImageUri}
@@ -413,7 +476,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             <View className="flex-1 bg-white">
               <UserProfileScreen
                 userId={homePath.userId}
-                onBack={() => setHomePath({ name: 'account' })}
+                onBack={() =>
+                  setHomePath(
+                    homePath.returnTo === 'activity' ? { name: 'activity' } : { name: 'account' }
+                  )
+                }
                 onShowPress={handleProfileShowPress}
               />
             </View>

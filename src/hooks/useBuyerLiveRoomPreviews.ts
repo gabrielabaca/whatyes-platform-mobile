@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { getRooms } from '../api/platformApi';
+import { getRooms, getRoomsFeed } from '../api/platformApi';
 import { storage } from '../utils/storage';
 import { mapPlatformRoomToPreview } from '../utils/buyerLiveRoomPreviewMap';
 import type { LiveStreamPreviewModel } from '../components/organisms/home/types';
@@ -8,12 +8,17 @@ import type { LiveStreamPreviewModel } from '../components/organisms/home/types'
 const DEFAULT_POLL_MS = 15000;
 
 export interface UseBuyerLiveRoomPreviewsOptions {
-  /** Si se define, GET /rooms filtra por categoría en service-platform. */
+  /** Si se define, filtra por categoría en service-platform. */
   interestCategoryUuid?: string | null;
   /** Intervalo de refresco automático; `null` desactiva el polling. */
   pollIntervalMs?: number | null;
   /** Desactiva carga y polling (p. ej. home vendedor). */
   enabled?: boolean;
+  /**
+   * Usa el feed liviano (GET /rooms/feed, sin creador resuelto) en vez de GET /rooms.
+   * Ideal para el swipe: responde más rápido y refresca con frecuencia.
+   */
+  lightweight?: boolean;
 }
 
 export function useBuyerLiveRoomPreviews(
@@ -29,6 +34,7 @@ export function useBuyerLiveRoomPreviews(
   const cat = options?.interestCategoryUuid ?? undefined;
   const pollMs = options?.pollIntervalMs === undefined ? DEFAULT_POLL_MS : options.pollIntervalMs;
   const enabled = options?.enabled !== false;
+  const lightweight = options?.lightweight === true;
 
   const [previews, setPreviews] = useState<LiveStreamPreviewModel[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,13 +48,13 @@ export function useBuyerLiveRoomPreviews(
         return;
       }
       try {
-        const rooms = await getRooms(
-          token,
-          cat != null && cat.length > 0 ? { interestCategoryUuid: cat } : undefined
-        );
+        const opts = cat != null && cat.length > 0 ? { interestCategoryUuid: cat } : undefined;
+        const rooms = lightweight
+          ? await getRoomsFeed(token, opts)
+          : await getRooms(token, opts);
         setPreviews(rooms.map((r) => mapPlatformRoomToPreview(r, t)));
       } catch (e) {
-        console.warn('[useBuyerLiveRoomPreviews] getRooms failed:', e);
+        console.warn('[useBuyerLiveRoomPreviews] load failed:', e);
         setPreviews([]);
       }
     } catch {
@@ -57,7 +63,7 @@ export function useBuyerLiveRoomPreviews(
       setLoading(false);
       setRefreshing(false);
     }
-  }, [t, cat]);
+  }, [t, cat, lightweight]);
 
   useEffect(() => {
     if (!enabled) {

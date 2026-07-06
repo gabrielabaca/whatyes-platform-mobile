@@ -120,6 +120,7 @@ export const StreamSwipeScreen: React.FC<StreamSwipeScreenProps> = ({
   const { previews } = useBuyerLiveRoomPreviews({
     interestCategoryUuid: categoryUuid ?? null,
     pollIntervalMs: FEED_POLL_MS,
+    lightweight: true,
   });
 
   const [slideState, setSlideState] = useState<SlideState>({

@@ -2,6 +2,7 @@ import React from 'react';
 import {
   StyleSheet,
   Text as RNText,
+  View,
   FlatList,
   ActivityIndicator,
   TouchableOpacity,
@@ -68,9 +69,17 @@ export const StreamRoomProductsDrawer: React.FC<StreamRoomProductsDrawerProps> =
       </TouchableOpacity>
     ) : undefined;
 
+  const saleModeTabs =
+    interactive && onSaleModeChange ? (
+      <View style={styles.tabsWrap}>
+        <SaleModeTabs value={saleMode} onChange={onSaleModeChange} />
+      </View>
+    ) : null;
+
   return (
     <StreamBottomSheet
       visible={visible}
+      nativeModal
       title={t('stream.productsCatalogTitle')}
       onClose={onClose}
       panelStyle={[streamBottomPanelStyle, styles.panel]}
@@ -78,9 +87,7 @@ export const StreamRoomProductsDrawer: React.FC<StreamRoomProductsDrawerProps> =
       scrollEnabled={false}
       footer={footer}
     >
-      {interactive && onSaleModeChange ? (
-        <SaleModeTabs value={saleMode} onChange={onSaleModeChange} />
-      ) : null}
+      {saleModeTabs}
 
       {loading ? (
         <ActivityIndicator color="#FFFFFF" style={styles.loader} />
@@ -110,16 +117,22 @@ const styles = StyleSheet.create({
     maxHeight: '88%',
   },
   content: {
-    gap: 24,
+    flex: 1,
     width: '100%',
-    minHeight: 120,
+    minHeight: 0,
+    gap: 24,
+  },
+  tabsWrap: {
+    flexShrink: 0,
+    width: '100%',
   },
   list: {
-    flexGrow: 0,
-    maxHeight: 420,
+    flex: 1,
+    minHeight: 0,
   },
   listContent: {
     gap: 24,
+    paddingBottom: 8,
   },
   loader: {
     marginVertical: 24,

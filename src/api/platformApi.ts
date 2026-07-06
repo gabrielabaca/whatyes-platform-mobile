@@ -195,6 +195,28 @@ export async function getRooms(
   return Array.isArray(data) ? data : [];
 }
 
+/**
+ * Feed liviano de salas en vivo (GET /rooms/feed): mismos campos que getRooms salvo
+ * `creator`, que NO viene resuelto (el backend omite la llamada cruzada a service-users
+ * para responder más rápido). Pensado para el swipe vertical, que refresca con frecuencia.
+ * El perfil del vendedor se resuelve al abrir el live.
+ */
+export async function getRoomsFeed(
+  accessToken: string,
+  options?: { interestCategoryUuid?: string }
+): Promise<PlatformRoom[]> {
+  const q =
+    options?.interestCategoryUuid != null && options.interestCategoryUuid.length > 0
+      ? `?interest_category_uuid=${encodeURIComponent(options.interestCategoryUuid)}`
+      : '';
+  const res = await fetch(`${PLATFORM_HTTP_URL}/rooms/feed${q}`, {
+    headers: authHeaders(accessToken),
+  });
+  if (!res.ok) throw new Error(`getRoomsFeed: ${res.status}`);
+  const data = (await res.json()) as PlatformRoom[];
+  return Array.isArray(data) ? data : [];
+}
+
 function normalizeInterestCategoriesResponse(raw: unknown): InterestCategoryItem[] {
   if (raw == null) {
     return [];
@@ -542,6 +564,52 @@ export async function getRoomLiveCommerce(
   return res.json() as Promise<LiveCommerceResponse>;
 }
 
+export type ProductShippingQuoteStatus =
+  | 'quoted'
+  | 'free'
+  | 'address_required'
+  | 'unavailable';
+
+export interface ProductShippingQuoteResponse {
+  status: ProductShippingQuoteStatus;
+  /** Costo en centavos (status=quoted; 0 si free). */
+  price_cents: number | null;
+  currency: string;
+  service_code?: string | null;
+  service_name?: string | null;
+  estimated_days?: number | null;
+  free_reason?: 'combined_with_previous_purchase' | null;
+  /** Dirección del vendedor para retiro en persona (una línea), si la tiene cargada. */
+  seller_pickup_address?: string | null;
+}
+
+/**
+ * Costo de envío del producto del vivo hacia el domicilio del comprador.
+ * `cpDestino` es el código postal del domicilio guardado; si se omite y no hay
+ * envío combinado, el backend responde status=address_required.
+ */
+export async function getProductShippingQuote(
+  accessToken: string,
+  roomId: string,
+  productId: string,
+  cpDestino?: string | null
+): Promise<ProductShippingQuoteResponse> {
+  const query = cpDestino?.trim()
+    ? `?cp_destino=${encodeURIComponent(cpDestino.trim())}`
+    : '';
+  const res = await fetch(
+    `${PLATFORM_HTTP_URL}/rooms/${encodeURIComponent(roomId)}/products/${encodeURIComponent(productId)}/shipping-quote${query}`,
+    { headers: authHeaders(accessToken) }
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    const raw = (err as { detail?: unknown }).detail;
+    const msg = formatPlatformErrorDetail(raw) || `getProductShippingQuote: ${res.status}`;
+    throw new Error(msg);
+  }
+  return res.json() as Promise<ProductShippingQuoteResponse>;
+}
+
 export interface RoomCatalogProductItem {
   uuid: string;
   title: string;
@@ -719,6 +787,143 @@ export async function getUserProfileProducts(
   if (!res.ok) throw new Error(`getUserProfileProducts: ${res.status}`);
   const data = (await res.json()) as UserProfileProductItem[];
   return Array.isArray(data) ? data : [];
+}
+
+export interface SellerSalesSummary {
+  sold_count: number;
+  total_amount_cents: number;
+  pending_amount_cents: number;
+  currency: string;
+}
+
+/** Resumen de ventas del vendedor autenticado (hub del vendedor). */
+export async function getMySalesSummary(accessToken: string): Promise<SellerSalesSummary> {
+  const res = await fetch(`${PLATFORM_HTTP_URL}/me/sales/summary`, {
+    headers: authHeaders(accessToken),
+  });
+  if (!res.ok) throw new Error(`getMySalesSummary: ${res.status}`);
+  return res.json() as Promise<SellerSalesSummary>;
+}
+
+export interface PurchaseCounterpart {
+  user_id: string;
+  name?: string | null;
+  profile_picture?: string | null;
+}
+
+export interface PurchaseItem {
+  sale_uuid: string;
+  order_number: string;
+  room_id: string;
+  auction_id?: string | null;
+  product_id: string;
+  product_title: string;
+  product_image_url?: string | null;
+  sku?: string | null;
+  condition?: 'new' | 'lightly_used' | 'used' | string | null;
+  category_name?: string | null;
+  quantity: number;
+  amount_cents: number;
+  currency: string;
+  payment_status: 'pending' | 'paid' | 'cancelled' | string;
+  /** Vendedor (en compras) o comprador (en ventas). */
+  counterpart: PurchaseCounterpart;
+  won_at_ms?: number | null;
+  created_at: number;
+}
+
+export interface PurchasesListResponse {
+  items: PurchaseItem[];
+  total: number;
+}
+
+function pagingQuery(options?: { limit?: number; offset?: number }): string {
+  const parts: string[] = [];
+  if (options?.limit != null) parts.push(`limit=${options.limit}`);
+  if (options?.offset != null) parts.push(`offset=${options.offset}`);
+  return parts.length ? `?${parts.join('&')}` : '';
+}
+
+/** Compras del usuario autenticado (subastas ganadas). */
+export async function getMyPurchases(
+  accessToken: string,
+  options?: { limit?: number; offset?: number }
+): Promise<PurchasesListResponse> {
+  const res = await fetch(`${PLATFORM_HTTP_URL}/me/purchases${pagingQuery(options)}`, {
+    headers: authHeaders(accessToken),
+  });
+  if (!res.ok) throw new Error(`getMyPurchases: ${res.status}`);
+  return res.json() as Promise<PurchasesListResponse>;
+}
+
+/** Detalle de una compra propia. */
+export async function getMyPurchase(
+  accessToken: string,
+  saleUuid: string
+): Promise<PurchaseItem> {
+  const res = await fetch(
+    `${PLATFORM_HTTP_URL}/me/purchases/${encodeURIComponent(saleUuid)}`,
+    { headers: authHeaders(accessToken) }
+  );
+  if (!res.ok) throw new Error(`getMyPurchase: ${res.status}`);
+  return res.json() as Promise<PurchaseItem>;
+}
+
+/** Ventas del vendedor autenticado (tab Ventas de Actividad). */
+export async function getMySales(
+  accessToken: string,
+  options?: { limit?: number; offset?: number }
+): Promise<PurchasesListResponse> {
+  const res = await fetch(`${PLATFORM_HTTP_URL}/me/sales${pagingQuery(options)}`, {
+    headers: authHeaders(accessToken),
+  });
+  if (!res.ok) throw new Error(`getMySales: ${res.status}`);
+  return res.json() as Promise<PurchasesListResponse>;
+}
+
+export interface SellerNotificationSubscription {
+  seller_user_id: string;
+  subscribed: boolean;
+  notify_live_start: boolean;
+}
+
+/** Estado de la campana del vendedor para el usuario autenticado. */
+export async function getSellerNotificationSubscription(
+  accessToken: string,
+  sellerUserId: string
+): Promise<SellerNotificationSubscription> {
+  const res = await fetch(
+    `${PLATFORM_HTTP_URL}/users/${encodeURIComponent(sellerUserId)}/notifications/subscription`,
+    { headers: authHeaders(accessToken) }
+  );
+  if (!res.ok) throw new Error(`getSellerNotificationSubscription: ${res.status}`);
+  return res.json() as Promise<SellerNotificationSubscription>;
+}
+
+/** Activa la campana: avisos cuando el vendedor inicia un vivo (idempotente). */
+export async function subscribeSellerNotifications(
+  accessToken: string,
+  sellerUserId: string
+): Promise<SellerNotificationSubscription> {
+  const res = await fetch(
+    `${PLATFORM_HTTP_URL}/users/${encodeURIComponent(sellerUserId)}/notifications/subscription`,
+    { method: 'PUT', headers: authHeaders(accessToken) }
+  );
+  if (!res.ok) throw new Error(`subscribeSellerNotifications: ${res.status}`);
+  return res.json() as Promise<SellerNotificationSubscription>;
+}
+
+/** Desactiva la campana del vendedor (idempotente). */
+export async function unsubscribeSellerNotifications(
+  accessToken: string,
+  sellerUserId: string
+): Promise<SellerNotificationSubscription> {
+  const res = await fetch(
+    `${PLATFORM_HTTP_URL}/users/${encodeURIComponent(sellerUserId)}/notifications/subscription`,
+    { method: 'DELETE', headers: authHeaders(accessToken) }
+  );
+  if (!res.ok) throw new Error(`unsubscribeSellerNotifications: ${res.status}`);
+  return res.json() as Promise<SellerNotificationSubscription>;
 }
 
 export async function getUserShows(

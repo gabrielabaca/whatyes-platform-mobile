@@ -60,12 +60,12 @@ const StartLiveWizardContext = createContext<StartLiveWizardContextValue | null>
 
 function stepAfterSurvey(
   onboarding: SellerOnboardingStatus,
-  isFirst: boolean | null,
+  _isFirst: boolean | null,
   hasPayout: boolean
 ): StartLiveWizardStep {
-  const needsUpgrade =
-    onboarding.user_type === 'buyer_user' && isFirst === true;
-  if (needsUpgrade) {
+  // Un comprador nunca puede transmitir sin upgrade a vendedor (datos fiscales),
+  // aunque en la encuesta responda que ya vendió en vivo en otra plataforma.
+  if (onboarding.user_type === 'buyer_user') {
     return 'sellerUpgrade';
   }
   if (!hasPayout) {

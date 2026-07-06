@@ -35,8 +35,10 @@ import { useUserShows } from '../../hooks/useUserShows';
 import { useUserProfileProducts } from '../../hooks/useUserProfileProducts';
 import { ProfileProductRow } from '../organisms/profile/ProfileProductRow';
 import { ProfileReviewsSection } from '../organisms/profile/ProfileReviewsSection';
+import { ProfileReviewsDetailModal } from '../organisms/profile/ProfileReviewsDetailModal';
 import { useUserReviews } from '../../hooks/useUserReviews';
 import { useSellerFollow } from '../../hooks/useSellerFollow';
+import { useSellerNotifications } from '../../hooks/useSellerNotifications';
 import { FollowSuccessCelebration } from '../molecules/profile';
 import { formatCompactCount } from '../../utils/formatCount';
 import { FONT_FAMILY } from '../../theme/typography';
@@ -150,6 +152,21 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
     await reload().catch(() => {});
   };
 
+  // Campana de notificaciones del vendedor — Figma 698-8930.
+  const {
+    isSubscribed: notifSubscribed,
+    subscriptionLoading: notifLoading,
+    celebrationVisible: notifCelebrationVisible,
+    toggleSubscription: toggleNotifSubscription,
+    dismissCelebration: dismissNotifCelebration,
+  } = useSellerNotifications({
+    sellerUserId: resolvedId,
+    enabled: showSellerPublicUi,
+  });
+
+  // Detalle de reviews — Figma 698-10329.
+  const [reviewsDetailVisible, setReviewsDetailVisible] = useState(false);
+
   const showRows = useMemo(() => {
     const rows: UserShowItem[][] = [];
     for (let i = 0; i < shows.length; i += 2) {
@@ -186,6 +203,13 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
         visible={celebrationVisible}
         sellerName={sellerDisplayName}
         onDismiss={dismissCelebration}
+      />
+      <FollowSuccessCelebration
+        visible={notifCelebrationVisible}
+        sellerName={sellerDisplayName}
+        onDismiss={dismissNotifCelebration}
+        title={t('profile.notifSuccessTitle')}
+        body={t('profile.notifSuccessBody', { name: sellerDisplayName })}
       />
       {editDrawerOpen ? (
         <EditProfileDrawer
@@ -264,12 +288,24 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
               {showSellerPublicUi ? (
                 <View style={styles.coverSellerActions}>
                   <TouchableOpacity
-                    style={styles.coverActionBtn}
-                    onPress={placeholder}
+                    style={[
+                      styles.coverActionBtn,
+                      notifSubscribed && styles.coverActionBtnActive,
+                      notifLoading && styles.coverActionBtnDisabled,
+                    ]}
+                    onPress={() => {
+                      void toggleNotifSubscription();
+                    }}
+                    disabled={notifLoading}
                     accessibilityRole="button"
                     accessibilityLabel={t('profile.notifySeller')}
+                    accessibilityState={{ selected: notifSubscribed }}
                   >
-                    <IconBell size={24} color={PRIMARY} strokeWidth={1.75} />
+                    <IconBell
+                      size={24}
+                      color={notifSubscribed ? '#FFFFFF' : PRIMARY}
+                      strokeWidth={1.75}
+                    />
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={styles.coverActionBtn}
@@ -393,28 +429,21 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
               ) : null}
             </View>
 
+            {/* Clips excluido por ahora (Figma 698-8461). */}
             <View style={styles.tabsRow}>
-              {(['shows', 'products', 'reviews', 'clips'] as ProfileTab[]).map((key) => {
+              {(['shows', 'products', 'reviews'] as ProfileTab[]).map((key) => {
                 const active = tab === key;
                 const label =
                   key === 'shows'
                     ? t('profile.tabShows')
                     : key === 'products'
                       ? t('profile.tabProducts')
-                      : key === 'reviews'
-                        ? t('profile.tabReviews')
-                        : t('profile.tabClips');
+                      : t('profile.tabReviews');
                 return (
                   <TouchableOpacity
                     key={key}
                     style={[styles.tab, active && styles.tabActive]}
-                    onPress={() => {
-                      if (key === 'shows' || key === 'products' || key === 'reviews') {
-                        setTab(key);
-                      } else {
-                        placeholder();
-                      }
-                    }}
+                    onPress={() => setTab(key)}
                   >
                     <RNText style={[styles.tabLabel, active && styles.tabLabelActive]}>
                       {label}
@@ -478,11 +507,21 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
             ) : null}
 
             {tab === 'reviews' ? (
-              <ProfileReviewsSection data={reviewsData} loading={reviewsLoading} />
+              <ProfileReviewsSection
+                data={reviewsData}
+                loading={reviewsLoading}
+                onPressReview={() => setReviewsDetailVisible(true)}
+              />
             ) : null}
           </View>
         </View>
       </ScrollView>
+
+      <ProfileReviewsDetailModal
+        visible={reviewsDetailVisible}
+        reviews={reviewsData?.items ?? []}
+        onClose={() => setReviewsDetailVisible(false)}
+      />
     </View>
   );
 };
@@ -692,6 +731,12 @@ const styles = StyleSheet.create({
     flexShrink: 0,
     paddingHorizontal: 8,
     paddingVertical: 4,
+  },
+  coverActionBtnActive: {
+    backgroundColor: PRIMARY,
+  },
+  coverActionBtnDisabled: {
+    opacity: 0.6,
   },
   body: {
     flex: 1,

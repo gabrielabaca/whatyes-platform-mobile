@@ -14,6 +14,8 @@ import { ArrowRight, AudioLines, ShoppingCart } from 'lucide-react-native';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { FONT_FAMILY } from '../../../theme/typography';
 import { themeColors } from '../../../theme/colors';
+import { ProfileShowCard } from '../profile/ProfileShowCard';
+import type { UserShowItem } from '../../../api/platformApi';
 
 const BORDER = '#CBCEFF';
 const PRIMARY = '#685CF0';
@@ -57,6 +59,9 @@ export interface SellerHomeDashboardProps {
   onPressGoLive: () => void;
   onPressAddProduct?: () => void;
   onPressFirstLiveCta: () => void;
+  /** Lives pasados del vendedor (status ended); vacío oculta la sección. */
+  pastLives?: UserShowItem[];
+  onPressPastLive?: (show: UserShowItem) => void;
 }
 
 type CardBackgroundKind = 'gray' | 'verify' | 'none';
@@ -134,8 +139,15 @@ export const SellerHomeDashboard: React.FC<SellerHomeDashboardProps> = ({
   onPressGoLive,
   onPressAddProduct,
   onPressFirstLiveCta,
+  pastLives = [],
+  onPressPastLive,
 }) => {
   const { t } = useTranslation();
+
+  const pastLiveRows: UserShowItem[][] = [];
+  for (let i = 0; i < pastLives.length; i += 2) {
+    pastLiveRows.push(pastLives.slice(i, i + 2));
+  }
 
   return (
     <ScrollView
@@ -212,7 +224,7 @@ export const SellerHomeDashboard: React.FC<SellerHomeDashboardProps> = ({
           <RNText style={styles.actionLabel}>{t('sellerHome.addProduct')}</RNText>
         </BorderedCard>
 
-        {showFirstLiveCta ? (
+        {showFirstLiveCta && pastLives.length === 0 ? (
           <BorderedCard style={styles.firstLiveCard} shadow={cardShadowTile}>
             <RNText style={styles.firstLiveTitle}>{t('sellerHome.firstLiveTitle')}</RNText>
             <RNText style={styles.firstLiveBody}>{t('sellerHome.firstLiveBody')}</RNText>
@@ -222,6 +234,26 @@ export const SellerHomeDashboard: React.FC<SellerHomeDashboardProps> = ({
           </BorderedCard>
         ) : null}
       </View>
+
+      {pastLives.length > 0 ? (
+        <>
+          <RNText style={styles.sectionTitle}>{t('sellerHome.pastLives')}</RNText>
+          <View style={styles.pastLivesGrid}>
+            {pastLiveRows.map((row, idx) => (
+              <View key={`past-live-row-${idx}`} style={styles.pastLivesRow}>
+                {row.map((show) => (
+                  <ProfileShowCard
+                    key={show.room_uuid}
+                    show={show}
+                    onPress={() => onPressPastLive?.(show)}
+                  />
+                ))}
+                {row.length === 1 ? <View style={styles.pastLivesFiller} /> : null}
+              </View>
+            ))}
+          </View>
+        </>
+      ) : null}
     </ScrollView>
   );
 };
@@ -392,5 +424,17 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: '#FFFFFF',
     includeFontPadding: false,
+  },
+  pastLivesGrid: {
+    gap: 12,
+    width: '100%',
+  },
+  pastLivesRow: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+  pastLivesFiller: {
+    flex: 1,
   },
 });
