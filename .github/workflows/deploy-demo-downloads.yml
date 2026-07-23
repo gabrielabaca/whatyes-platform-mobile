@@ -107,11 +107,10 @@ jobs:
             --content-type "text/html; charset=utf-8" \
             --cache-control "no-cache"
 
-      - name: Set public read (ACL)
-        run: |
-          aws s3api put-object-acl --bucket "${{ secrets.S3_BUCKET }}" --key "${{ env.APK_S3_KEY }}" --acl public-read
-          aws s3api put-object-acl --bucket "${{ secrets.S3_BUCKET }}" --key "index.html" --acl public-read
-        continue-on-error: true
+      # El acceso público NO se maneja por ACL: el bucket tiene Object Ownership
+      # "Bucket owner enforced" (ACLs deshabilitadas). La lectura pública la da la
+      # bucket policy (s3:GetObject sobre index.html y app/releases/*), configurada
+      # una sola vez fuera de este workflow.
 
       - name: Output URLs
         run: |
