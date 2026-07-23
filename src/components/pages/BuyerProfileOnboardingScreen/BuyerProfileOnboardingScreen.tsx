@@ -31,18 +31,24 @@ export interface BuyerProfilePayload {
 interface BuyerProfileOnboardingScreenProps {
   onBack?: () => void;
   onSkip: () => void;
+  /** Salta todo el onboarding restante y entra directo a la app. */
+  onSkipAll?: () => void;
   onContinue: (payload: BuyerProfilePayload) => Promise<void>;
+  /** Nombre sugerido (derivado del email) para que el usuario lo corrija si quiere. */
+  initialName?: string;
 }
 
 export const BuyerProfileOnboardingScreen: React.FC<BuyerProfileOnboardingScreenProps> = ({
   onBack,
   onSkip,
+  onSkipAll,
   onContinue,
+  initialName,
 }) => {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const c = isDark ? themeColors.dark : themeColors.light;
-  const [name, setName] = useState('');
+  const [name, setName] = useState(initialName ?? '');
   const [lastName, setLastName] = useState('');
   const [photo, setPhoto] = useState<BuyerProfilePayload['photo'] | undefined>();
   const [previewUri, setPreviewUri] = useState<string | undefined>();
@@ -173,6 +179,18 @@ export const BuyerProfileOnboardingScreen: React.FC<BuyerProfileOnboardingScreen
               titleClassName="text-[14px] font-normal text-[#4C4E55] dark:text-night-muted"
               className="mt-5 self-center min-h-[44px]"
             />
+
+            {onSkipAll ? (
+              <Button
+                title={t('buyerOnboarding.skipAll')}
+                variant="ghost"
+                size="medium"
+                disabled={busy}
+                onPress={onSkipAll}
+                titleClassName="text-[14px] font-normal text-[#4C4E55] dark:text-night-muted"
+                className="mt-1 self-center min-h-[44px]"
+              />
+            ) : null}
           </View>
         </ScrollView>
       </KeyboardAvoidingView>

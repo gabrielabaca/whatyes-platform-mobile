@@ -16,6 +16,7 @@ import {
   StreamAuctionPanel,
 } from '../../molecules/stream';
 import { LiveControlBar } from '../../molecules/LiveControlBar';
+import { StreamEndLiveDrawer } from './StreamEndLiveDrawer';
 import type { ChatMessage, AuctionBid } from '../../../hooks/useStreamChat';
 
 export interface StreamSellerOverlayProps {
@@ -87,6 +88,7 @@ export const StreamSellerOverlay: React.FC<StreamSellerOverlayProps> = ({
 }) => {
   const insets = useSafeAreaInsets();
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  const [endDrawerVisible, setEndDrawerVisible] = useState(false);
 
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
@@ -149,6 +151,7 @@ export const StreamSellerOverlay: React.FC<StreamSellerOverlayProps> = ({
         avatarUrl={sellerAvatarUrl}
         rating={sellerRating}
         viewerCount={viewerCount}
+        onExitPress={() => setEndDrawerVisible(true)}
       />
 
       <View
@@ -160,7 +163,7 @@ export const StreamSellerOverlay: React.FC<StreamSellerOverlayProps> = ({
             <StreamChatOverlay messages={visibleMessages} />
             <StreamActionRail
               variant="seller"
-              onExit={onEndStream}
+              onExit={() => setEndDrawerVisible(true)}
               onAddPaymentMethod={onAddPaymentMethod}
               onOpenClips={onOpenClips}
               onShare={onShare}
@@ -204,6 +207,15 @@ export const StreamSellerOverlay: React.FC<StreamSellerOverlayProps> = ({
           flipDisabled={flipCameraDisabled}
         />
       </View>
+
+      <StreamEndLiveDrawer
+        visible={endDrawerVisible}
+        onClose={() => setEndDrawerVisible(false)}
+        onConfirm={() => {
+          setEndDrawerVisible(false);
+          onEndStream();
+        }}
+      />
     </KeyboardAvoidingView>
   );
 };

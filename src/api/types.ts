@@ -88,10 +88,29 @@ export interface LoginRequest {
   password: string;
 }
 
+/** Proveedores de login social soportados por el backend (/auth/social_login). */
+export type SocialProvider = 'google' | 'apple';
+
+export interface SocialLoginRequest {
+  provider: SocialProvider;
+  /** id_token (Google) o identityToken (Apple) obtenido del SDK nativo. */
+  id_token: string;
+  /** Solo Apple (primera autorización): nombre que el SDK entrega fuera del token. */
+  name?: string;
+  last_name?: string;
+}
+
+/** Respuesta de /auth/social_login: tokens + si la cuenta se acaba de crear. */
+export interface SocialLoginResponse extends Token {
+  is_new_user: boolean;
+}
+
 export interface CreateBuyerUserRequest {
   email: string;
   name: string;
   last_name?: string;
+  /** Fecha de nacimiento en formato ISO (YYYY-MM-DD); el backend valida mayoría de edad. */
+  birth_date: string;
   password: string;
   repeat_password: string;
 }

@@ -56,6 +56,8 @@ const STORAGE_KEYS = {
   /** Paso UI del onboarding: profile | interests | kyc | complete */
   BUYER_ONBOARDING_UI_STEP: 'buyer_onboarding_ui_step',
   WALLET_INTRO_SEEN: 'wallet_intro_seen',
+  /** Carrusel de bienvenida: solo se muestra en el primer arranque tras instalar */
+  WELCOME_CAROUSEL_SEEN: 'welcome_carousel_seen',
   PREFERRED_PAYMENT_ORIGIN: 'preferred_payment_origin',
   SELLER_LIVE_WELCOME_STEP1_SEEN: 'seller_live_welcome_step1_seen',
   SELLER_LIVE_WELCOME_TERMS_SEEN: 'seller_live_welcome_terms_seen',
@@ -369,6 +371,27 @@ export const storage = {
       const s = getAsyncStorage();
       if (!s) return;
       await s.setItem(STORAGE_KEYS.WALLET_INTRO_SEEN, seen ? '1' : '0');
+    } catch {
+      // ignore
+    }
+  },
+
+  async getWelcomeCarouselSeen(): Promise<boolean> {
+    try {
+      const s = getAsyncStorage();
+      if (!s) return false;
+      const v = await s.getItem(STORAGE_KEYS.WELCOME_CAROUSEL_SEEN);
+      return v === '1';
+    } catch {
+      return false;
+    }
+  },
+
+  async setWelcomeCarouselSeen(): Promise<void> {
+    try {
+      const s = getAsyncStorage();
+      if (!s) return;
+      await s.setItem(STORAGE_KEYS.WELCOME_CAROUSEL_SEEN, '1');
     } catch {
       // ignore
     }

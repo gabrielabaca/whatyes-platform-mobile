@@ -17,8 +17,13 @@ export const drawerPanelGlass = {
   android: {
     blurAmount: 12,
     blurRadius: 14,
-    /** Color del panel en BlurView nativo — no usar 'transparent'. */
-    overlayColor: 'rgba(0, 0, 0, 0.58)',
+    /**
+     * Color del panel en BlurView nativo — no usar 'transparent'.
+     * El blur de @react-native-community/blur es poco fiable en Android (a veces
+     * casi no difumina), así que el overlay debe ser casi opaco para que el
+     * contenido de atrás no se mezcle. En iOS el blur real permite bajarlo (0.65).
+     */
+    overlayColor: 'rgba(0, 0, 0, 0.9)',
   },
 } as const;
 
@@ -33,7 +38,10 @@ export const drawerPanelGlassKey = [
 ].join('-');
 
 export const modalGlass = {
+  /** iOS: tint suave sobre el blur real. */
   tint: 'rgba(2, 5, 15, 0.4)',
+  /** Android: blur poco fiable → overlay mucho más denso para que no se mezcle el fondo. */
+  androidTint: 'rgba(2, 5, 15, 0.82)',
   fallback: 'rgba(2, 5, 15, 0.88)',
   blurAmount: 30,
 } as const;

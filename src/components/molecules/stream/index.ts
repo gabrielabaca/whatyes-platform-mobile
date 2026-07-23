@@ -8,4 +8,6 @@ export { StreamProductStack } from './StreamProductStack';
 export { StreamAuctionPanel } from './StreamAuctionPanel';
 export type { StreamAuctionPanelProps, StreamAuctionPanelVariant } from './StreamAuctionPanel';
 export { StreamBidBar } from './StreamBidBar';
+export { StreamViewerSplash } from './StreamViewerSplash';
+export type { StreamViewerSplashProps } from './StreamViewerSplash';
 export { STREAM_COLORS, STREAM_RADIUS } from './streamTokens';

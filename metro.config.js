@@ -1,5 +1,5 @@
 const path = require('path');
-const { getDefaultConfig } = require('@expo/metro-config');
+const { getDefaultConfig } = require('@react-native/metro-config');
 const { withNativeWind } = require('nativewind/metro');
 
 /**
@@ -12,7 +12,7 @@ const projectRoot = __dirname;
 const baseConfig = getDefaultConfig(projectRoot);
 const { assetExts, sourceExts } = baseConfig.resolver;
 
-// @expo/metro-config + package "exports" rompe helpers de @babel/runtime en RN.
+// package "exports" puede romper helpers de @babel/runtime en RN 0.83+.
 baseConfig.resolver.unstable_conditionsByPlatform = {
   ios: ['react-native', 'import', 'require', 'default'],
   android: ['react-native', 'import', 'require', 'default'],
@@ -59,7 +59,7 @@ baseConfig.resolver.resolveRequest = (context, moduleName, platform) => {
 
 baseConfig.transformer = {
   ...baseConfig.transformer,
-  babelTransformerPath: require.resolve('react-native-svg-transformer/expo'),
+  babelTransformerPath: require.resolve('react-native-svg-transformer/react-native'),
 };
 baseConfig.resolver.assetExts = assetExts.filter((ext) => ext !== 'svg');
 baseConfig.resolver.sourceExts = [...sourceExts, 'svg'];

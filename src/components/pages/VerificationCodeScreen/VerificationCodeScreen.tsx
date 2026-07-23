@@ -187,6 +187,8 @@ export const VerificationCodeScreen: React.FC<VerificationCodeScreenProps> = ({
                 keyboardType="number-pad"
                 maxLength={otpLength}
                 autoFocus
+                textContentType="oneTimeCode"
+                autoComplete="one-time-code"
                 style={{ position: 'absolute', opacity: 0, width: 1, height: 1, fontFamily: FONT_FAMILY.regular }}
               />
 

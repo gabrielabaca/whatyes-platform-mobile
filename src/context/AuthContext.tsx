@@ -7,15 +7,21 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { AppState, type AppStateStatus } from 'react-native';
 import {
   login as loginApi,
+  socialLogin as socialLoginApi,
   getCurrentUser,
   logout as logoutApi,
   refreshSession,
   ensureFreshAccessToken,
   ApiError,
 } from '../api';
+import {
+  signInWithGoogle,
+  signInWithApple,
+  SocialAuthCancelledError,
+} from '../services/socialAuth';
 import { storage } from '../utils/storage';
 import { getJwtExpMs } from '../utils/jwt';
-import type { User, LoginRequest } from '../api/types';
+import type { User, LoginRequest, SocialProvider } from '../api/types';
 
 /** Refrescar este margen antes de que venza el access token. */
 const PROACTIVE_REFRESH_SKEW_MS = 60_000;
@@ -26,6 +32,12 @@ interface AuthContextType {
   isBootstrapping: boolean;
   isAuthenticated: boolean;
   login: (credentials: LoginRequest) => Promise<void>;
+  /**
+   * Login/registro con proveedor social (Google/Apple). Lanza el SDK nativo,
+   * envía el id_token al backend y activa la sesión. Devuelve `true` si el flujo
+   * se completó, o `false` si el usuario canceló el diálogo del proveedor.
+   */
+  socialLogin: (provider: SocialProvider) => Promise<boolean>;
   logout: () => Promise<void>;
   refreshAuth: () => Promise<void>;
   /** Recarga /auth/me sin rotar tokens ni cerrar sesión (p. ej. tras upgrade a vendedor). */
@@ -283,6 +295,45 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
+  const socialLogin = async (provider: SocialProvider): Promise<boolean> => {
+    try {
+      setIsLoading(true);
+      // 1. SDK nativo del proveedor → idToken (+ nombre en Apple, primera vez).
+      const credential =
+        provider === 'apple'
+          ? await signInWithApple()
+          : await signInWithGoogle();
+
+      // 2. Verificación + sesión en el backend (tokens guardados en storage).
+      const res = await socialLoginApi({
+        provider,
+        id_token: credential.idToken,
+        name: credential.name,
+        last_name: credential.lastName,
+      });
+
+      // 3. Cargar el usuario en contexto → App muestra Home.
+      const accessToken = res.access_token;
+      if (accessToken) {
+        const userData = await getCurrentUser(accessToken);
+        if (userData.data) {
+          setUser(userData.data);
+          await storage.setUserData(userData.data);
+        }
+      }
+      return true;
+    } catch (error) {
+      if (error instanceof SocialAuthCancelledError) {
+        // El usuario cerró el diálogo: no es un error a mostrar.
+        return false;
+      }
+      console.error('❌ Error en social login:', error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const logout = async () => {
     try {
       setIsLoading(true);
@@ -354,6 +405,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         isBootstrapping,
         isAuthenticated: !!user,
         login,
+        socialLogin,
         logout,
         refreshAuth,
         reloadUser,

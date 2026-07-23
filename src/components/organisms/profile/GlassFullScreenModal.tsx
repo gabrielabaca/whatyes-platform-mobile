@@ -17,6 +17,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GlassBackdrop } from './GlassBackdrop';
+import { DismissKeyboardView } from '../../atoms/DismissKeyboardView';
 
 export interface GlassFullScreenModalHandle {
   dismiss: () => void;
@@ -110,13 +111,16 @@ export const GlassFullScreenModal = forwardRef<
       style={[styles.scroll, scrollStyle]}
       contentContainerStyle={[styles.scrollContent, contentContainerStyle]}
       keyboardShouldPersistTaps="handled"
+      keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
       showsVerticalScrollIndicator={false}
       bounces={false}
     >
       {children}
     </ScrollView>
   ) : (
-    <View style={[styles.flex, contentContainerStyle]}>{children}</View>
+    <DismissKeyboardView style={[styles.flex, contentContainerStyle]}>
+      {children}
+    </DismissKeyboardView>
   );
 
   const inner = (

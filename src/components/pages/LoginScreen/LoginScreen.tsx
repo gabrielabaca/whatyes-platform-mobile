@@ -13,15 +13,17 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, Eye, EyeOff } from 'lucide-react-native';
 import { Text } from '../../atoms/Text';
+import { Button } from '../../atoms/Button';
 import { useAuth } from '../../../hooks/useAuth';
 import { ApiError } from '../../../api';
+import type { SocialProvider } from '../../../api/types';
+import { isAppleSignInSupported } from '../../../services/socialAuth';
 import { FONT_FAMILY } from '../../../theme/typography';
 import { themeColors } from '../../../theme/colors';
 import { useTheme } from '../../../context/ThemeContext';
 import { isValidEmail } from '../../../utils/formValidation';
 import GoogleIcon from '../../../../assets/icons/google.svg';
 import AppleIcon from '../../../../assets/icons/apple.svg';
-import FacebookIcon from '../../../../assets/icons/facebook.svg';
 
 interface LoginScreenProps {
   onBack?: () => void;
@@ -42,7 +44,23 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   const [showPassword, setShowPassword] = useState(false);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [emailError, setEmailError] = useState<string | null>(null);
-  const { login, isLoading } = useAuth();
+  const { login, socialLogin, isLoading } = useAuth();
+  const showAppleButton = isAppleSignInSupported();
+
+  const handleSocial = async (provider: SocialProvider) => {
+    try {
+      await socialLogin(provider);
+      // Sesión activa → la navegación la maneja App.tsx (igual que login).
+    } catch (error) {
+      const message =
+        error instanceof ApiError
+          ? error.message
+          : error instanceof Error && error.message
+            ? error.message
+            : t('login.socialFailed');
+      Alert.alert(t('common.error'), message);
+    }
+  };
 
   const handleLogin = async () => {
     setPasswordError(null);
@@ -98,13 +116,17 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
         >
           <View className="flex-1 px-6 pt-4 pb-6">
             <View className="flex-row items-center justify-between mt-2 mb-10">
-              <TouchableOpacity
-                onPress={onBack}
-                className="w-8 h-8 items-start justify-center"
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <ArrowLeft size={22} color={c.text} />
-              </TouchableOpacity>
+              {onBack ? (
+                <TouchableOpacity
+                  onPress={onBack}
+                  className="w-8 h-8 items-start justify-center"
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <ArrowLeft size={22} color={c.text} />
+                </TouchableOpacity>
+              ) : (
+                <View className="w-8 h-8" />
+              )}
 
               <Text className="text-[20px] font-bold text-[#02050F] dark:text-white">{t('login.title')}</Text>
               <View className="w-8 h-8" />
@@ -184,14 +206,15 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 </Text>
               )}
 
-              <TouchableOpacity
+              <Button
+                title={t('common.continue')}
+                variant="primary"
+                size="large"
                 onPress={handleLogin}
                 activeOpacity={0.9}
                 disabled={!email || !password || isLoading}
-                className={`rounded-full min-h-[52px] items-center justify-center px-8 ${!email || !password || isLoading ? 'opacity-60' : 'opacity-100'} bg-primary-600`}
-              >
-                <Text className="text-white text-base leading-6 font-semibold">{t('common.continue')}</Text>
-              </TouchableOpacity>
+                className="w-full rounded-full"
+              />
 
               <TouchableOpacity
                 onPress={onNavigateToForgotPassword}
@@ -208,24 +231,30 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
             </View>
 
             <View className="gap-[18px]">
-              <TouchableOpacity className="border border-[#02050F] dark:border-white rounded-full min-h-[52px] px-6 flex-row items-center justify-center">
+              <TouchableOpacity
+                onPress={() => handleSocial('google')}
+                disabled={isLoading}
+                activeOpacity={0.8}
+                className="border border-[#02050F] dark:border-white rounded-full min-h-[52px] px-6 flex-row items-center justify-center"
+              >
                 <View className="w-6 h-6 mr-2 items-center justify-center">
                   <GoogleIcon width={24} height={24} />
                 </View>
                 <Text className="text-[#02050F] dark:text-white text-base font-semibold">{t('login.continueWithGoogle')}</Text>
               </TouchableOpacity>
-              <TouchableOpacity className="border border-[#02050F] dark:border-white rounded-full min-h-[52px] px-6 flex-row items-center justify-center">
-                <View className="w-6 h-6 mr-2 items-center justify-center">
-                  <AppleIcon width={24} height={24} />
-                </View>
-                <Text className="text-[#02050F] dark:text-white text-base font-semibold">{t('login.continueWithApple')}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity className="border border-[#02050F] dark:border-white rounded-full min-h-[52px] px-6 flex-row items-center justify-center">
-                <View className="w-6 h-6 mr-2 items-center justify-center">
-                  <FacebookIcon width={24} height={24} />
-                </View>
-                <Text className="text-[#02050F] dark:text-white text-base font-semibold">{t('login.continueWithFacebook')}</Text>
-              </TouchableOpacity>
+              {showAppleButton && (
+                <TouchableOpacity
+                  onPress={() => handleSocial('apple')}
+                  disabled={isLoading}
+                  activeOpacity={0.8}
+                  className="border border-[#02050F] dark:border-white rounded-full min-h-[52px] px-6 flex-row items-center justify-center"
+                >
+                  <View className="w-6 h-6 mr-2 items-center justify-center">
+                    <AppleIcon width={24} height={24} />
+                  </View>
+                  <Text className="text-[#02050F] dark:text-white text-base font-semibold">{t('login.continueWithApple')}</Text>
+                </TouchableOpacity>
+              )}
             </View>
 
             <View className="mt-12 items-center">

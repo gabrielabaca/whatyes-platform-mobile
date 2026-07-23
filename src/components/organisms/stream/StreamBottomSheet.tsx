@@ -3,7 +3,7 @@
  * bottomPanel: home visible arriba; panel inferior con glass blur (Figma 636-23638).
  * fullHeight: blur glass a pantalla completa.
  */
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -87,6 +87,15 @@ export const StreamBottomSheet: React.FC<StreamBottomSheetProps> = ({
   const slideAnim = useRef(new Animated.Value(1)).current;
   const useFullPanel = fullHeight || !bottomPanel;
   const resolvedNativeModal = nativeModal ?? useFullPanel;
+  /**
+   * Medidas del panel inferior para ajustarlo al contenido (hug) de forma robusta.
+   * En vez de trucos de flex (que colapsan el ScrollView en dispositivo), medimos
+   * header + cuerpo + footer y fijamos una ALTURA concreta al panel, usando siempre
+   * el layout de altura fija (flex:1) que garantiza que el contenido renderice.
+   */
+  const [bottomContentHeight, setBottomContentHeight] = useState<number | undefined>(undefined);
+  const [headerHeight, setHeaderHeight] = useState<number | undefined>(undefined);
+  const [footerHeight, setFooterHeight] = useState<number | undefined>(undefined);
 
   useEffect(() => {
     if (!visible) return;
@@ -162,7 +171,8 @@ export const StreamBottomSheet: React.FC<StreamBottomSheetProps> = ({
   const scrollableBody = scrollEnabled ? (
     <ScrollView
       nestedScrollEnabled
-      keyboardShouldPersistTaps="always"
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
       showsVerticalScrollIndicator={false}
       bounces={false}
       style={useFullPanel ? styles.scroll : styles.scrollBottom}
@@ -177,6 +187,12 @@ export const StreamBottomSheet: React.FC<StreamBottomSheetProps> = ({
   const panelBottomPadding = Math.max(insets.bottom, 16);
 
   const flatBottomPanel = StyleSheet.flatten(panelStyle) as ViewStyle | undefined;
+  /**
+   * Si el drawer declara un maxHeight explícito (p. ej. listas al 88% con FlatList
+   * flex:1) el panel se fija a esa altura para dar espacio acotado al scroll interno.
+   * Si no, el panel se ajusta a su contenido (hug) con tope, para no extenderse de más.
+   */
+  const fillPanelHeight = flatBottomPanel?.maxHeight != null;
   const bottomPanelMaxHeightPx = resolvePanelMaxHeightPx(flatBottomPanel?.maxHeight, windowHeight);
   const {
     maxHeight: _bottomMaxH,
@@ -187,14 +203,43 @@ export const StreamBottomSheet: React.FC<StreamBottomSheetProps> = ({
 
   const bottomPanelContentMaxHeight = bottomPanelMaxHeightPx - panelBottomPadding;
 
+  /**
+   * Hug robusto: medimos header + cuerpo (ScrollView) + footer y fijamos una ALTURA
+   * concreta al panel (capada al tope). Se usa SIEMPRE el layout de altura fija
+   * (flex:1) —el mismo que las listas— que garantiza que el contenido renderice y
+   * nunca colapse. Hasta tener las medidas, el panel usa el alto máximo (original).
+   * Nota: sin trucos de flexShrink/flexBasis, que colapsaban el panel en dispositivo.
+   */
+  const PANEL_PAD_TOP = 24; // styles.panelContent paddingTop
+  const PANEL_GAP = 16; // styles.panelContent gap
+  const hasFooter = footerArea != null;
+  const naturalPanelHeight =
+    !fillPanelHeight && bottomContentHeight != null && bottomContentHeight > 0 && headerHeight != null
+      ? PANEL_PAD_TOP +
+        headerHeight +
+        PANEL_GAP +
+        bottomContentHeight +
+        (hasFooter ? PANEL_GAP + (footerHeight ?? 0) : 0) +
+        panelBottomPadding
+      : null;
+  const panelHeightPx =
+    naturalPanelHeight != null
+      ? Math.min(naturalPanelHeight, bottomPanelMaxHeightPx)
+      : bottomPanelMaxHeightPx;
+  const panelContentHeightPx = panelHeightPx - panelBottomPadding;
+
   const bottomPanelScroll = scrollEnabled ? (
     <ScrollView
       nestedScrollEnabled
-      keyboardShouldPersistTaps="always"
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
       showsVerticalScrollIndicator={false}
       bounces={false}
       style={styles.scrollBottomPanel}
       contentContainerStyle={styles.scrollBottomInner}
+      onContentSizeChange={
+        fillPanelHeight ? undefined : (_w, h) => setBottomContentHeight(h)
+      }
     >
       {bodyContent}
     </ScrollView>
@@ -206,11 +251,7 @@ export const StreamBottomSheet: React.FC<StreamBottomSheetProps> = ({
     <View
       style={[
         styles.panelAnchor,
-        {
-          height: bottomPanelMaxHeightPx,
-          maxHeight: bottomPanelMaxHeightPx,
-          paddingBottom: panelBottomPadding,
-        },
+        { height: panelHeightPx, maxHeight: bottomPanelMaxHeightPx, paddingBottom: panelBottomPadding },
       ]}
       collapsable={false}
       {...(Platform.OS === 'ios' ? { needsOffscreenAlphaCompositing: true } : null)}
@@ -222,12 +263,32 @@ export const StreamBottomSheet: React.FC<StreamBottomSheetProps> = ({
             styles.panelContent,
             styles.panelContentBottom,
             bottomPanelContentStyle,
-            { height: bottomPanelContentMaxHeight, maxHeight: bottomPanelContentMaxHeight },
+            { height: panelContentHeightPx, maxHeight: bottomPanelContentMaxHeight },
           ]}
         >
-          <View style={styles.panelHeaderWrap}>{header}</View>
+          <View
+            style={styles.panelHeaderWrap}
+            onLayout={
+              fillPanelHeight
+                ? undefined
+                : (e) => setHeaderHeight(e.nativeEvent.layout.height)
+            }
+          >
+            {header}
+          </View>
           {bottomPanelScroll}
-          {footerArea ? <View style={styles.panelFooterWrap}>{footerArea}</View> : null}
+          {footerArea ? (
+            <View
+              style={styles.panelFooterWrap}
+              onLayout={
+                fillPanelHeight
+                  ? undefined
+                  : (e) => setFooterHeight(e.nativeEvent.layout.height)
+              }
+            >
+              {footerArea}
+            </View>
+          ) : null}
         </View>
       </Animated.View>
     </View>

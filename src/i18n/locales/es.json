@@ -45,6 +45,7 @@
     "continueWithFacebook": "Continuar con Facebook",
     "fillAllFields": "Por favor completa todos los campos",
     "loginFailed": "No se pudo iniciar sesión. Intenta nuevamente.",
+    "socialFailed": "No se pudo iniciar sesión con el proveedor. Intenta nuevamente.",
     "passwordIncorrect": "Contraseña incorrecta. Por favor, vuelve a ingresar tu contraseña y prueba de nuevo. Si el problema persiste, intenta restablecer tu contraseña haciendo clic en ‘¿Olvidaste tu contraseña?’"
   },
   "register": {
@@ -94,11 +95,12 @@
     "emailAlreadyInUse": "Este correo electrónico ya está en uso. Inicia sesión o usa otro correo.",
     "buyerBirthday": "Cumpleaños",
     "buyerBirthdayPh": "MM/DD/AAAA",
-    "passwordPolicyHint": "La contraseña debe tener al menos 8 caracteres, mayúsculas, minúsculas y un código único como #%!",
+    "passwordPolicyHint": "La contraseña debe tener al menos 8 caracteres",
     "termsNotice": "Al hacer clic en el botón de aceptar y continuar, aceptas los Términos y Servicios de PulpoLive y reconoces la Política de Privacidad",
     "acceptContinue": "Aceptar y Continuar",
-    "passwordPolicyError": "La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula y un carácter especial",
-    "birthdayInvalid": "Ingresa una fecha válida (MM/DD/AAAA)"
+    "passwordPolicyError": "La contraseña debe tener al menos 8 caracteres",
+    "birthdayInvalid": "Ingresa una fecha válida (MM/DD/AAAA)",
+    "underageError": "Debes ser mayor de 18 años para crear una cuenta"
   },
   "forgotPassword": {
     "titleRequest": "Olvidé Mi Contraseña",
@@ -147,6 +149,7 @@
     "interestsTitle": "¿Qué te interesa?",
     "interestsSubtitle": "Elige las categorías que más te gustan para recomendarte contenido.",
     "skip": "Omitir",
+    "skipAll": "Omitir todo",
     "profileSaveError": "No se pudo guardar el perfil. Intenta de nuevo.",
     "interestsSaveError": "No se pudieron guardar tus intereses. Intenta de nuevo.",
     "interestsLoadError": "No se pudieron cargar las categorías.",
@@ -164,7 +167,10 @@
     "kycVerifiedTitle": "Verificado",
     "kycVerifiedSubtitle": "Tu identidad fue verificada correctamente.",
     "kycDeclinedTitle": "No pudimos verificar tu identidad",
-    "kycDeclinedSubtitle": "Podés continuar con el registro e intentar de nuevo más tarde desde tu perfil."
+    "kycDeclinedSubtitle": "Podés continuar con el registro e intentar de nuevo más tarde desde tu perfil.",
+    "kycRetry": "Reintentar",
+    "kycRequiredSubtitle": "Para participar de un vivo o transmitir en PulpoLive necesitamos validar tu identidad. Te pediremos escanear tu documento y completar una verificación facial con nuestro socio de confianza; suele llevar solo unos minutos.",
+    "kycRequiredDeclinedSubtitle": "Necesitamos verificar tu identidad para que puedas continuar. Intentá de nuevo."
   },
   "sellerHome": {
     "verifyTitle": "Verifica tu identidad",
@@ -480,6 +486,8 @@
     "endStreamConfirmMessage": "¿Seguro que deseas finalizar el stream?",
     "endedByBroadcaster": "El vendedor finalizó la transmisión.",
     "endedByBroadcasterDisconnect": "La transmisión finalizó porque el vendedor se desconectó.",
+    "endedTitle": "Live finalizado",
+    "endedAccept": "Aceptar",
     "sellerMoreTitle": "Opciones del vivo",
     "sellerStartAuction": "Iniciar subasta",
     "sellerAddProduct": "Agregar producto",
@@ -654,6 +662,7 @@
     "productLive": "Live",
     "productArticles": "{{count}} artículos",
     "startsSoon": "Comienza pronto",
+    "permanentProduct": "Tienda",
     "noReviews": "Aún no hay reseñas para mostrar.",
     "reviewCategoryGeneral": "General",
     "reviewCategoryShipping": "Envíos",
@@ -770,6 +779,11 @@
     "conditionNew": "Nuevo",
     "conditionLightlyUsed": "Poco uso",
     "conditionUsed": "Usado",
+    "clipTitle": "Clip de la Compra",
+    "clipSubtitle": "Momento exacto en que ganaste la subasta",
+    "clipOf": "Subasta de {{title}}",
+    "clipItemsCount_one": "{{count}} artículo",
+    "clipItemsCount_other": "{{count}} artículos",
     "shippingStatus": "Estado del Envío",
     "stepConfirmed": "Pedido confirmado",
     "stepPaymentApproved": "Pago aprobado",

@@ -40,6 +40,8 @@ export interface PlatformRoom {
   privacy?: string;
   cover_url?: string | null;
   intro_video_url?: string | null;
+  /** Espectadores conectados al WS de la sala (GET /rooms, GET /rooms/feed). */
+  viewer_count?: number;
 }
 
 export interface PlatformRoomResponse {
@@ -438,6 +440,21 @@ function formatPlatformErrorDetail(detail: unknown): string {
   }
 }
 
+export class SeatsFullError extends Error {
+  constructor(message = 'SEATS_FULL') {
+    super(message);
+    this.name = 'SeatsFullError';
+  }
+}
+
+function platformErrorCode(raw: unknown): string | undefined {
+  if (raw && typeof raw === 'object' && 'code' in raw) {
+    const code = (raw as { code?: unknown }).code;
+    if (typeof code === 'string') return code;
+  }
+  return undefined;
+}
+
 export async function getWebRTCCredentials(
   accessToken: string,
   roomId: string,
@@ -450,7 +467,37 @@ export async function getWebRTCCredentials(
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     const raw = (err as { detail?: unknown }).detail;
+    if (res.status === 409 && platformErrorCode(raw) === 'SEATS_FULL') {
+      throw new SeatsFullError();
+    }
     const msg = formatPlatformErrorDetail(raw) || `getWebRTCCredentials: ${res.status}`;
+    throw new Error(msg);
+  }
+  return res.json();
+}
+
+export type ViewerTransportDecision = 'webrtc' | 'hls';
+
+export interface StreamWatchResponse {
+  transport: ViewerTransportDecision;
+  webrtc_credentials?: StreamWebRTCCredentialsResponse | null;
+  webrtc_seats?: number | null;
+}
+
+/**
+ * Decisión de transporte del viewer (híbrido): el backend asigna un asiento WebRTC
+ * si hay cupo (devuelve credenciales) o deriva a HLS si la sala está llena.
+ */
+export async function getStreamWatch(
+  accessToken: string,
+  roomId: string
+): Promise<StreamWatchResponse> {
+  const url = `${PLATFORM_HTTP_URL}/stream/watch?room_id=${encodeURIComponent(roomId)}`;
+  const res = await fetch(url, { headers: authHeaders(accessToken) });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    const raw = (err as { detail?: unknown }).detail;
+    const msg = formatPlatformErrorDetail(raw) || `getStreamWatch: ${res.status}`;
     throw new Error(msg);
   }
   return res.json();
@@ -766,6 +813,7 @@ export interface UserProfileProductItem {
   article_count: number;
   price_cents: number;
   currency: string;
+  is_permanent?: boolean;
   scheduled_at?: number | null;
   starts_soon?: boolean;
   auction_seconds_remaining?: number | null;
@@ -829,6 +877,8 @@ export interface PurchaseItem {
   /** Vendedor (en compras) o comprador (en ventas). */
   counterpart: PurchaseCounterpart;
   won_at_ms?: number | null;
+  /** Clip de la subasta (MP4 en S3, generado por platform_livestream). */
+  recording_asset_url?: string | null;
   created_at: number;
 }
 

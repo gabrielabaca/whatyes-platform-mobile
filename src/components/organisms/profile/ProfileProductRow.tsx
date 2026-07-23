@@ -63,13 +63,15 @@ export const ProfileProductRow: React.FC<ProfileProductRowProps> = ({ item, onPr
   const isLive = item.status === 'live';
   const isDraft = item.status === 'draft';
 
-  const statusLabel = isLive
-    ? t('profile.productLive')
-    : isDraft && item.starts_soon
-      ? t('profile.startsSoon')
-      : item.scheduled_at
-        ? formatScheduled(item.scheduled_at)
-        : t('profile.startsSoon');
+  const statusLabel = item.is_permanent
+    ? t('profile.permanentProduct')
+    : isLive
+      ? t('profile.productLive')
+      : isDraft && item.starts_soon
+        ? t('profile.startsSoon')
+        : item.scheduled_at
+          ? formatScheduled(item.scheduled_at)
+          : t('profile.startsSoon');
 
   const showTimer =
     isLive && item.auction_seconds_remaining != null && item.auction_seconds_remaining >= 0;

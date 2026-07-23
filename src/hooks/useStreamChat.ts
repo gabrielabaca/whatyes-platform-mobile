@@ -235,6 +235,7 @@ export function useStreamChat({
             }
             const a = msg.payload.auction;
             if (a && a.id && typeof a.ends_at === 'number' && a.ends_at > serverNow()) {
+              if (typeof a.started_at === 'number') syncClock(a.started_at);
               setAuction({
                 id: a.id,
                 durationSeconds: a.duration_seconds ?? 10,

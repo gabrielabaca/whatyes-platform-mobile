@@ -2,15 +2,6 @@ import type { TFunction } from 'i18next';
 import type { PlatformRoom } from '../api/platformApi';
 import type { LiveStreamPreviewModel } from '../components/organisms/home/types';
 
-/** Espectadores simulados estables por sala hasta que la API exponga el dato */
-export function pseudoViewers(uuid: string): number {
-  let h = 0;
-  for (let i = 0; i < uuid.length; i++) {
-    h = Math.abs((h * 31 + uuid.charCodeAt(i)) % 100000);
-  }
-  return (h % 4500) + 50;
-}
-
 /**
  * Mapea `PlatformRoom` (+ `creator` de service-users) al modelo de tarjetas de la Home.
  */
@@ -51,10 +42,10 @@ export function mapPlatformRoomToPreview(r: PlatformRoom, t: TFunction): LiveStr
     id: r.uuid,
     sellerName,
     title,
-    viewerCount: pseudoViewers(r.uuid),
+    viewerCount: r.viewer_count ?? 0,
     thumbnail: coverThumb,
     coverUrl: coverThumb ?? null,
-    rating: 4.2 + (pseudoViewers(r.uuid) % 8) / 10,
+    rating: 4.2 + ((r.viewer_count ?? 0) % 8) / 10,
     categoryLabel: interestCategories?.[0]?.label ?? null,
     interestCategories,
     sellerAvatarUrl: cr?.profile_picture ?? null,

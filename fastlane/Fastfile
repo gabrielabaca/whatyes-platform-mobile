@@ -5,9 +5,15 @@ Dotenv.load(File.join(project_root, "env", ".env_main"))
 
 default_platform(:ios)
 
+def patch_google_ios_url_scheme!(project_root:)
+  sh("ruby", File.join(project_root, "scripts/patch_google_ios_url_scheme.rb"))
+end
+
 def build_ios(team_id:, project_root:)
   xcargs = "-allowProvisioningUpdates"
   xcargs += " DEVELOPMENT_TEAM=#{team_id}" if team_id && !team_id.empty?
+
+  patch_google_ios_url_scheme!(project_root: project_root)
 
   cocoapods(
     podfile: "ios/Podfile",

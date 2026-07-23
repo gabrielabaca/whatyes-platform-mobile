@@ -383,17 +383,6 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
     onEndStream();
   }, [token, roomId, onEndStream, disconnectPermanently]);
 
-  const handleEndStream = useCallback(() => {
-    Alert.alert(
-      t('stream.endStreamConfirmTitle'),
-      t('stream.endStreamConfirmMessage'),
-      [
-        { text: t('common.cancel'), style: 'cancel' },
-        { text: t('stream.endStream'), style: 'destructive', onPress: confirmEndStream },
-      ],
-    );
-  }, [t, confirmEndStream]);
-
   const { hasPermission, requestPermission } = useCameraPermission();
   const frontDevice = useCameraDevice('front');
   const backDevice = useCameraDevice('back');
@@ -615,7 +604,7 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
         auctionSecondsRemaining={auctionSecondsRemaining}
         auctionBids={auctionBids}
         auctionWinnerUsername={auctionWinner?.username}
-        onEndStream={handleEndStream}
+        onEndStream={confirmEndStream}
         isStreamPaused={isStreamPaused}
         onTogglePause={handleTogglePause}
         isMicMuted={isMicMuted}

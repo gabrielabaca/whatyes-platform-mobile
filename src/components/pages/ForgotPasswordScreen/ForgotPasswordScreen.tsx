@@ -13,11 +13,11 @@ import {
   Alert,
   TouchableOpacity,
   TextInput,
-  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeft } from 'lucide-react-native';
+import { ArrowLeft, Eye, EyeOff } from 'lucide-react-native';
 import { Text } from '../../atoms/Text';
+import { Button } from '../../atoms/Button';
 import { forgotPasswordRequest, resetPassword, ApiError } from '../../../api';
 import { FONT_FAMILY } from '../../../theme/typography';
 import { themeColors } from '../../../theme/colors';
@@ -50,6 +50,8 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
   const [emailError, setEmailError] = useState<string | null>(null);
   const [newPasswordError, setNewPasswordError] = useState<string | null>(null);
   const [confirmPasswordError, setConfirmPasswordError] = useState<string | null>(null);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const forgotPasswordCodeDigits = code.slice(0, FORGOT_PASSWORD_OTP_LENGTH).split('');
 
@@ -218,18 +220,16 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
                   ) : null}
                 </View>
 
-                <TouchableOpacity
+                <Button
+                  title={t('common.continue')}
+                  variant="primary"
+                  size="large"
+                  loading={isLoading}
+                  disabled={!email.trim() || isLoading}
                   onPress={handleRequestCode}
                   activeOpacity={0.9}
-                  disabled={!email.trim() || isLoading}
-                  className={`rounded-full min-h-[52px] items-center justify-center px-8 bg-primary-600 ${!email.trim() || isLoading ? 'opacity-60' : 'opacity-100'}`}
-                >
-                  {isLoading ? (
-                    <ActivityIndicator color="#FFFFFF" />
-                  ) : (
-                    <Text className="text-white text-base leading-6 font-semibold">{t('common.continue')}</Text>
-                  )}
-                </TouchableOpacity>
+                  className="w-full rounded-full"
+                />
               </>
             )}
 
@@ -265,43 +265,69 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
                   </View>
                 </View>
                 <View className="mb-6">
-                  <TextInput
-                    value={newPassword}
-                    onChangeText={(v) => {
-                      setNewPassword(v);
-                      if (newPasswordError) setNewPasswordError(null);
-                    }}
-                    placeholder={t('forgotPassword.newPassword')}
-                    placeholderTextColor={isDark ? themeColors.dark.textMuted : '#7D7E83'}
-                    secureTextEntry
-                    autoCapitalize="none"
-                    editable={!isLoading}
-                    style={{ fontFamily: FONT_FAMILY.regular }}
-                    className={`rounded-full px-4 py-4 text-[12px] text-[#02050F] dark:text-white dark:bg-night-800 min-h-[52px] border ${
-                      newPasswordError ? 'border-[#E53935]' : 'border-[#D9D9D9] dark:border-[#D9D9D9]'
-                    }`}
-                  />
+                  <View className="relative">
+                    <TextInput
+                      value={newPassword}
+                      onChangeText={(v) => {
+                        setNewPassword(v);
+                        if (newPasswordError) setNewPasswordError(null);
+                      }}
+                      placeholder={t('forgotPassword.newPassword')}
+                      placeholderTextColor={isDark ? themeColors.dark.textMuted : '#7D7E83'}
+                      secureTextEntry={!showNewPassword}
+                      autoCapitalize="none"
+                      editable={!isLoading}
+                      style={{ fontFamily: FONT_FAMILY.regular }}
+                      className={`rounded-full px-4 py-4 pr-12 text-[12px] text-[#02050F] dark:text-white dark:bg-night-800 min-h-[52px] border ${
+                        newPasswordError ? 'border-[#E53935]' : 'border-[#D9D9D9] dark:border-[#D9D9D9]'
+                      }`}
+                    />
+                    <TouchableOpacity
+                      onPress={() => setShowNewPassword(!showNewPassword)}
+                      className="absolute right-4 top-0 bottom-0 justify-center"
+                      disabled={isLoading}
+                    >
+                      {showNewPassword ? (
+                        <EyeOff size={18} color={c.text} />
+                      ) : (
+                        <Eye size={18} color={c.text} />
+                      )}
+                    </TouchableOpacity>
+                  </View>
                   {newPasswordError ? (
                     <Text className="mt-1 text-[10px] leading-[18px]" style={{ color: '#E53935' }}>
                       {newPasswordError}
                     </Text>
                   ) : null}
-                  <TextInput
-                    value={confirmPassword}
-                    onChangeText={(v) => {
-                      setConfirmPassword(v);
-                      if (confirmPasswordError) setConfirmPasswordError(null);
-                    }}
-                    placeholder={t('forgotPassword.confirmPassword')}
-                    placeholderTextColor={isDark ? themeColors.dark.textMuted : '#7D7E83'}
-                    secureTextEntry
-                    autoCapitalize="none"
-                    editable={!isLoading}
-                    style={{ fontFamily: FONT_FAMILY.regular }}
-                    className={`mt-3 rounded-full px-4 py-4 text-[12px] text-[#02050F] dark:text-white dark:bg-night-800 min-h-[52px] border ${
-                      confirmPasswordError ? 'border-[#E53935]' : 'border-[#D9D9D9] dark:border-[#D9D9D9]'
-                    }`}
-                  />
+                  <View className="relative mt-3">
+                    <TextInput
+                      value={confirmPassword}
+                      onChangeText={(v) => {
+                        setConfirmPassword(v);
+                        if (confirmPasswordError) setConfirmPasswordError(null);
+                      }}
+                      placeholder={t('forgotPassword.confirmPassword')}
+                      placeholderTextColor={isDark ? themeColors.dark.textMuted : '#7D7E83'}
+                      secureTextEntry={!showConfirmPassword}
+                      autoCapitalize="none"
+                      editable={!isLoading}
+                      style={{ fontFamily: FONT_FAMILY.regular }}
+                      className={`rounded-full px-4 py-4 pr-12 text-[12px] text-[#02050F] dark:text-white dark:bg-night-800 min-h-[52px] border ${
+                        confirmPasswordError ? 'border-[#E53935]' : 'border-[#D9D9D9] dark:border-[#D9D9D9]'
+                      }`}
+                    />
+                    <TouchableOpacity
+                      onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute right-4 top-0 bottom-0 justify-center"
+                      disabled={isLoading}
+                    >
+                      {showConfirmPassword ? (
+                        <EyeOff size={18} color={c.text} />
+                      ) : (
+                        <Eye size={18} color={c.text} />
+                      )}
+                    </TouchableOpacity>
+                  </View>
                   {confirmPasswordError ? (
                     <Text className="mt-1 text-[10px] leading-[18px]" style={{ color: '#E53935' }}>
                       {confirmPasswordError}
@@ -309,18 +335,16 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
                   ) : null}
                 </View>
 
-                <TouchableOpacity
+                <Button
+                  title={t('common.continue')}
+                  variant="primary"
+                  size="large"
+                  loading={isLoading}
+                  disabled={!code || !newPassword || !confirmPassword || isLoading}
                   onPress={handleResetPassword}
                   activeOpacity={0.9}
-                  disabled={!code || !newPassword || !confirmPassword || isLoading}
-                  className={`rounded-full min-h-[52px] items-center justify-center px-8 bg-primary-600 ${!code || !newPassword || !confirmPassword || isLoading ? 'opacity-60' : 'opacity-100'}`}
-                >
-                  {isLoading ? (
-                    <ActivityIndicator color="#FFFFFF" />
-                  ) : (
-                    <Text className="text-white text-base leading-6 font-semibold">{t('common.continue')}</Text>
-                  )}
-                </TouchableOpacity>
+                  className="w-full rounded-full"
+                />
 
                 <TouchableOpacity onPress={handleRequestCode} className="items-center mt-3">
                   <Text className="text-primary-600 text-[12px] font-bold">{t('forgotPassword.resendCode')}</Text>

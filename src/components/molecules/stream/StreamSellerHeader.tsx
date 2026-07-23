@@ -7,7 +7,7 @@ import {
   Alert,
   TouchableOpacity,
 } from 'react-native';
-import { Star, Eye } from 'lucide-react-native';
+import { Star, Eye, X } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { StreamGlassPill } from '../../atoms/stream/StreamGlassPill';
 import { StreamGradientButton } from '../../atoms/stream/StreamGradientButton';
@@ -26,6 +26,8 @@ export interface StreamSellerHeaderProps {
   onFollowPress?: () => void;
   /** Tocar avatar o nombre → perfil del vendedor. */
   onSellerPress?: () => void;
+  /** Cierra el live (viewer: sale; seller: abre confirmación en overlay). */
+  onExitPress?: () => void;
 }
 
 export const StreamSellerHeader: React.FC<StreamSellerHeaderProps> = ({
@@ -37,6 +39,7 @@ export const StreamSellerHeader: React.FC<StreamSellerHeaderProps> = ({
   isFollowing = false,
   onFollowPress,
   onSellerPress,
+  onExitPress,
 }) => {
   const { t } = useTranslation();
   const displayRating = rating ?? 4.9;
@@ -76,49 +79,74 @@ export const StreamSellerHeader: React.FC<StreamSellerHeaderProps> = ({
   );
 
   return (
-    <StreamGlassPill style={styles.pill}>
-      <View style={styles.row}>
-        {onSellerPress ? (
-          <TouchableOpacity
-            style={styles.sellerIdentity}
-            onPress={onSellerPress}
-            activeOpacity={0.85}
-            accessibilityRole="button"
-            accessibilityLabel={displayName}
-          >
-            {identity}
-          </TouchableOpacity>
-        ) : (
-          <View style={styles.sellerIdentity}>{identity}</View>
-        )}
+    <View style={styles.headerRow}>
+      <StreamGlassPill style={styles.pill}>
+        <View style={styles.row}>
+          {onSellerPress ? (
+            <TouchableOpacity
+              style={styles.sellerIdentity}
+              onPress={onSellerPress}
+              activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel={displayName}
+            >
+              {identity}
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.sellerIdentity}>{identity}</View>
+          )}
 
-        <View style={styles.actions}>
-          <StreamGlassPill style={styles.viewerPill}>
-            <View style={styles.viewerRow}>
-              <Eye size={14} color={STREAM_COLORS.white} />
-              <RNText style={styles.viewerText}>
-                {viewerCount.toLocaleString('es-CO')}
-              </RNText>
-            </View>
-          </StreamGlassPill>
-          {variant === 'buyer' ? (
-            <View style={styles.followDivider}>
-              <StreamGradientButton
-                label={isFollowing ? t('stream.following') : t('stream.follow')}
-                onPress={handleFollow}
-                variant={isFollowing ? 'following' : 'follow'}
-                minWidth={72}
-              />
-            </View>
-          ) : null}
+          <View style={styles.actions}>
+            <StreamGlassPill style={styles.viewerPill}>
+              <View style={styles.viewerRow}>
+                <Eye size={14} color={STREAM_COLORS.white} />
+                <RNText style={styles.viewerText}>
+                  {viewerCount.toLocaleString('es-CO')}
+                </RNText>
+              </View>
+            </StreamGlassPill>
+            {variant === 'buyer' ? (
+              <View style={styles.followDivider}>
+                <StreamGradientButton
+                  label={isFollowing ? t('stream.following') : t('stream.follow')}
+                  onPress={handleFollow}
+                  variant={isFollowing ? 'following' : 'follow'}
+                  minWidth={72}
+                />
+              </View>
+            ) : null}
+          </View>
         </View>
-      </View>
-    </StreamGlassPill>
+      </StreamGlassPill>
+
+      {onExitPress ? (
+        <StreamGlassPill style={styles.exitPill}>
+          <TouchableOpacity
+            onPress={onExitPress}
+            style={styles.exitBtn}
+            activeOpacity={0.85}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={variant === 'seller' ? t('stream.endStream') : t('stream.exit')}
+          >
+            <X size={22} color={STREAM_COLORS.white} strokeWidth={2.2} />
+          </TouchableOpacity>
+        </StreamGlassPill>
+      ) : null}
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    width: '100%',
+  },
   pill: {
+    flex: 1,
+    minWidth: 0,
     paddingHorizontal: 12,
     paddingVertical: 8,
     minHeight: 52,
@@ -212,5 +240,17 @@ const styles = StyleSheet.create({
     borderLeftWidth: 1,
     borderLeftColor: 'rgba(221,221,221,0.87)',
     paddingLeft: 12,
+  },
+  exitPill: {
+    width: 52,
+    height: 52,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  exitBtn: {
+    width: 52,
+    height: 52,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

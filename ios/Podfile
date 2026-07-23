@@ -8,6 +8,11 @@ require Pod::Executable.execute_command('node', ['-p',
 platform :ios, min_ios_version_supported
 prepare_react_native_project!
 
+# Google Sign-In: usar la librería precompilada estática para evitar el error
+# "The Swift pod AppCheckCore depends upon GoogleUtilities... cannot be integrated
+# as static libraries" al integrar el SDK de GoogleSignIn con la New Architecture.
+$RNGoogleSigninAsStaticLibrary = true
+
 linkage = ENV['USE_FRAMEWORKS']
 if linkage != nil
   Pod::UI.puts "Configuring Pod with #{linkage}ally linked Frameworks".green
@@ -16,6 +21,13 @@ end
 
 target 'PulpoLive' do
   config = use_native_modules!
+
+  # GoogleSignIn (login social) arrastra AppCheckCore, que depende de GoogleUtilities
+  # y RecaptchaInterop sin module map → error "cannot be integrated as static
+  # libraries". Habilitar modular headers para esos pods lo resuelve.
+  pod 'GoogleUtilities', :modular_headers => true
+  pod 'RecaptchaInterop', :modular_headers => true
+  pod 'AppCheckCore', :modular_headers => true
 
   use_react_native!(
     :path => config[:reactNativePath],

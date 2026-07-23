@@ -8,3 +8,7 @@ export { StopLiveButton } from './StopLiveButton';
 export type { StopLiveButtonProps } from './StopLiveButton';
 export { AuctionStatusRow } from './AuctionStatusRow';
 export type { AuctionStatusRowProps } from './AuctionStatusRow';
+export { DismissKeyboardView } from './DismissKeyboardView';
+export type { DismissKeyboardViewProps } from './DismissKeyboardView';
+export { KeyboardDismissScrollView } from './KeyboardDismissScrollView';
+export type { KeyboardDismissScrollViewProps } from './KeyboardDismissScrollView';

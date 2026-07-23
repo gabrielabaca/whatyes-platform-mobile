@@ -24,7 +24,6 @@ import { Button } from '../../atoms/Button';
 import { VerificationCodeScreen } from '../VerificationCodeScreen';
 import { BuyerProfileOnboardingScreen } from '../BuyerProfileOnboardingScreen';
 import { BuyerInterestsOnboardingScreen } from '../BuyerInterestsOnboardingScreen';
-import { BuyerRegistrationCompleteScreen } from '../BuyerRegistrationCompleteScreen';
 import { BuyerKycOnboardingScreen } from '../BuyerKycOnboardingScreen';
 import {
   createBuyerUser,
@@ -59,6 +58,21 @@ function formatBirthdayDisplay(d: Date): string {
   return `${mm}/${dd}/${yyyy}`;
 }
 
+/** Formato ISO YYYY-MM-DD que espera el backend. */
+function formatBirthdayIso(d: Date): string {
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${mm}-${dd}`;
+}
+
+const MIN_AGE_YEARS = 18;
+
+function isAdult(birthDate: Date): boolean {
+  const cutoff = new Date();
+  cutoff.setFullYear(cutoff.getFullYear() - MIN_AGE_YEARS);
+  return birthDate <= cutoff;
+}
+
 const DEFAULT_BIRTHDAY = new Date(1999, 2, 16);
 
 interface RegisterScreenProps {
@@ -77,7 +91,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
   const [registeredEmail, setRegisteredEmail] = useState('');
   const [registeredUserUuid, setRegisteredUserUuid] = useState('');
   const [postVerifyStep, setPostVerifyStep] = useState<
-    'profile' | 'interests' | 'kyc' | 'complete' | null
+    'profile' | 'interests' | 'kyc' | null
   >(null);
 
   /** Tras reinicio de app: restaurar paso del onboarding comprador si el JWT ya existe */
@@ -90,12 +104,18 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
       if (cancelled || !token || !pending || !saved) {
         return;
       }
+      // 'complete' quedó de versiones previas: el onboarding ya terminó, activar sesión.
+      if (saved === 'complete') {
+        await finishBuyerOnboarding();
+        return;
+      }
       setShowVerification(false);
       setPostVerifyStep(saved);
     })();
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -117,6 +137,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
   const [showBuyerPw, setShowBuyerPw] = useState(false);
   const [showBuyerPw2, setShowBuyerPw2] = useState(false);
   const [buyerEmailError, setBuyerEmailError] = useState<string | null>(null);
+  const [buyerBirthdayError, setBuyerBirthdayError] = useState<string | null>(null);
   const [buyerPasswordError, setBuyerPasswordError] = useState<string | null>(null);
   const [buyerConfirmError, setBuyerConfirmError] = useState<string | null>(null);
 
@@ -125,6 +146,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
 
   const validateBuyerForm = (): boolean => {
     setBuyerEmailError(null);
+    setBuyerBirthdayError(null);
     setBuyerPasswordError(null);
     setBuyerConfirmError(null);
 
@@ -134,6 +156,11 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
     }
     if (!isValidEmail(email)) {
       setBuyerEmailError(t('common.invalidEmail'));
+      return false;
+    }
+
+    if (!isAdult(birthdayDate)) {
+      setBuyerBirthdayError(t('register.underageError'));
       return false;
     }
 
@@ -176,6 +203,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
         email: email.trim(),
         name: nameFromEmail(email.trim()),
         last_name: undefined,
+        birth_date: formatBirthdayIso(birthdayDate),
         password,
         repeat_password: repeatPassword,
       };
@@ -246,7 +274,9 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
   if (postVerifyStep === 'profile') {
     return (
       <BuyerProfileOnboardingScreen
+        initialName={email.trim() ? nameFromEmail(email.trim()) : undefined}
         onSkip={() => setPostVerifyStep('interests')}
+        onSkipAll={() => void finishBuyerOnboarding()}
         onContinue={async (payload) => {
           const hasAny =
             (payload.name && payload.name.length > 0) ||
@@ -280,6 +310,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
         onSkip={async () => {
           await completeInterestsStep([]);
         }}
+        onSkipAll={() => void finishBuyerOnboarding()}
         onContinue={(uuids) => completeInterestsStep(uuids)}
       />
     );
@@ -289,13 +320,9 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
     return (
       <BuyerKycOnboardingScreen
         onBack={() => setPostVerifyStep('interests')}
-        onProceedToComplete={() => setPostVerifyStep('complete')}
+        onProceedToComplete={() => void finishBuyerOnboarding()}
       />
     );
-  }
-
-  if (postVerifyStep === 'complete') {
-    return <BuyerRegistrationCompleteScreen onViewAuctions={finishBuyerOnboarding} />;
   }
 
   if (showVerification) {
@@ -397,7 +424,11 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                     setShowBirthdayPicker(true);
                   }}
                   className={`rounded-full px-4 py-4 flex-row items-center justify-between min-h-[52px] border bg-white dark:bg-night-800 ${
-                    buyerFocus === 'birthday' ? 'border-[#49A9E1]' : 'border-[#D9D9D9]'
+                    buyerBirthdayError
+                      ? 'border-[#E53935]'
+                      : buyerFocus === 'birthday'
+                        ? 'border-[#49A9E1]'
+                        : 'border-[#D9D9D9]'
                   }`}
                 >
                   <Text
@@ -447,7 +478,10 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                           display="spinner"
                           themeVariant={isDark ? 'dark' : 'light'}
                           onChange={(_e, d) => {
-                            if (d) setBirthdayDate(d);
+                            if (d) {
+                              setBirthdayDate(d);
+                              if (buyerBirthdayError) setBuyerBirthdayError(null);
+                            }
                           }}
                           maximumDate={maxBirthday}
                           minimumDate={minBirthday}
@@ -456,6 +490,11 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                     </View>
                   </View>
                 </Modal>
+                {buyerBirthdayError ? (
+                  <Text className="mt-1 text-[10px] leading-[18px]" style={{ color: '#E53935' }}>
+                    {buyerBirthdayError}
+                  </Text>
+                ) : null}
               </View>
 
               <View>

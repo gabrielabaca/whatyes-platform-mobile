@@ -6,30 +6,32 @@ import {
   View,
   StyleSheet,
   StatusBar,
-  ActivityIndicator,
   TouchableOpacity,
   Alert,
-  Image,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { RTCView } from 'react-native-webrtc';
-import HeaderLogo from '../../../../assets/images/header_logo.svg';
 import { Text } from '../../atoms/Text';
 import type { StreamData } from '../../molecules/StreamCard';
 import { storage } from '../../../utils/storage';
 import {
   getWebRTCCredentials,
+  getStreamWatch,
   getRoomLiveCommerce,
   getRoomCatalog,
   getRooms,
+  SeatsFullError,
   type LiveCommerceResponse,
   type RoomCatalogProductItem,
   type StreamWebRTCCredentialsResponse,
+  type ViewerTransportDecision,
 } from '../../../api/platformApi';
 import { startKinesisWebRTCViewer, stopKinesisWebRTCViewer } from '../../../native/KinesisWebRTCNative';
 import type { MediaStream } from 'react-native-webrtc';
 import { getViewerTransport } from '../../../api/config';
 import { HlsStreamPlayer } from '../../molecules/stream/HlsStreamPlayer';
+import { StreamViewerSplash } from '../../molecules/stream/StreamViewerSplash';
+import { fetchLiveRoomIds, pickNextLiveStreamIndex } from '../../../utils/streamLiveNavigation';
 import { useStreamChat } from '../../../hooks/useStreamChat';
 import { AuctionWinnerOverlay } from '../../molecules/AuctionWinnerOverlay/AuctionWinnerOverlay';
 import { useFloatingHearts, FloatingHeartsLayer } from '../../molecules/FloatingHearts/FloatingHearts';
@@ -70,6 +72,17 @@ const AUTO_PROMPTS_DELAY_MS = 15_000;
 /** Reintentos automáticos (con credenciales frescas) antes de mostrar error. */
 const MAX_CONNECT_ATTEMPTS = 2;
 
+export type StreamEndedReason = 'ended' | 'disconnect';
+
+/** Contexto del feed de swipe para navegar al siguiente live al finalizar uno. */
+export interface StreamEndedFeedContext {
+  streams: StreamData[];
+  currentIndex: number;
+  categoryUuid?: string;
+  onNavigateToStream: (index: number, streamId: string) => void;
+  onLeaveFeed: () => void;
+}
+
 export interface StreamScreenProps {
   stream: StreamData;
   onClose: () => void;
@@ -78,13 +91,29 @@ export interface StreamScreenProps {
    * Cuando están presentes se omite el round-trip HTTP a /webrtc-credentials.
    */
   initialCreds?: StreamWebRTCCredentialsResponse | null;
+  /** Feed de swipe: permite ir al siguiente live o salir a inicio. */
+  endedFeedContext?: StreamEndedFeedContext;
+  /** Fallback cuando no hay feed de swipe (p. ej. stream abierto fuera del carrusel). */
+  onLiveEndedAccept?: () => void;
 }
 
-export const StreamScreen: React.FC<StreamScreenProps> = ({ stream, onClose, initialCreds }) => {
+export const StreamScreen: React.FC<StreamScreenProps> = ({
+  stream,
+  onClose,
+  initialCreds,
+  endedFeedContext,
+  onLiveEndedAccept,
+}) => {
   const { t } = useTranslation();
   const [messageText, setMessageText] = useState('');
-  const viewerTransport = getViewerTransport();
-  const isHls = viewerTransport === 'hls';
+  // Transporte híbrido: el backend decide por sala (asiento WebRTC si hay cupo,
+  // HLS si está llena) vía GET /stream/watch. VIEWER_TRANSPORT=hls fuerza HLS
+  // globalmente (debug/rollout); cualquier otro valor = automático.
+  const forcedHls = getViewerTransport() === 'hls';
+  const [transport, setTransport] = useState<ViewerTransportDecision | null>(
+    forcedHls ? 'hls' : initialCreds ? 'webrtc' : null
+  );
+  const isHls = transport === 'hls';
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const [hlsReady, setHlsReady] = useState(false);
   const [streamError, setStreamError] = useState<string | null>(null);
@@ -116,6 +145,10 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({ stream, onClose, ini
   // Reintento de conexión: connectAttempt dispara el effect; el ref lleva la cuenta persistente.
   const [connectAttempt, setConnectAttempt] = useState(0);
   const connectAttemptRef = useRef(0);
+  const [streamEndedReason, setStreamEndedReason] = useState<StreamEndedReason | null>(null);
+  const [endedAcceptLoading, setEndedAcceptLoading] = useState(false);
+
+  const roomId = stream.id;
 
   const {
     isFollowing: isFollowingSeller,
@@ -129,22 +162,9 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({ stream, onClose, ini
     initialFollowing: sellerFollowInitial,
   });
 
-  const roomId = stream.id;
-
-  const handleStreamEnded = useCallback(
-    (reason?: string) => {
-      stopKinesisWebRTCViewer().catch(() => {});
-      setRemoteStream(null);
-      const message =
-        reason === 'master_absent'
-          ? t('stream.endedByBroadcasterDisconnect')
-          : t('stream.endedByBroadcaster');
-      Alert.alert(t('stream.endStreamConfirmTitle'), message, [
-        { text: t('common.ok'), onPress: onClose },
-      ]);
-    },
-    [onClose, t],
-  );
+  const onStreamEndedFromWs = useCallback((reason?: string) => {
+    setStreamEndedReason(reason === 'master_absent' ? 'disconnect' : 'ended');
+  }, []);
 
   const {
     messages,
@@ -160,12 +180,60 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({ stream, onClose, ini
     isStreamPaused,
     roomCoverUrl: wsCoverUrl,
     roomIntroVideoUrl: wsIntroVideoUrl,
+    disconnectPermanently,
   } = useStreamChat({
     roomId,
     accessToken: chatToken,
     onLike: handleLikeEvent,
-    onStreamEnded: handleStreamEnded,
+    onStreamEnded: onStreamEndedFromWs,
   });
+
+  useEffect(() => {
+    if (!streamEndedReason) return;
+    stopKinesisWebRTCViewer().catch(() => {});
+    viewerCleanupRef.current?.();
+    viewerCleanupRef.current = null;
+    setRemoteStream(null);
+    setIsConnecting(false);
+    setHlsReady(false);
+    disconnectPermanently();
+  }, [streamEndedReason, disconnectPermanently]);
+
+  const handleEndedAccept = useCallback(async () => {
+    if (endedAcceptLoading) return;
+    setEndedAcceptLoading(true);
+    try {
+      if (endedFeedContext) {
+        const liveIds = await fetchLiveRoomIds(endedFeedContext.categoryUuid);
+        const nextIndex = pickNextLiveStreamIndex(
+          endedFeedContext.streams,
+          stream.id,
+          liveIds,
+          endedFeedContext.currentIndex
+        );
+        if (nextIndex != null) {
+          const target = endedFeedContext.streams[nextIndex];
+          endedFeedContext.onNavigateToStream(nextIndex, target.id);
+          return;
+        }
+        endedFeedContext.onLeaveFeed();
+        return;
+      }
+      if (onLiveEndedAccept) {
+        onLiveEndedAccept();
+        return;
+      }
+      onClose();
+    } finally {
+      setEndedAcceptLoading(false);
+    }
+  }, [
+    endedAcceptLoading,
+    endedFeedContext,
+    onClose,
+    onLiveEndedAccept,
+    stream.id,
+  ]);
   const { bidEvents, handleBidDone } = useFloatingBids(auctionBids);
 
   const effectiveCoverUrl = wsCoverUrl ?? roomCoverUrl;
@@ -469,6 +537,39 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({ stream, onClose, ini
   );
 
   useEffect(() => {
+    // Resolver transporte con el backend (asiento WebRTC u HLS) cuando no vino
+    // pre-decidido (sin initialCreds y sin override por env).
+    if (transport !== null) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const token = await storage.getAccessToken();
+        if (!token) {
+          if (!cancelled) setStreamError('No se pudo obtener la sesión');
+          return;
+        }
+        const watch = await getStreamWatch(token, roomId);
+        if (cancelled) return;
+        if (watch.transport === 'webrtc' && watch.webrtc_credentials) {
+          initialCredsRef.current = watch.webrtc_credentials;
+          setTransport('webrtc');
+        } else {
+          setTransport('hls');
+        }
+      } catch {
+        // Backend sin /stream/watch (rollout) o error transitorio: comportamiento
+        // previo — intentar WebRTC directo (el 409 SEATS_FULL derivará a HLS).
+        if (!cancelled) setTransport('webrtc');
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [transport, roomId]);
+
+  useEffect(() => {
+    // Esperando la decisión de transporte del backend.
+    if (transport === null) return;
     // En modo HLS el video lo maneja <HlsStreamPlayer/>; no abrir peer WebRTC.
     if (isHls) {
       setIsConnecting(false);
@@ -550,6 +651,12 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({ stream, onClose, ini
           handleConnectFailure('timeout');
         }, CONNECT_TIMEOUT_MS);
       } catch (e: unknown) {
+        if (e instanceof SeatsFullError) {
+          // El asiento se ocupó entre la decisión y la conexión (o en un
+          // reintento con credenciales frescas): degradar a HLS sin error.
+          if (!cancelled) setTransport('hls');
+          return;
+        }
         const msg = e instanceof Error ? e.message : 'No se pudo cargar el stream';
         handleConnectFailure(msg);
       } finally {
@@ -565,7 +672,7 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({ stream, onClose, ini
       viewerCleanupRef.current = null;
       disableSpeakerphone();
     };
-  }, [roomId, onClose, isHls, connectAttempt]);
+  }, [roomId, onClose, transport, isHls, connectAttempt]);
 
   useEffect(() => {
     if (!remoteStream) {
@@ -634,6 +741,39 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({ stream, onClose, ini
   const productBasePriceCents = liveCommerce?.active_product?.base_price_cents ?? 0;
   const displayViewerCount = isChatConnected ? viewerCount : stream.viewerCount;
 
+  /** Panel de subasta y bid bar: solo con subasta en curso (WS o live-commerce). */
+  const showAuctionUi = useMemo(() => {
+    const nowSec = Math.floor(Date.now() / 1000);
+    const apiAuction = liveCommerce?.active_auction;
+    if (apiAuction?.status === 'active' && apiAuction.ends_at > nowSec) {
+      return true;
+    }
+    if (isAuctionActive && (auctionSecondsRemaining ?? 0) > 0) {
+      return true;
+    }
+    return false;
+  }, [liveCommerce?.active_auction, isAuctionActive, auctionSecondsRemaining]);
+
+  const splashCoverUrl = effectiveCoverUrl ?? stream.coverUrl ?? null;
+
+  if (streamEndedReason) {
+    const endedSubtitle =
+      streamEndedReason === 'disconnect'
+        ? t('stream.endedByBroadcasterDisconnect')
+        : t('stream.endedByBroadcaster');
+    return (
+      <StreamViewerSplash
+        coverUrl={splashCoverUrl}
+        title={t('stream.endedTitle')}
+        subtitle={endedSubtitle}
+        actionLabel={t('stream.endedAccept')}
+        onAction={() => {
+          void handleEndedAccept();
+        }}
+      />
+    );
+  }
+
   if (streamError) {
     const isNoFragments =
       streamError.includes('Aún no hay video') || streamError.includes('broadcaster');
@@ -668,47 +808,17 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({ stream, onClose, ini
 
   const videoReady = isHls ? hlsReady : !!remoteStream;
   if ((isConnecting || !videoReady) && !isStreamPaused) {
-    const loadingCover = effectiveCoverUrl ?? stream.coverUrl ?? null;
     return (
-      <View style={[styles.container, styles.loadingScreen]}>
-        {loadingCover ? (
-          <>
-            <Image
-              source={{ uri: loadingCover }}
-              style={StyleSheet.absoluteFill}
-              resizeMode="cover"
-            />
-            <View style={[StyleSheet.absoluteFill, styles.coverDim]} />
-          </>
-        ) : null}
-        <View style={styles.loadingContent}>
-          <View style={styles.logoWrap}>
-            <HeaderLogo width={72} height={64} accessibilityLabel="PulpoLive" />
-            <ActivityIndicator
-              size="large"
-              color="#685CF0"
-              style={styles.loadingSpinner}
-            />
-          </View>
-          <Text variant="h3" className="text-white text-center mb-2">
-            {isConnecting ? t('stream.connectingTitle') : t('stream.waitingVideoTitle')}
-          </Text>
-          <Text variant="body" className="text-white/80 text-center px-4">
-            {isConnecting ? t('stream.connectingSubtitle') : t('stream.waitingVideoSubtitle')}
-          </Text>
-        </View>
-        <TouchableOpacity
-          onPress={onClose}
-          style={styles.cancelBtn}
-          activeOpacity={0.8}
-          accessibilityRole="button"
-          accessibilityLabel={t('stream.cancelJoin')}
-        >
-          <Text variant="body" className="text-white font-semibold">
-            {t('stream.cancelJoin')}
-          </Text>
-        </TouchableOpacity>
-      </View>
+      <StreamViewerSplash
+        coverUrl={splashCoverUrl}
+        title={isConnecting ? t('stream.connectingTitle') : t('stream.waitingVideoTitle')}
+        subtitle={
+          isConnecting ? t('stream.connectingSubtitle') : t('stream.waitingVideoSubtitle')
+        }
+        actionLabel={t('stream.cancelJoin')}
+        onAction={onClose}
+        showSpinner
+      />
     );
   }
 
@@ -763,7 +873,6 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({ stream, onClose, ini
         productImageUrls={productImageUrlsForStack}
         itemCount={itemStockCount}
         productBasePriceCents={productBasePriceCents}
-        hasActiveProduct={Boolean(liveCommerce?.active_product)}
         viewerCount={displayViewerCount}
         messages={messages}
         messageText={messageText}
@@ -778,6 +887,7 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({ stream, onClose, ini
         isRecording={isRecording}
         recordingTimeLabel={recordingTimeLabel}
         onToggleRecording={toggleRecording}
+        showAuctionUi={showAuctionUi}
         isAuctionActive={isAuctionActive}
         auctionSecondsRemaining={auctionSecondsRemaining}
         auctionBids={auctionBids}
@@ -919,39 +1029,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
-  },
-  loadingScreen: {
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingTop: 80,
-    paddingBottom: 48,
-  },
-  coverDim: {
-    backgroundColor: 'rgba(0,0,0,0.55)',
-  },
-  loadingContent: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    width: '100%',
-  },
-  logoWrap: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 32,
-  },
-  loadingSpinner: {
-    marginTop: 20,
-  },
-  cancelBtn: {
-    paddingVertical: 14,
-    paddingHorizontal: 32,
-    borderRadius: 9999,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.35)',
-    minWidth: 160,
-    alignItems: 'center',
   },
   video: {
     ...StyleSheet.absoluteFillObject,

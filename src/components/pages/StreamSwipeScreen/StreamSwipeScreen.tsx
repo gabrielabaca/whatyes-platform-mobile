@@ -13,7 +13,7 @@
  * hacia el "siguiente disponible". Un live que terminó queda en la lista pero al entrar
  * muestra el estado de error/reintento de StreamScreen.
  */
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import {
   View,
   FlatList,
@@ -26,7 +26,7 @@ import {
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Text } from '../../atoms/Text';
-import { StreamScreen } from '../StreamScreen';
+import { StreamScreen, type StreamEndedFeedContext } from '../StreamScreen';
 import { useStreamCredentialCache } from '../../../hooks/useStreamCredentialCache';
 import { useBuyerLiveRoomPreviews } from '../../../hooks/useBuyerLiveRoomPreviews';
 import { previewToStreamData } from '../../../utils/streamPreviewToStreamData';
@@ -127,6 +127,7 @@ export const StreamSwipeScreen: React.FC<StreamSwipeScreenProps> = ({
     currentIndex: initialIndex,
     activeCreds: null,
   });
+  const flatListRef = useRef<FlatList<StreamData>>(null);
 
   // Reconciliación append-only: agrega lives nuevos al final, nunca remueve ni reordena
   // (remover/reordenar desplazaría el scroll del usuario). Devuelve la misma referencia
@@ -153,6 +154,29 @@ export const StreamSwipeScreen: React.FC<StreamSwipeScreenProps> = ({
       });
     },
     [prefetch, isWebRTC],
+  );
+
+  const handleNavigateToStream = useCallback(
+    (index: number, streamId: string) => {
+      const creds = isWebRTC ? consume(streamId) : null;
+      setSlideState({ currentIndex: index, activeCreds: creds });
+      schedulePrefetch(index, liveStreams);
+      requestAnimationFrame(() => {
+        flatListRef.current?.scrollToIndex({ index, animated: false });
+      });
+    },
+    [consume, isWebRTC, liveStreams, schedulePrefetch]
+  );
+
+  const endedFeedContext = useMemo<StreamEndedFeedContext>(
+    () => ({
+      streams: liveStreams,
+      currentIndex: slideState.currentIndex,
+      categoryUuid,
+      onNavigateToStream: handleNavigateToStream,
+      onLeaveFeed: onClose,
+    }),
+    [liveStreams, slideState.currentIndex, categoryUuid, handleNavigateToStream, onClose]
   );
 
   // Pre-fetch inicial al montar (N-1 y N+1 del stream de entrada).
@@ -194,17 +218,19 @@ export const StreamSwipeScreen: React.FC<StreamSwipeScreenProps> = ({
               stream={item}
               onClose={onClose}
               initialCreds={slideState.activeCreds}
+              endedFeedContext={endedFeedContext}
             />
           </View>
         );
       }
       return <CoverSlide stream={item} height={windowHeight} />;
     },
-    [slideState, windowHeight, onClose],
+    [slideState, windowHeight, onClose, endedFeedContext],
   );
 
   return (
     <FlatList
+      ref={flatListRef}
       data={liveStreams}
       renderItem={renderItem}
       keyExtractor={(item) => item.id}

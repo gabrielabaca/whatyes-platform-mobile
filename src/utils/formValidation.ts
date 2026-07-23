@@ -10,11 +10,7 @@ export function isValidEmail(raw: string): boolean {
   return EMAIL_RE.test(s);
 }
 
-/** Misma política que el backend / copy de registro: 8+, mayúscula, minúscula, carácter especial */
+/** Misma política que el backend: mínimo 8 caracteres (sin requisitos de composición). */
 export function passwordMeetsPolicy(p: string): boolean {
-  if (p.length < 8) return false;
-  if (!/[a-z]/.test(p)) return false;
-  if (!/[A-Z]/.test(p)) return false;
-  if (!/[^A-Za-z0-9]/.test(p)) return false;
-  return true;
+  return p.length >= 8;
 }

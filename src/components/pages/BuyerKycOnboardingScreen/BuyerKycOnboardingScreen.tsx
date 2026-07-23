@@ -29,6 +29,11 @@ import {
 interface BuyerKycOnboardingScreenProps {
   onBack?: () => void;
   onProceedToComplete: () => void;
+  /**
+   * false = verificación obligatoria (gating de vivos): sin "Omitir" y el rechazo
+   * ofrece reintentar en lugar de continuar. Default true (onboarding de registro).
+   */
+  allowSkip?: boolean;
 }
 
 type Phase = 'offer' | 'loading' | 'webview' | 'polling' | 'success' | 'declined';
@@ -45,6 +50,7 @@ function sleep(ms: number): Promise<void> {
 export const BuyerKycOnboardingScreen: React.FC<BuyerKycOnboardingScreenProps> = ({
   onBack,
   onProceedToComplete,
+  allowSkip = true,
 }) => {
   const { t } = useTranslation();
   const { isDark } = useTheme();
@@ -155,7 +161,7 @@ export const BuyerKycOnboardingScreen: React.FC<BuyerKycOnboardingScreenProps> =
               style={{ fontFamily: FONT_FAMILY.regular, textAlign: 'center' }}
               className="text-[#4C4E55] dark:text-night-muted text-[14px] leading-[22px] tracking-[0.07px] w-full max-w-[340px] self-center"
             >
-              {t('buyerOnboarding.kycSubtitle')}
+              {allowSkip ? t('buyerOnboarding.kycSubtitle') : t('buyerOnboarding.kycRequiredSubtitle')}
             </Text>
             <View className="flex-1 min-h-4" />
           </View>
@@ -170,15 +176,17 @@ export const BuyerKycOnboardingScreen: React.FC<BuyerKycOnboardingScreenProps> =
               onPress={handleVerify}
               className="w-full min-h-[52px] rounded-full"
             />
-            <Button
-              title={t('buyerOnboarding.kycSkip')}
-              variant="ghost"
-              size="medium"
-              disabled={phase === 'loading' || phase === 'polling'}
-              onPress={onProceedToComplete}
-              titleClassName="text-[15px]"
-              className="min-h-[48px] rounded-full"
-            />
+            {allowSkip ? (
+              <Button
+                title={t('buyerOnboarding.kycSkip')}
+                variant="ghost"
+                size="medium"
+                disabled={phase === 'loading' || phase === 'polling'}
+                onPress={onProceedToComplete}
+                titleClassName="text-[15px]"
+                className="min-h-[48px] rounded-full"
+              />
+            ) : null}
           </View>
         </ScrollView>
       </View>
@@ -233,14 +241,16 @@ export const BuyerKycOnboardingScreen: React.FC<BuyerKycOnboardingScreenProps> =
               style={{ fontFamily: FONT_FAMILY.regular }}
               className="text-center text-[#4C4E55] dark:text-night-muted text-[14px] leading-[22px]"
             >
-              {t('buyerOnboarding.kycDeclinedSubtitle')}
+              {allowSkip
+                ? t('buyerOnboarding.kycDeclinedSubtitle')
+                : t('buyerOnboarding.kycRequiredDeclinedSubtitle')}
             </Text>
           </View>
           <Button
-            title={t('common.continue')}
+            title={allowSkip ? t('common.continue') : t('buyerOnboarding.kycRetry')}
             variant="primary"
             size="large"
-            onPress={onProceedToComplete}
+            onPress={allowSkip ? onProceedToComplete : () => setPhase('offer')}
             className="w-full min-h-[52px] rounded-full"
           />
         </View>

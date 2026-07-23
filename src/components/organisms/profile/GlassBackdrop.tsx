@@ -31,7 +31,7 @@ export const GlassBackdrop: React.FC<GlassBackdropProps> = () => (
       style={StyleSheet.absoluteFill}
       blurType="dark"
       blurAmount={modalGlass.blurAmount}
-      overlayColor={Platform.OS === 'android' ? modalGlass.tint : undefined}
+      overlayColor={Platform.OS === 'android' ? modalGlass.androidTint : undefined}
       reducedTransparencyFallbackColor={modalGlass.fallback}
     />
     {Platform.OS === 'ios' ? (

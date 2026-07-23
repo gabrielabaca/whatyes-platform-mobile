@@ -46,6 +46,7 @@ export default {
     "continueWithFacebook": "Continue with Facebook",
     "fillAllFields": "Please fill in all fields",
     "loginFailed": "Could not sign in. Please try again.",
+    "socialFailed": "Could not sign in with the provider. Please try again.",
     "passwordIncorrect": "Incorrect password. Please try again or reset your password using 'Forgot your password?'"
   },
   "register": {
@@ -95,11 +96,12 @@ export default {
     "emailAlreadyInUse": "This email is already in use. Sign in or use another email.",
     "buyerBirthday": "Birthday",
     "buyerBirthdayPh": "MM/DD/YYYY",
-    "passwordPolicyHint": "Password must be at least 8 characters with upper, lower case and a symbol like #%!",
+    "passwordPolicyHint": "Password must be at least 8 characters",
     "termsNotice": "By tapping accept and continue, you agree to PulpoLive Terms of Service and acknowledge the Privacy Policy",
     "acceptContinue": "Accept and continue",
-    "passwordPolicyError": "Password must be at least 8 characters with one uppercase, one lowercase, and one special character",
-    "birthdayInvalid": "Enter a valid date (MM/DD/YYYY)"
+    "passwordPolicyError": "Password must be at least 8 characters",
+    "birthdayInvalid": "Enter a valid date (MM/DD/YYYY)",
+    "underageError": "You must be at least 18 years old to create an account"
   },
   "forgotPassword": {
     "titleRequest": "Forgot password",
@@ -148,6 +150,7 @@ export default {
     "interestsTitle": "What are you into?",
     "interestsSubtitle": "Pick categories you like so we can recommend content.",
     "skip": "Skip",
+    "skipAll": "Skip all",
     "profileSaveError": "Could not save profile. Try again.",
     "interestsSaveError": "Could not save your interests. Try again.",
     "interestsLoadError": "Could not load categories.",
@@ -165,7 +168,10 @@ export default {
     "kycVerifiedTitle": "Verified",
     "kycVerifiedSubtitle": "Your identity was verified successfully.",
     "kycDeclinedTitle": "We could not verify your identity",
-    "kycDeclinedSubtitle": "You can continue registration and try again later from your profile."
+    "kycDeclinedSubtitle": "You can continue registration and try again later from your profile.",
+    "kycRetry": "Try again",
+    "kycRequiredSubtitle": "To join a live or go live on PulpoLive we need to verify your identity. You will scan your ID and complete facial verification with our trusted partner; it usually takes only a few minutes.",
+    "kycRequiredDeclinedSubtitle": "We need to verify your identity before you can continue. Please try again."
   },
   "sellerHome": {
     "verifyTitle": "Verify your identity",
@@ -481,6 +487,8 @@ export default {
     "endStreamConfirmMessage": "Are you sure you want to end the stream?",
     "endedByBroadcaster": "The broadcaster ended the live stream.",
     "endedByBroadcasterDisconnect": "The live stream ended because the broadcaster disconnected.",
+    "endedTitle": "Live ended",
+    "endedAccept": "Accept",
     "sellerMoreTitle": "Live options",
     "sellerStartAuction": "Start auction",
     "sellerAddProduct": "Add product",
@@ -655,6 +663,7 @@ export default {
     "productLive": "Live",
     "productArticles": "{{count}} items",
     "startsSoon": "Starting soon",
+    "permanentProduct": "Shop",
     "noReviews": "No reviews to display yet.",
     "reviewCategoryGeneral": "Overall",
     "reviewCategoryShipping": "Shipping",
@@ -783,6 +792,11 @@ export default {
     "conditionNew": "New",
     "conditionLightlyUsed": "Lightly used",
     "conditionUsed": "Used",
+    "clipTitle": "Purchase Clip",
+    "clipSubtitle": "The exact moment you won the auction",
+    "clipOf": "Auction for {{title}}",
+    "clipItemsCount_one": "{{count}} item",
+    "clipItemsCount_other": "{{count}} items",
     "shippingStatus": "Shipping Status",
     "stepConfirmed": "Order confirmed",
     "stepPaymentApproved": "Payment approved",

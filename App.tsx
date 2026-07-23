@@ -17,6 +17,8 @@ import { StartLiveWizardHost } from './src/components/organisms/startLive/StartL
 import { storage } from './src/utils/storage';
 import { isBuyerKycReturnUrl, notifyBuyerKycReturn } from './src/utils/buyerKycDeepLink';
 import { isMpWalletReturnUrl, notifyMpWalletReturn } from './src/utils/mpWalletDeepLink';
+import { getBuyerKycStatus } from './src/api';
+import { BuyerKycOnboardingScreen } from './src/components/pages/BuyerKycOnboardingScreen';
 import { LoginScreen } from './src/components/pages/LoginScreen';
 import { RegisterScreen } from './src/components/pages/RegisterScreen';
 import { ForgotPasswordScreen } from './src/components/pages/ForgotPasswordScreen';
@@ -75,9 +77,60 @@ function AuthenticatedAppShell({
 }) {
   const wizard = useStartLiveWizard();
 
-  const openStartLiveWizard = () => {
-    void wizard.open();
+  /**
+   * KYC obligatorio para participar de un vivo (comprador) o transmitir (vendedor).
+   * Si el usuario aún no está verificado se muestra el flujo Didit y, al aprobar,
+   * se ejecuta la acción pendiente.
+   */
+  const [kycGate, setKycGate] = useState<{ proceed: () => void } | null>(null);
+  const kycVerifiedRef = useRef(false);
+  const kycCheckingRef = useRef(false);
+
+  const requireKycVerified = (proceed: () => void) => {
+    if (kycVerifiedRef.current) {
+      proceed();
+      return;
+    }
+    if (kycCheckingRef.current) return;
+    kycCheckingRef.current = true;
+    void (async () => {
+      try {
+        const status = await getBuyerKycStatus();
+        if (status.verified) {
+          kycVerifiedRef.current = true;
+          proceed();
+          return;
+        }
+        setKycGate({ proceed });
+      } catch {
+        // Sin estado confiable: pedir verificación igualmente (la pantalla permite reintentar).
+        setKycGate({ proceed });
+      } finally {
+        kycCheckingRef.current = false;
+      }
+    })();
   };
+
+  const openStartLiveWizard = () => {
+    requireKycVerified(() => {
+      void wizard.open();
+    });
+  };
+
+  if (kycGate) {
+    return (
+      <BuyerKycOnboardingScreen
+        allowSkip={false}
+        onBack={() => setKycGate(null)}
+        onProceedToComplete={() => {
+          kycVerifiedRef.current = true;
+          const proceed = kycGate.proceed;
+          setKycGate(null);
+          proceed();
+        }}
+      />
+    );
+  }
 
   if (currentScreen === 'seller-stream' && activeStreamConfig) {
     return (
@@ -130,9 +183,11 @@ function AuthenticatedAppShell({
           setStreamDraft(null);
         }}
         onStartStream={(config) => {
-          setActiveStreamConfig(config);
-          setCurrentScreen('seller-stream');
-          setStreamDraft(null);
+          requireKycVerified(() => {
+            setActiveStreamConfig(config);
+            setCurrentScreen('seller-stream');
+            setStreamDraft(null);
+          });
         }}
       />
     );
@@ -142,14 +197,18 @@ function AuthenticatedAppShell({
     <View style={homeShellStyles.root}>
       <HomeScreen
         onStreamPress={(stream) => {
-          setSelectedStream(stream);
-          setCurrentScreen('stream');
+          requireKycVerified(() => {
+            setSelectedStream(stream);
+            setCurrentScreen('stream');
+          });
         }}
         onStreamsSwipePress={(streams, index, categoryUuid) => {
-          setSwipeStreams(streams);
-          setSwipeInitialIndex(index);
-          setSwipeCategoryUuid(categoryUuid);
-          setCurrentScreen('stream-swipe');
+          requireKycVerified(() => {
+            setSwipeStreams(streams);
+            setSwipeInitialIndex(index);
+            setSwipeCategoryUuid(categoryUuid);
+            setCurrentScreen('stream-swipe');
+          });
         }}
         onStartNewStream={openStartLiveWizard}
         onEditDraft={(draft) => {
@@ -169,7 +228,7 @@ function AuthenticatedAppShell({
 
 /** Duración mínima del splash animado: el bootstrap de sesión suele tardar
  * milisegundos y la animación de marca no llegaba a verse. */
-const MIN_SPLASH_MS = 2500;
+const MIN_SPLASH_MS = 1000;
 
 function AppNavigator() {
   const { isAuthenticated, isBootstrapping } = useAuth();
@@ -181,6 +240,17 @@ function AppNavigator() {
   useEffect(() => {
     const timer = setTimeout(() => setMinSplashElapsed(true), MIN_SPLASH_MS);
     return () => clearTimeout(timer);
+  }, []);
+
+  /** El carrusel de bienvenida solo se muestra en el primer arranque tras instalar. */
+  const [welcomeSeen, setWelcomeSeen] = useState(false);
+  useEffect(() => {
+    void storage.getWelcomeCarouselSeen().then((seen) => {
+      if (seen) {
+        setWelcomeSeen(true);
+        setAuthScreen((prev) => (prev === 'onboarding' ? 'login' : prev));
+      }
+    });
   }, []);
 
   // Si la sesión vence en medio del uso (refresh fallido), ir directo al login.
@@ -270,8 +340,16 @@ function AppNavigator() {
   if (authScreen === 'onboarding') {
     return (
       <OnboardingScreen
-        onPressLogin={() => setAuthScreen('login')}
-        onPressRegister={() => setAuthScreen('register')}
+        onPressLogin={() => {
+          void storage.setWelcomeCarouselSeen();
+          setWelcomeSeen(true);
+          setAuthScreen('login');
+        }}
+        onPressRegister={() => {
+          void storage.setWelcomeCarouselSeen();
+          setWelcomeSeen(true);
+          setAuthScreen('register');
+        }}
       />
     );
   }
@@ -279,7 +357,7 @@ function AppNavigator() {
   if (authScreen === 'register') {
     return (
       <RegisterScreen
-        onBackToLogin={() => setAuthScreen('onboarding')}
+        onBackToLogin={() => setAuthScreen(welcomeSeen ? 'login' : 'onboarding')}
         onRegisterSuccess={() => setAuthScreen('login')}
       />
     );
@@ -293,7 +371,7 @@ function AppNavigator() {
 
   return (
     <LoginScreen
-      onBack={() => setAuthScreen('onboarding')}
+      onBack={welcomeSeen ? undefined : () => setAuthScreen('onboarding')}
       onNavigateToRegister={() => setAuthScreen('register')}
       onNavigateToForgotPassword={() => setAuthScreen('forgot-password')}
     />

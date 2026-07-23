@@ -19,12 +19,15 @@ const H_PADDING = 16;
 interface BuyerInterestsOnboardingScreenProps {
   onBack?: () => void;
   onSkip: () => void | Promise<void>;
+  /** Salta todo el onboarding restante y entra directo a la app. */
+  onSkipAll?: () => void;
   onContinue: (categoryUuids: string[]) => Promise<void>;
 }
 
 export const BuyerInterestsOnboardingScreen: React.FC<BuyerInterestsOnboardingScreenProps> = ({
   onBack,
   onSkip,
+  onSkipAll,
   onContinue,
 }) => {
   const { t } = useTranslation();
@@ -133,6 +136,18 @@ export const BuyerInterestsOnboardingScreen: React.FC<BuyerInterestsOnboardingSc
             titleClassName="text-[14px] font-normal text-[#4C4E55] dark:text-night-muted"
             className="mt-5 self-center min-h-[44px]"
           />
+
+          {onSkipAll ? (
+            <Button
+              title={t('buyerOnboarding.skipAll')}
+              variant="ghost"
+              size="medium"
+              disabled={busy}
+              onPress={onSkipAll}
+              titleClassName="text-[14px] font-normal text-[#4C4E55] dark:text-night-muted"
+              className="mt-1 self-center min-h-[44px]"
+            />
+          ) : null}
         </View>
       </ScrollView>
     </SafeAreaView>

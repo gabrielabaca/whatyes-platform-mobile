@@ -130,11 +130,13 @@ const getPaymentsBaseUrl = (): string => {
 export const PAYMENTS_HTTP_URL = getPaymentsBaseUrl();
 
 /**
- * Transporte de video para el viewer:
- *  - 'webrtc': baja latencia (<1s), ideal para subastas con alta competencia / salas chicas. Caro a escala.
- *  - 'hls': barato y grabado (delay 2-8s); la mecánica de subasta NO se ve afectada porque viaja por WebSocket
- *           con reloj de servidor. Recomendado para salas masivas.
- * Configurable por env VIEWER_TRANSPORT; default 'webrtc' (preserva el comportamiento actual).
+ * Transporte de video para el viewer. Desde el híbrido, la decisión por sala la toma
+ * el backend (GET /stream/watch): asiento WebRTC (<1s) si hay cupo, HLS (delay 2-8s)
+ * si la sala está llena. La mecánica de subasta no se ve afectada por el delay HLS
+ * porque viaja por WebSocket con reloj de servidor.
+ *
+ * Env VIEWER_TRANSPORT: 'hls' fuerza HLS globalmente (debug/rollout); cualquier otro
+ * valor (o vacío) = automático (decide el servidor).
  */
 export type ViewerTransport = 'webrtc' | 'hls';
 
@@ -146,6 +148,7 @@ export const getViewerTransport = (): ViewerTransport => {
 export const API_ENDPOINTS = {
   AUTH: {
     LOGIN: '/auth/login',
+    SOCIAL_LOGIN: '/auth/social_login',
     LOGOUT: '/auth/logout',
     ME: '/auth/me',
     REFRESH_TOKEN: '/auth/refresh_token',

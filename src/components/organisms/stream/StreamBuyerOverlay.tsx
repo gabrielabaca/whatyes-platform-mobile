@@ -33,8 +33,6 @@ export interface StreamBuyerOverlayProps {
   itemCount?: number;
   /** Precio base del producto (centavos); la oferta visible es max(puja, base). */
   productBasePriceCents?: number;
-  /** Hay un producto activo en venta o subasta (live-commerce). */
-  hasActiveProduct?: boolean;
   viewerCount: number;
   messages: ChatMessage[];
   messageText: string;
@@ -47,6 +45,8 @@ export interface StreamBuyerOverlayProps {
   isRecording?: boolean;
   recordingTimeLabel?: string;
   onToggleRecording?: () => void;
+  /** Muestra panel de subasta y bid bar (solo subasta en curso). */
+  showAuctionUi?: boolean;
   isAuctionActive: boolean;
   auctionSecondsRemaining: number | null;
   auctionBids: AuctionBid[];
@@ -73,7 +73,6 @@ export const StreamBuyerOverlay: React.FC<StreamBuyerOverlayProps> = ({
   productImageUrls: productImageUrlsProp,
   itemCount = 1,
   productBasePriceCents = 0,
-  hasActiveProduct = false,
   viewerCount,
   messages,
   messageText,
@@ -86,6 +85,7 @@ export const StreamBuyerOverlay: React.FC<StreamBuyerOverlayProps> = ({
   isRecording,
   recordingTimeLabel,
   onToggleRecording,
+  showAuctionUi = false,
   isAuctionActive,
   auctionSecondsRemaining,
   auctionBids,
@@ -173,6 +173,7 @@ export const StreamBuyerOverlay: React.FC<StreamBuyerOverlayProps> = ({
         onSellerPress={onSellerPress}
         isFollowing={isFollowingSeller}
         onFollowPress={onFollowSeller}
+        onExitPress={onExit}
       />
 
       <View
@@ -202,7 +203,7 @@ export const StreamBuyerOverlay: React.FC<StreamBuyerOverlayProps> = ({
           onProductStackPress={onOpenProductCatalog}
         />
 
-        {hasActiveProduct ? (
+        {showAuctionUi ? (
           <StreamAuctionPanel
             productTitle={productTitle}
             itemCount={itemCount}
@@ -216,7 +217,7 @@ export const StreamBuyerOverlay: React.FC<StreamBuyerOverlayProps> = ({
           />
         ) : null}
 
-        {hasActiveProduct ? (
+        {showAuctionUi ? (
           <StreamBidBar
             bidAmount={suggestedBid}
             onBid={() => onBid(suggestedBid)}

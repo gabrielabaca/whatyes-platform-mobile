@@ -9,11 +9,9 @@ import {
   Alert,
   ActivityIndicator,
   Dimensions,
-  KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text as RNText,
   TextInput,
@@ -41,6 +39,7 @@ import { uploadRoomCover } from '../../../api/platformApi';
 import { ApiError } from '../../../api/authApi';
 import { useInterestCategories } from '../../../hooks/useInterestCategories';
 import { FONT_FAMILY } from '../../../theme/typography';
+import { KeyboardDismissScrollView } from '../../atoms/KeyboardDismissScrollView';
 import { StreamBottomSheet } from '../stream/StreamBottomSheet';
 import { AddProductPhotoSourceDrawer } from '../addProduct/AddProductPhotoSourceDrawer';
 import { StartLiveCategoriesDrawer } from './StartLiveCategoriesDrawer';
@@ -570,7 +569,10 @@ export const PreLiveSetupOverlay: React.FC<{
       onRequestClose={handleLeavePreLive}
     >
       <View style={styles.overlay}>
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <KeyboardDismissScrollView
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+        >
           <View style={styles.header}>
             <RNText style={styles.title}>Configura tu live</RNText>
             <TouchableOpacity onPress={handleLeavePreLive} hitSlop={12}>
@@ -716,7 +718,7 @@ export const PreLiveSetupOverlay: React.FC<{
           <TouchableOpacity style={styles.cancelButton} onPress={handleLeavePreLive} activeOpacity={0.85}>
             <RNText style={styles.cancelText}>Cancelar</RNText>
           </TouchableOpacity>
-        </ScrollView>
+        </KeyboardDismissScrollView>
 
         <ChoiceDrawer
           visible={drawer === 'frequency'}

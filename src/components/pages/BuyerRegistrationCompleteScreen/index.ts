@@ -1,1 +1,0 @@
-export { BuyerRegistrationCompleteScreen } from './BuyerRegistrationCompleteScreen';

@@ -9,5 +9,7 @@ export type {
 export { StreamBuyerOverlay } from './StreamBuyerOverlay';
 export type { StreamBuyerOverlayProps } from './StreamBuyerOverlay';
 export { StreamVideoScrim } from './StreamVideoScrim';
+export { StreamEndLiveDrawer } from './StreamEndLiveDrawer';
+export type { StreamEndLiveDrawerProps } from './StreamEndLiveDrawer';
 export { StreamSellerOverlay } from './StreamSellerOverlay';
 export type { StreamSellerOverlayProps } from './StreamSellerOverlay';

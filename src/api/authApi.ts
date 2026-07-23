@@ -21,6 +21,8 @@ import type {
   ResendVerificationCodeRequest,
   LogoutRequest,
   RefreshTokenRequest,
+  SocialLoginRequest,
+  SocialLoginResponse,
 } from './types';
 
 /**
@@ -148,6 +150,42 @@ export async function login(credentials: LoginRequest): Promise<TokenResponse> {
 
   // Si la estructura es diferente, retornar como está
   return data as TokenResponse;
+}
+
+/**
+ * Social Login - Iniciar sesión / registrarse con Google o Apple.
+ * Envía el id_token del SDK nativo; el backend lo verifica y devuelve tokens.
+ * Guarda los tokens en storage (igual que login).
+ */
+export async function socialLogin(
+  payload: SocialLoginRequest
+): Promise<SocialLoginResponse> {
+  const url = `${API_BASE_URL}${API_ENDPOINTS.AUTH.SOCIAL_LOGIN}`;
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new ApiError(
+      response.status,
+      data.detail ?? data.message ?? 'Error al iniciar sesión',
+      data
+    );
+  }
+
+  if (data.access_token && data.refresh_token) {
+    await storage.clearUserData();
+    await storeTokens({
+      access_token: data.access_token,
+      refresh_token: data.refresh_token,
+    });
+  }
+
+  return data as SocialLoginResponse;
 }
 
 /**

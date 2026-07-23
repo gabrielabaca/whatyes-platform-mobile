@@ -1,15 +1,13 @@
 /**
  * Detalle de una compra — Figma 698-3403.
- * Secciones: resumen del producto, detalles de la compra, estado del envío
+ * Secciones: resumen del producto, detalles de la compra, clip de la compra
+ * (video de la subasta grabado por platform_livestream), estado del envío
  * (derivado del estado de pago hasta integrar shipments), detalle de pago,
  * información del vendedor, reseña y productos similares.
- * "Clip de la Compra" queda pendiente hasta habilitar grabación en Kinesis
- * (ver docs/PENDIENTES.md).
  */
 import React, { useEffect, useState } from 'react';
 import {
   View,
-  ScrollView,
   TouchableOpacity,
   Image,
   StyleSheet,
@@ -19,13 +17,16 @@ import {
   Text as RNText,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { Copy, Star, Tag } from 'lucide-react-native';
+import { Copy, Play, Star, Tag, Video as VideoIcon } from 'lucide-react-native';
+import Video from 'react-native-video';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { IconChevronLeft, IconShare, IconBell, IconChat } from '../../icons';
+import { KeyboardDismissScrollView } from '../../atoms/KeyboardDismissScrollView';
 import { StarRatingInput } from '../../molecules/profile/StarRatingInput';
 import { formatStreamPrice } from '../../atoms/stream/StreamPriceText';
 import { useSellerFollow } from '../../../hooks/useSellerFollow';
 import { useSellerNotifications } from '../../../hooks/useSellerNotifications';
+import { PurchaseClipViewer } from '../../organisms/purchases/PurchaseClipViewer';
 import {
   getUserPublicProfile,
   createUserReview,
@@ -61,6 +62,11 @@ function formatDateTime(epochSec: number, locale: string): string {
   return `${date}, ${time}h`;
 }
 
+function formatClipDuration(totalSeconds: number): string {
+  const s = Math.max(0, Math.round(totalSeconds));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+
 export interface PurchaseDetailScreenProps {
   purchase: PurchaseItem;
   onBack: () => void;
@@ -82,6 +88,10 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
   const [reviewMessage, setReviewMessage] = useState('');
   const [reviewSending, setReviewSending] = useState(false);
   const [reviewSent, setReviewSent] = useState(false);
+  const [clipPaused, setClipPaused] = useState(true);
+  const [clipDuration, setClipDuration] = useState<number | null>(null);
+  const [clipError, setClipError] = useState(false);
+  const [clipViewerOpen, setClipViewerOpen] = useState(false);
 
   const sellerName =
     sellerProfile?.display_name?.trim() ||
@@ -204,7 +214,7 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
         </TouchableOpacity>
       </View>
 
-      <ScrollView
+      <KeyboardDismissScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 32 }]}
       >
@@ -260,7 +270,67 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
           <DetailRow label={t('activity.condition')} value={conditionLabel} />
         </View>
 
-        {/* Clip de la Compra: pendiente de grabación en Kinesis (docs/PENDIENTES.md). */}
+        {/* Clip de la Compra: video de la subasta (grabado por platform_livestream). */}
+        {purchase.recording_asset_url && !clipError ? (
+          <View style={styles.card}>
+            <RNText style={styles.cardTitle}>{t('activity.clipTitle')}</RNText>
+            <TouchableOpacity
+              style={styles.clipVideoWrap}
+              activeOpacity={0.9}
+              onPress={() => setClipViewerOpen(true)}
+              accessibilityRole="button"
+              accessibilityLabel={t('activity.clipTitle')}
+            >
+              <Video
+                source={{ uri: purchase.recording_asset_url }}
+                style={styles.clipVideo}
+                paused={clipPaused}
+                resizeMode="cover"
+                poster={purchase.product_image_url ?? undefined}
+                posterResizeMode="cover"
+                onLoad={(data) => setClipDuration(data.duration)}
+                onEnd={() => setClipPaused(true)}
+                onError={() => setClipError(true)}
+                ignoreSilentSwitch="ignore"
+              />
+              {purchase.category_name ? (
+                <View style={styles.clipCategoryChip}>
+                  <RNText style={styles.clipCategoryText}>{purchase.category_name}</RNText>
+                </View>
+              ) : null}
+              {clipPaused ? (
+                <View style={styles.clipPlayOverlay} pointerEvents="none">
+                  <View style={styles.clipPlayCircle}>
+                    <Play size={30} color="#FFFFFF" fill="#FFFFFF" strokeWidth={1} />
+                  </View>
+                </View>
+              ) : null}
+              {clipDuration != null && clipDuration > 0 ? (
+                <View style={styles.clipDurationBadge}>
+                  <RNText style={styles.clipDurationText}>
+                    {formatClipDuration(clipDuration)}
+                  </RNText>
+                </View>
+              ) : null}
+            </TouchableOpacity>
+            <View style={styles.clipInfoRow}>
+              <View style={styles.clipInfoIcon}>
+                <VideoIcon size={20} color={PRIMARY} strokeWidth={1.75} />
+              </View>
+              <View style={styles.clipInfoTextCol}>
+                <RNText style={styles.clipInfoTitle} numberOfLines={1}>
+                  {sellerName} · {t('activity.clipOf', { title: purchase.product_title })}
+                </RNText>
+                <RNText style={styles.clipInfoSub}>{t('activity.clipSubtitle')}</RNText>
+                {purchase.won_at_ms ? (
+                  <RNText style={styles.clipInfoSub}>
+                    {formatDateTime(Math.round(purchase.won_at_ms / 1000), i18n.language || 'es')}
+                  </RNText>
+                ) : null}
+              </View>
+            </View>
+          </View>
+        ) : null}
 
         {/* Estado del Envío */}
         <View style={styles.card}>
@@ -502,7 +572,30 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
             <RNText style={styles.followBtnText}>{t('activity.contactSupport')}</RNText>
           </TouchableOpacity>
         </View>
-      </ScrollView>
+      </KeyboardDismissScrollView>
+
+      {/* Visor fullscreen del clip — Figma 698-11133 */}
+      {purchase.recording_asset_url ? (
+        <PurchaseClipViewer
+          visible={clipViewerOpen}
+          uri={purchase.recording_asset_url}
+          purchase={purchase}
+          sellerName={sellerName}
+          sellerAvatarUrl={
+            sellerProfile?.profile_picture ?? purchase.counterpart.profile_picture
+          }
+          sellerRating={sellerProfile?.reviews_avg}
+          isFollowing={isFollowing}
+          followLoading={followLoading}
+          onToggleFollow={() => {
+            void toggleFollow();
+          }}
+          onOpenSellerProfile={
+            onOpenSellerProfile ? () => onOpenSellerProfile(sellerId) : undefined
+          }
+          onClose={() => setClipViewerOpen(false)}
+        />
+      ) : null}
     </View>
   );
 };
@@ -665,6 +758,96 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 16,
     color: TEXT,
+    includeFontPadding: false,
+  },
+  clipVideoWrap: {
+    width: '100%',
+    height: 224,
+    borderRadius: 16,
+    overflow: 'hidden',
+    backgroundColor: '#18181B',
+  },
+  clipVideo: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  clipPlayOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  clipPlayCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: 'rgba(255,255,255,0.25)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.4)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingLeft: 4,
+  },
+  clipDurationBadge: {
+    position: 'absolute',
+    left: 12,
+    bottom: 12,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    borderRadius: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  clipDurationText: {
+    fontFamily: FONT_FAMILY.semibold,
+    fontSize: 12,
+    lineHeight: 16,
+    color: '#FFFFFF',
+    includeFontPadding: false,
+  },
+  clipCategoryChip: {
+    position: 'absolute',
+    right: 12,
+    top: 12,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+  },
+  clipCategoryText: {
+    fontFamily: FONT_FAMILY.semibold,
+    fontSize: 12,
+    lineHeight: 16,
+    color: '#FDC700',
+    includeFontPadding: false,
+  },
+  clipInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  clipInfoIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(104,92,240,0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  clipInfoTextCol: {
+    flex: 1,
+    minWidth: 0,
+    gap: 4,
+  },
+  clipInfoTitle: {
+    fontFamily: FONT_FAMILY.semibold,
+    fontSize: 14,
+    lineHeight: 20,
+    color: TEXT,
+    includeFontPadding: false,
+  },
+  clipInfoSub: {
+    fontFamily: FONT_FAMILY.regular,
+    fontSize: 12,
+    lineHeight: 16,
+    color: MUTED,
     includeFontPadding: false,
   },
   timeline: {
