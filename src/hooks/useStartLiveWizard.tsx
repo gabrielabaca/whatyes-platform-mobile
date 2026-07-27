@@ -1,5 +1,11 @@
 /**
  * Máquina de estados del asistente FAB para iniciar subasta (vendedor).
+ *
+ * Flujo optimizado: el wizard solo interviene en el setup inicial.
+ *  - 'intro': bienvenida + experiencia + términos (una vez en la vida).
+ *  - 'setup': facturación + banco en un solo formulario (hasta completarlo).
+ *  - 'launch': todo listo → StartLiveWizardHost dispara el PreLive directamente.
+ * Un vendedor ya configurado va de tap a PreLive sin pantallas intermedias.
  */
 import React, {
   createContext,
@@ -9,79 +15,54 @@ import React, {
   useState,
   type ReactNode,
 } from 'react';
-import { getPayoutAccount } from '../api/paymentsApi';
+import { getPayoutAccount, upsertPayoutAccount } from '../api/paymentsApi';
 import {
   getSellerOnboardingStatus,
   submitLiveSetupSurvey,
   upgradeToSeller,
   type SellerOnboardingStatus,
+  type UpgradeToSellerPayload,
 } from '../api/sellerOnboardingApi';
+import { getShippingAddress } from '../api/shippingAddressApi';
 import type { StreamConfig } from '../components/pages/StreamConfigScreen';
+import type { StartLiveSetupPayload } from '../components/organisms/startLive/StartLiveSetupDrawer';
 import { storage } from '../utils/storage';
 import { useAuth } from './useAuth';
 
-export type StartLiveWizardStep =
-  | 'welcome1'
-  | 'welcome2'
-  | 'categories'
-  | 'firstAuction'
-  | 'sellerUpgrade'
-  | 'bankPrompt'
-  | 'bankForm'
-  | 'ready'
-  | 'closed';
+export type StartLiveWizardStep = 'closed' | 'intro' | 'setup' | 'launch';
 
 export interface StartLiveWizardContextValue {
   step: StartLiveWizardStep;
   isOpen: boolean;
   categoryUuids: string[];
-  isFirstAuction: boolean | null;
   onboarding: SellerOnboardingStatus | null;
   hasPayoutAccount: boolean;
+  /** Secciones pendientes del formulario de setup. */
+  setupNeeds: { customer: boolean; payout: boolean };
   busy: boolean;
   open: () => Promise<void>;
   close: () => void;
-  setCategoryUuids: (uuids: string[]) => void;
-  completeWelcome1: () => Promise<void>;
-  completeWelcome2: () => Promise<void>;
-  completeCategories: (uuids: string[]) => Promise<void>;
-  completeFirstAuction: (isFirst: boolean) => Promise<void>;
-  completeSellerUpgrade: (payload: {
-    customer_name: string;
-    customer_tax_id?: string;
-    customer_contact_phone?: string;
-  }) => Promise<void>;
-  completeBankPrompt: (hasLocalAccount: boolean) => void;
-  completeBankForm: () => Promise<void>;
+  completeIntro: (isFirstAuction: boolean) => Promise<void>;
+  completeSetup: (payload: StartLiveSetupPayload) => Promise<void>;
   finishAndStartLive: () => StreamConfig | null;
 }
 
 const StartLiveWizardContext = createContext<StartLiveWizardContextValue | null>(null);
 
-function stepAfterSurvey(
-  onboarding: SellerOnboardingStatus,
-  _isFirst: boolean | null,
-  hasPayout: boolean
-): StartLiveWizardStep {
-  // Nadie puede transmitir sin tienda asociada (datos fiscales del seller upgrade):
-  // las cuentas nacen como seller pero sin customer, así que se decide por
-  // customer_uuid y no por user_type.
-  if (onboarding.user_type === 'buyer_user' || !onboarding.customer_uuid) {
-    return 'sellerUpgrade';
-  }
-  if (!hasPayout) {
-    return 'bankPrompt';
-  }
-  return 'ready';
+function needsCustomer(status: SellerOnboardingStatus): boolean {
+  return status.user_type === 'buyer_user' || !status.customer_uuid;
 }
 
 export const StartLiveWizardProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { user, reloadUser } = useAuth();
   const [step, setStep] = useState<StartLiveWizardStep>('closed');
   const [categoryUuids, setCategoryUuids] = useState<string[]>([]);
-  const [isFirstAuction, setIsFirstAuction] = useState<boolean | null>(null);
   const [onboarding, setOnboarding] = useState<SellerOnboardingStatus | null>(null);
   const [hasPayoutAccount, setHasPayoutAccount] = useState(false);
+  const [setupNeeds, setSetupNeeds] = useState<{ customer: boolean; payout: boolean }>({
+    customer: false,
+    payout: false,
+  });
   const [busy, setBusy] = useState(false);
 
   const refreshRemoteState = useCallback(async () => {
@@ -91,25 +72,20 @@ export const StartLiveWizardProvider: React.FC<{ children: ReactNode }> = ({ chi
     ]);
     setOnboarding(status);
     setHasPayoutAccount(!!payout);
-    if (status.is_first_live_auction != null) {
-      setIsFirstAuction(status.is_first_live_auction);
-    }
     return { status, hasPayout: !!payout };
   }, []);
 
-  const resolveEntryStep = useCallback(
-    async (status: SellerOnboardingStatus, hasPayout: boolean) => {
-      const step1 = await storage.getSellerLiveWelcomeStep1Seen();
-      if (!step1) {
-        setStep('welcome1');
-        return;
+  /** Decide el paso según lo que falte; 'launch' cuando no falta nada. */
+  const resolveNextStep = useCallback(
+    async (status: SellerOnboardingStatus, hasPayout: boolean): Promise<StartLiveWizardStep> => {
+      const customerPending = needsCustomer(status);
+      const payoutSkipped = await storage.getPayoutSetupSkipped();
+      const payoutPending = !hasPayout && !payoutSkipped;
+      setSetupNeeds({ customer: customerPending, payout: payoutPending });
+      if (customerPending || payoutPending) {
+        return 'setup';
       }
-      const terms = await storage.getSellerLiveWelcomeTermsSeen();
-      if (!terms) {
-        setStep('welcome2');
-        return;
-      }
-      setStep('categories');
+      return 'launch';
     },
     []
   );
@@ -117,112 +93,101 @@ export const StartLiveWizardProvider: React.FC<{ children: ReactNode }> = ({ chi
   const open = useCallback(async () => {
     setBusy(true);
     try {
-      const { status, hasPayout } = await refreshRemoteState();
-      await resolveEntryStep(status, hasPayout);
+      const [{ status, hasPayout }, lastCategories, step1Seen, termsSeen] = await Promise.all([
+        refreshRemoteState(),
+        storage.getLastLiveCategoryUuids(),
+        storage.getSellerLiveWelcomeStep1Seen(),
+        storage.getSellerLiveWelcomeTermsSeen(),
+      ]);
+      setCategoryUuids(lastCategories);
+      if (!step1Seen || !termsSeen) {
+        setStep('intro');
+        return;
+      }
+      setStep(await resolveNextStep(status, hasPayout));
     } catch {
-      setStep('welcome1');
+      setStep('intro');
     } finally {
       setBusy(false);
     }
-  }, [refreshRemoteState, resolveEntryStep]);
+  }, [refreshRemoteState, resolveNextStep]);
 
   const close = useCallback(() => {
     setStep('closed');
   }, []);
 
-  const advanceAfterCategories = useCallback(
-    async (uuids: string[], status: SellerOnboardingStatus, hasPayout: boolean) => {
-      setCategoryUuids(uuids);
-      if (!status.live_setup_survey_completed) {
-        setStep('firstAuction');
-        return;
-      }
-      const first =
-        status.is_first_live_auction ?? isFirstAuction;
-      setStep(stepAfterSurvey(status, first, hasPayout));
-    },
-    [isFirstAuction]
-  );
-
-  const completeWelcome1 = useCallback(async () => {
-    await storage.setSellerLiveWelcomeStep1Seen(true);
-    setStep('welcome2');
-  }, []);
-
-  const completeWelcome2 = useCallback(async () => {
-    await storage.setSellerLiveWelcomeTermsSeen(true);
-    setStep('categories');
-  }, []);
-
-  const completeCategories = useCallback(
-    async (uuids: string[]) => {
+  const completeIntro = useCallback(
+    async (isFirstAuction: boolean) => {
       setBusy(true);
       try {
-        const { status, hasPayout } = await refreshRemoteState();
-        await advanceAfterCategories(uuids, status, hasPayout);
-      } finally {
-        setBusy(false);
-      }
-    },
-    [advanceAfterCategories, refreshRemoteState]
-  );
-
-  const completeFirstAuction = useCallback(
-    async (isFirst: boolean) => {
-      setBusy(true);
-      try {
-        setIsFirstAuction(isFirst);
-        const status = await submitLiveSetupSurvey(isFirst);
+        await storage.setSellerLiveWelcomeStep1Seen(true);
+        await storage.setSellerLiveWelcomeTermsSeen(true);
+        const status = await submitLiveSetupSurvey(isFirstAuction);
         setOnboarding(status);
         const payout = await getPayoutAccount();
         setHasPayoutAccount(!!payout);
-        setStep(stepAfterSurvey(status, isFirst, !!payout));
+        setStep(await resolveNextStep(status, !!payout));
       } finally {
         setBusy(false);
       }
     },
-    []
+    [resolveNextStep]
   );
 
-  const completeSellerUpgrade = useCallback(
-    async (payload: {
-      customer_name: string;
-      customer_tax_id?: string;
-      customer_contact_phone?: string;
-    }) => {
-      setBusy(true);
-      try {
-        await upgradeToSeller(payload);
-        await reloadUser();
-        const payout = await getPayoutAccount();
-        setHasPayoutAccount(!!payout);
-        const status = await getSellerOnboardingStatus();
-        setOnboarding(status);
-        if (!payout) {
-          setStep('bankPrompt');
-        } else {
-          setStep('ready');
-        }
-      } finally {
-        setBusy(false);
-      }
-    },
-    [reloadUser]
-  );
-
-  const completeBankPrompt = useCallback((hasLocalAccount: boolean) => {
-    if (hasLocalAccount) {
-      setStep('bankForm');
-    } else {
-      setStep('ready');
+  /** Dirección fiscal desde la dirección de envío guardada (sin volver a pedirla). */
+  const fiscalAddressFromShipping = useCallback(async (): Promise<
+    Partial<UpgradeToSellerPayload>
+  > => {
+    try {
+      const addr = await getShippingAddress();
+      return {
+        customer_address_line1: addr.address_line1?.trim() || undefined,
+        customer_city: addr.city?.trim() || undefined,
+        customer_state: addr.state?.trim() || undefined,
+        customer_postal_code: addr.postal_code?.trim() || undefined,
+        customer_country: addr.country?.trim() || undefined,
+      };
+    } catch {
+      return {};
     }
   }, []);
 
-  const completeBankForm = useCallback(async () => {
-    const payout = await getPayoutAccount();
-    setHasPayoutAccount(!!payout);
-    setStep('ready');
-  }, []);
+  const completeSetup = useCallback(
+    async (payload: StartLiveSetupPayload) => {
+      setBusy(true);
+      try {
+        if (setupNeeds.customer) {
+          const fiscalAddress = await fiscalAddressFromShipping();
+          await upgradeToSeller({
+            customer_name: payload.customer_name,
+            customer_tax_id: payload.customer_tax_id || undefined,
+            customer_contact_phone: payload.customer_contact_phone,
+            ...fiscalAddress,
+          });
+          await reloadUser();
+        }
+        if (payload.bank) {
+          await upsertPayoutAccount({
+            account_holder: payload.customer_name,
+            tax_id: payload.customer_tax_id,
+            bank_name: payload.bank.alias ?? null,
+            cbu: payload.bank.cbu,
+          });
+          setHasPayoutAccount(true);
+          await storage.setPayoutSetupSkipped(false);
+        } else if (setupNeeds.payout) {
+          await storage.setPayoutSetupSkipped(true);
+        }
+        const status = await getSellerOnboardingStatus();
+        setOnboarding(status);
+        setSetupNeeds({ customer: false, payout: false });
+        setStep('launch');
+      } finally {
+        setBusy(false);
+      }
+    },
+    [setupNeeds, fiscalAddressFromShipping, reloadUser]
+  );
 
   const finishAndStartLive = useCallback((): StreamConfig | null => {
     const displayName =
@@ -244,38 +209,27 @@ export const StartLiveWizardProvider: React.FC<{ children: ReactNode }> = ({ chi
       step,
       isOpen: step !== 'closed',
       categoryUuids,
-      isFirstAuction,
       onboarding,
       hasPayoutAccount,
+      setupNeeds,
       busy,
       open,
       close,
-      setCategoryUuids,
-      completeWelcome1,
-      completeWelcome2,
-      completeCategories,
-      completeFirstAuction,
-      completeSellerUpgrade,
-      completeBankPrompt,
-      completeBankForm,
+      completeIntro,
+      completeSetup,
       finishAndStartLive,
     }),
     [
       step,
       categoryUuids,
-      isFirstAuction,
       onboarding,
       hasPayoutAccount,
+      setupNeeds,
       busy,
       open,
       close,
-      completeWelcome1,
-      completeWelcome2,
-      completeCategories,
-      completeFirstAuction,
-      completeSellerUpgrade,
-      completeBankPrompt,
-      completeBankForm,
+      completeIntro,
+      completeSetup,
       finishAndStartLive,
     ]
   );

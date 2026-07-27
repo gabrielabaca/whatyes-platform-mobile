@@ -61,6 +61,12 @@ const STORAGE_KEYS = {
   PREFERRED_PAYMENT_ORIGIN: 'preferred_payment_origin',
   SELLER_LIVE_WELCOME_STEP1_SEEN: 'seller_live_welcome_step1_seen',
   SELLER_LIVE_WELCOME_TERMS_SEEN: 'seller_live_welcome_terms_seen',
+  /** KYC aprobado: el estado no revierte, se cachea para no consultar en cada tap. */
+  KYC_VERIFIED: 'kyc_verified',
+  /** Últimas categorías usadas en un live (prefill del PreLive). */
+  LAST_LIVE_CATEGORY_UUIDS: 'last_live_category_uuids',
+  /** El vendedor eligió cargar la cuenta bancaria más tarde (no volver a insistir). */
+  PAYOUT_SETUP_SKIPPED: 'payout_setup_skipped',
 } as const;
 
 export type PreferredPaymentOrigin = 'PLATFORM_CARD' | 'MP_WALLET';
@@ -371,6 +377,72 @@ export const storage = {
       const s = getAsyncStorage();
       if (!s) return;
       await s.setItem(STORAGE_KEYS.WALLET_INTRO_SEEN, seen ? '1' : '0');
+    } catch {
+      // ignore
+    }
+  },
+
+  async getKycVerified(): Promise<boolean> {
+    try {
+      const s = getAsyncStorage();
+      if (!s) return false;
+      return (await s.getItem(STORAGE_KEYS.KYC_VERIFIED)) === '1';
+    } catch {
+      return false;
+    }
+  },
+
+  async setKycVerified(): Promise<void> {
+    try {
+      const s = getAsyncStorage();
+      if (!s) return;
+      await s.setItem(STORAGE_KEYS.KYC_VERIFIED, '1');
+    } catch {
+      // ignore
+    }
+  },
+
+  async getLastLiveCategoryUuids(): Promise<string[]> {
+    try {
+      const s = getAsyncStorage();
+      if (!s) return [];
+      const raw = await s.getItem(STORAGE_KEYS.LAST_LIVE_CATEGORY_UUIDS);
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed.filter((x) => typeof x === 'string') : [];
+    } catch {
+      return [];
+    }
+  },
+
+  async setLastLiveCategoryUuids(uuids: string[]): Promise<void> {
+    try {
+      const s = getAsyncStorage();
+      if (!s) return;
+      await s.setItem(STORAGE_KEYS.LAST_LIVE_CATEGORY_UUIDS, JSON.stringify(uuids));
+    } catch {
+      // ignore
+    }
+  },
+
+  async getPayoutSetupSkipped(): Promise<boolean> {
+    try {
+      const s = getAsyncStorage();
+      if (!s) return false;
+      return (await s.getItem(STORAGE_KEYS.PAYOUT_SETUP_SKIPPED)) === '1';
+    } catch {
+      return false;
+    }
+  },
+
+  async setPayoutSetupSkipped(skipped: boolean): Promise<void> {
+    try {
+      const s = getAsyncStorage();
+      if (!s) return;
+      if (skipped) {
+        await s.setItem(STORAGE_KEYS.PAYOUT_SETUP_SKIPPED, '1');
+      } else {
+        await s.removeItem(STORAGE_KEYS.PAYOUT_SETUP_SKIPPED);
+      }
     } catch {
       // ignore
     }

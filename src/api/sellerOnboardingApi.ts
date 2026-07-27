@@ -17,6 +17,12 @@ export interface UpgradeToSellerPayload {
   customer_name: string;
   customer_tax_id?: string;
   customer_contact_phone?: string;
+  /** Dirección fiscal opcional (se adjunta desde la dirección de envío guardada). */
+  customer_address_line1?: string;
+  customer_city?: string;
+  customer_state?: string;
+  customer_postal_code?: string;
+  customer_country?: string;
 }
 
 export interface UpgradeToSellerResponse {

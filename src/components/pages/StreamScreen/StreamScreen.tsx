@@ -32,8 +32,10 @@ import { getViewerTransport } from '../../../api/config';
 import { HlsStreamPlayer } from '../../molecules/stream/HlsStreamPlayer';
 import { StreamViewerSplash } from '../../molecules/stream/StreamViewerSplash';
 import { fetchLiveRoomIds, pickNextLiveStreamIndex } from '../../../utils/streamLiveNavigation';
-import { useStreamChat } from '../../../hooks/useStreamChat';
+import { useStreamChat, type AuctionWinner } from '../../../hooks/useStreamChat';
 import { AuctionWinnerOverlay } from '../../molecules/AuctionWinnerOverlay/AuctionWinnerOverlay';
+import { AuctionWinnerCelebration } from '../../molecules/AuctionWinnerOverlay/AuctionWinnerCelebration';
+import { useAuth } from '../../../hooks/useAuth';
 import { useFloatingHearts, FloatingHeartsLayer } from '../../molecules/FloatingHearts/FloatingHearts';
 import { useFloatingBids, FloatingBidsLayer } from '../../molecules/FloatingBids/FloatingBids';
 import { enableSpeakerphone, disableSpeakerphone, muteSpeakerOutput } from '../../../utils/audioRoute';
@@ -120,6 +122,12 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({
   const [isConnecting, setIsConnecting] = useState(true);
   const [chatToken, setChatToken] = useState<string | null>(null);
   const [liveCommerce, setLiveCommerce] = useState<LiveCommerceResponse | null>(null);
+  const { user } = useAuth();
+  /**
+   * Copia local del ganador cuando soy yo: el festejo persiste hasta que el
+   * usuario lo cierra, aunque el evento del chat se limpie a los segundos.
+   */
+  const [winCelebration, setWinCelebration] = useState<AuctionWinner | null>(null);
   const [productCatalogVisible, setProductCatalogVisible] = useState(false);
   const [catalogItems, setCatalogItems] = useState<RoomCatalogProductItem[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(false);
@@ -187,6 +195,23 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({
     onLike: handleLikeEvent,
     onStreamEnded: onStreamEndedFromWs,
   });
+
+  /**
+   * ¿Gané yo? Se compara por uuid (confiable) y, como respaldo para backends que
+   * aún no envían user_id, por el nombre para mostrar que usa el chat.
+   */
+  useEffect(() => {
+    if (!auctionWinner || !user) return;
+    const byId = !!auctionWinner.user_id && auctionWinner.user_id === user.uuid;
+    const myChatName = (user.name ?? '').trim();
+    const byName =
+      !auctionWinner.user_id &&
+      !!myChatName &&
+      auctionWinner.username.trim().toLowerCase() === myChatName.toLowerCase();
+    if (byId || byName) {
+      setWinCelebration(auctionWinner);
+    }
+  }, [auctionWinner, user]);
 
   useEffect(() => {
     if (!streamEndedReason) return;
@@ -856,7 +881,13 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({
 
       <StreamVideoScrim />
 
-      <AuctionWinnerOverlay winner={auctionWinner} />
+      {/* El ganador ve el festejo completo; el resto, el banner compacto. */}
+      <AuctionWinnerOverlay winner={winCelebration ? null : auctionWinner} />
+      <AuctionWinnerCelebration
+        winner={winCelebration}
+        productTitle={liveCommerce?.active_product?.title ?? null}
+        onDismiss={() => setWinCelebration(null)}
+      />
       <FloatingHeartsLayer likeEvents={likeEvents} onLikeDone={handleLikeDone} />
       <FloatingBidsLayer bidEvents={bidEvents} onBidDone={handleBidDone} />
       <FollowSuccessCelebration

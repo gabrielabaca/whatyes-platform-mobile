@@ -96,9 +96,16 @@ function AuthenticatedAppShell({
     kycCheckingRef.current = true;
     void (async () => {
       try {
+        // El KYC aprobado no revierte: el flag local evita la espera de red en cada tap.
+        if (await storage.getKycVerified()) {
+          kycVerifiedRef.current = true;
+          proceed();
+          return;
+        }
         const status = await getBuyerKycStatus();
         if (status.verified) {
           kycVerifiedRef.current = true;
+          await storage.setKycVerified();
           proceed();
           return;
         }
@@ -128,6 +135,7 @@ function AuthenticatedAppShell({
         onBack={() => setKycGate(null)}
         onProceedToComplete={() => {
           kycVerifiedRef.current = true;
+          void storage.setKycVerified();
           const proceed = kycGate.proceed;
           setKycGate(null);
           proceed();

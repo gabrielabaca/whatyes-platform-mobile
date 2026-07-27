@@ -68,6 +68,8 @@ export interface AuctionBid {
 export interface AuctionWinner {
   username: string;
   amount: number;
+  /** UUID del ganador: permite detectar "ganaste vos" sin depender del nombre. */
+  user_id?: string;
 }
 
 export function useStreamChat({
@@ -274,7 +276,11 @@ export function useStreamChat({
           if (msg.type === 'auction_end') {
             const winner = msg.payload?.winner;
             if (winner?.username) {
-              setAuctionWinner({ username: winner.username, amount: winner.amount ?? 0 });
+              setAuctionWinner({
+                username: winner.username,
+                amount: winner.amount ?? 0,
+                user_id: winner.user_id ?? undefined,
+              });
             }
             setAuction(null);
             setAuctionBids([]);

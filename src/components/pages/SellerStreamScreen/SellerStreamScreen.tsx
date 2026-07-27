@@ -396,6 +396,8 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
     setResolvedStreamConfig(config);
     setIsStarting(true);
     setPreLiveReady(true);
+    // Recordar las categorías para precargarlas en el próximo live.
+    void storage.setLastLiveCategoryUuids(config.interestCategoryUuids ?? []);
   }, []);
 
   const handleSendMessage = useCallback(() => {
