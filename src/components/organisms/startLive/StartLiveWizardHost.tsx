@@ -16,7 +16,7 @@ export interface StartLiveWizardHostProps {
 
 export const StartLiveWizardHost: React.FC<StartLiveWizardHostProps> = ({ onStartLive }) => {
   const wizard = useStartLiveWizard();
-  const { step, busy, close, setupNeeds } = wizard;
+  const { step, busy, close, setupNeeds, knownTaxId } = wizard;
 
   useEffect(() => {
     if (step !== 'launch') return;
@@ -44,6 +44,7 @@ export const StartLiveWizardHost: React.FC<StartLiveWizardHostProps> = ({ onStar
         busy={busy}
         needsCustomer={setupNeeds.customer}
         needsPayout={setupNeeds.payout}
+        initialTaxId={knownTaxId}
         onClose={close}
         onSubmit={wizard.completeSetup}
       />

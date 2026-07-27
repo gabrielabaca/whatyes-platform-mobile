@@ -39,6 +39,8 @@ export interface StartLiveWizardContextValue {
   hasPayoutAccount: boolean;
   /** Secciones pendientes del formulario de setup. */
   setupNeeds: { customer: boolean; payout: boolean };
+  /** CUIT ya guardado (tienda o cuenta de cobro) para precargar el formulario. */
+  knownTaxId: string;
   busy: boolean;
   open: () => Promise<void>;
   close: () => void;
@@ -63,6 +65,7 @@ export const StartLiveWizardProvider: React.FC<{ children: ReactNode }> = ({ chi
     customer: false,
     payout: false,
   });
+  const [knownTaxId, setKnownTaxId] = useState('');
   const [busy, setBusy] = useState(false);
 
   const refreshRemoteState = useCallback(async () => {
@@ -72,6 +75,8 @@ export const StartLiveWizardProvider: React.FC<{ children: ReactNode }> = ({ chi
     ]);
     setOnboarding(status);
     setHasPayoutAccount(!!payout);
+    // El CUIT ya vive en la tienda y/o en la cuenta de cobro: se reutiliza.
+    setKnownTaxId((status.customer_tax_id ?? payout?.tax_id ?? '').trim());
     return { status, hasPayout: !!payout };
   }, []);
 
@@ -212,6 +217,7 @@ export const StartLiveWizardProvider: React.FC<{ children: ReactNode }> = ({ chi
       onboarding,
       hasPayoutAccount,
       setupNeeds,
+      knownTaxId,
       busy,
       open,
       close,
@@ -225,6 +231,7 @@ export const StartLiveWizardProvider: React.FC<{ children: ReactNode }> = ({ chi
       onboarding,
       hasPayoutAccount,
       setupNeeds,
+      knownTaxId,
       busy,
       open,
       close,

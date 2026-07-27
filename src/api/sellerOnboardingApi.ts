@@ -11,6 +11,8 @@ export interface SellerOnboardingStatus {
   is_first_live_auction: boolean | null;
   /** Tienda asociada; null/ausente hasta completar el paso de datos fiscales. */
   customer_uuid?: string | null;
+  /** CUIT ya guardado en la tienda (para precargarlo y no volver a pedirlo). */
+  customer_tax_id?: string | null;
 }
 
 export interface UpgradeToSellerPayload {

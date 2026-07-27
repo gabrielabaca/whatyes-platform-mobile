@@ -33,6 +33,8 @@ export interface StartLiveSetupDrawerProps {
   needsCustomer: boolean;
   /** Falta la cuenta bancaria. */
   needsPayout: boolean;
+  /** CUIT ya guardado (tienda o cuenta de cobro): se precarga en vez de re-pedirlo. */
+  initialTaxId?: string;
   onClose: () => void;
   onSubmit: (payload: StartLiveSetupPayload) => Promise<void>;
 }
@@ -46,6 +48,7 @@ export const StartLiveSetupDrawer: React.FC<StartLiveSetupDrawerProps> = ({
   busy,
   needsCustomer,
   needsPayout,
+  initialTaxId = '',
   onClose,
   onSubmit,
 }) => {
@@ -54,7 +57,7 @@ export const StartLiveSetupDrawer: React.FC<StartLiveSetupDrawerProps> = ({
   const knownFullName = `${user?.name ?? ''} ${user?.last_name ?? ''}`.trim();
 
   const [fullName, setFullName] = useState(knownFullName);
-  const [taxId, setTaxId] = useState('');
+  const [taxId, setTaxId] = useState(initialTaxId);
   const [phone, setPhone] = useState('');
   const [cbu, setCbu] = useState('');
   const [alias, setAlias] = useState('');
@@ -66,6 +69,13 @@ export const StartLiveSetupDrawer: React.FC<StartLiveSetupDrawerProps> = ({
       setFullName((prev) => (prev.trim() ? prev : knownFullName));
     }
   }, [visible, knownFullName]);
+
+  // El CUIT llega asíncrono (status/payout): precargarlo si el campo sigue vacío.
+  useEffect(() => {
+    if (visible && initialTaxId) {
+      setTaxId((prev) => (prev.trim() ? prev : initialTaxId));
+    }
+  }, [visible, initialTaxId]);
 
   const cbuDigits = normalizeCbu(cbu);
   const bankOk = payoutLater || !needsPayout || cbuDigits.length === 22;
