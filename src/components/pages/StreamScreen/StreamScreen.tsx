@@ -911,6 +911,7 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({
           <UserProfileScreen
             userId={sellerProfileUserId}
             variant="sellerPublic"
+            underStatusBar
             onBack={closeSellerProfile}
           />
         </View>
@@ -962,9 +963,6 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({
       />
       <ShippingAddressModal
         visible={wallet.step === 'shipping'}
-        defaultFullName={
-          stream.sellerName ? `${stream.sellerName}` : undefined
-        }
         onClose={() => {
           void wallet.returnToHub();
         }}

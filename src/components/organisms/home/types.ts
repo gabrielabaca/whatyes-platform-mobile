@@ -32,4 +32,4 @@ export interface LiveStreamPreviewModel {
 /** Chip sintético "Todas" en el explorador de categorías */
 export const ALL_CATEGORIES_ID = '__all__';
 
-export type HomeBottomTab = 'home' | 'explore' | 'create' | 'activity' | 'account' | 'compras';
+export type HomeBottomTab = 'home' | 'explore' | 'create' | 'activity' | 'account';

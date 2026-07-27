@@ -7,7 +7,7 @@ import {
   IconPlus,
   IconBell,
   type SvgIconProps,
-  IconShoppingBag,
+  IconAccount,
 } from '../../icons';
 import { Text } from '../../atoms/Text';
 import { FONT_FAMILY } from '../../../theme/typography';
@@ -43,7 +43,7 @@ export const HomeBottomNav: React.FC<HomeBottomNavProps> = ({ activeTab, onTabPr
       | 'home.tabHome'
       | 'home.tabExplore'
       | 'home.tabActivity'
-      | 'home.tabPurchases';
+      | 'home.tabAccount';
     IconCmp: React.FC<SvgIconProps>;
   }) => {
     const on = activeTab === tab;
@@ -81,7 +81,7 @@ export const HomeBottomNav: React.FC<HomeBottomNavProps> = ({ activeTab, onTabPr
       <NavItem tab="explore" labelKey="home.tabExplore" IconCmp={IconSearch} />
       <CenterFab onPress={() => onTabPress('create')} />
       <NavItem tab="activity" labelKey="home.tabActivity" IconCmp={IconBell} />
-      <NavItem tab="compras" labelKey="home.tabPurchases" IconCmp={IconShoppingBag} />
+      <NavItem tab="account" labelKey="home.tabAccount" IconCmp={IconAccount} />
     </View>
   );
 };

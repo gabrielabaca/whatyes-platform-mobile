@@ -87,6 +87,7 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({
       onClose={onClose}
       backdropDelayMs={400}
       backdropAccessibilityLabel={t('account.deleteAccountModal.cancel')}
+        dismissOnBackdropPress={false}
       scrollable={false}
       containerStyle={[styles.container, { paddingTop: insets.top + 16 }]}
       header={

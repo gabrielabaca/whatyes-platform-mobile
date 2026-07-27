@@ -10,6 +10,7 @@ import {
   TouchableOpacity,
   Animated,
   ScrollView,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   type StyleProp,
@@ -40,6 +41,11 @@ export interface GlassFullScreenModalProps {
   containerStyle?: StyleProp<ViewStyle>;
   /** Etiqueta de accesibilidad del backdrop. */
   backdropAccessibilityLabel?: string;
+  /**
+   * Tocar el fondo cierra el modal. Ponerlo en false en modals con formulario:
+   * un toque al costado de un campo no debe descartar lo que el usuario escribió.
+   */
+  dismissOnBackdropPress?: boolean;
 }
 
 export const GlassFullScreenModal = forwardRef<
@@ -60,12 +66,25 @@ export const GlassFullScreenModal = forwardRef<
     scrollStyle,
     containerStyle,
     backdropAccessibilityLabel,
+    dismissOnBackdropPress = true,
   },
   ref,
 ) {
   const insets = useSafeAreaInsets();
   const slideAnim = useRef(new Animated.Value(1)).current;
   const [backdropReady, setBackdropReady] = useState(false);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const showEvt = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvt = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const showSub = Keyboard.addListener(showEvt, () => setKeyboardVisible(true));
+    const hideSub = Keyboard.addListener(hideEvt, () => setKeyboardVisible(false));
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   useEffect(() => {
     if (!visible) {
@@ -101,6 +120,20 @@ export const GlassFullScreenModal = forwardRef<
 
   useImperativeHandle(ref, () => ({ dismiss }), [onClose]);
 
+  /**
+   * Con el teclado abierto, tocar fuera solo lo baja: el usuario está pasando de un
+   * campo a otro, no pidiendo cerrar el modal (y perder lo que escribió).
+   */
+  const handleBackdropPress = () => {
+    if (keyboardVisible) {
+      Keyboard.dismiss();
+      return;
+    }
+    if (dismissOnBackdropPress) {
+      dismiss();
+    }
+  };
+
   const translateY = slideAnim.interpolate({
     inputRange: [0, 1],
     outputRange: [0, 800],
@@ -112,6 +145,7 @@ export const GlassFullScreenModal = forwardRef<
       contentContainerStyle={[styles.scrollContent, contentContainerStyle]}
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+      automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
       showsVerticalScrollIndicator={false}
       bounces={false}
     >
@@ -147,7 +181,7 @@ export const GlassFullScreenModal = forwardRef<
         <TouchableOpacity
           style={styles.backdropPress}
           activeOpacity={1}
-          onPress={backdropReady ? dismiss : undefined}
+          onPress={backdropReady ? handleBackdropPress : undefined}
           disabled={!backdropReady}
           accessibilityRole="button"
           accessibilityLabel={backdropAccessibilityLabel}

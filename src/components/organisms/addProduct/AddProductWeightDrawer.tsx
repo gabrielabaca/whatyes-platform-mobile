@@ -59,6 +59,7 @@ export const AddProductWeightDrawer: React.FC<AddProductWeightDrawerProps> = ({
       visible={visible}
       title={t('addProduct.weightTitle')}
       onClose={onClose}
+      dismissOnBackdropPress={false}
       {...addProductDrawerProps}
       contentContainerStyle={addProductStyles.drawerBody}
       footer={

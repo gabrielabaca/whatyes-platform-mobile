@@ -10,6 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  ActivityIndicator,
   Alert,
   TouchableOpacity,
   TextInput,
@@ -29,6 +30,7 @@ import {
   createBuyerUser,
   uploadBuyerProfile,
   saveBuyerInterests,
+  getCurrentUser,
   ApiError,
 } from '../../../api';
 import type { CreateBuyerUserRequest, VerifyUserResponse } from '../../../api/types';
@@ -93,6 +95,11 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
   const [postVerifyStep, setPostVerifyStep] = useState<
     'profile' | 'interests' | 'kyc' | null
   >(null);
+  /** Nombre/apellido ya conocidos para precargar el paso de perfil y no pedirlos de nuevo. */
+  const [profilePrefill, setProfilePrefill] = useState<{
+    name?: string;
+    lastName?: string;
+  } | null>(null);
 
   /** Tras reinicio de app: restaurar paso del onboarding comprador si el JWT ya existe */
   useEffect(() => {
@@ -127,6 +134,44 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [repeatPassword, setRepeatPassword] = useState('');
+
+  /**
+   * Al entrar al paso de perfil, reutilizar el nombre/apellido que ya tiene el
+   * backend (/auth/me); si no responde, derivarlos del email igual que en el alta.
+   */
+  useEffect(() => {
+    if (postVerifyStep !== 'profile' || profilePrefill) {
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      let name: string | undefined;
+      let lastName: string | undefined;
+      try {
+        const me = await getCurrentUser();
+        name = me.data?.name?.trim() || undefined;
+        lastName = me.data?.last_name?.trim() || undefined;
+      } catch {
+        // sin sesión o sin red: caer al nombre derivado del email
+      }
+      if (!name) {
+        const derived = email.trim() ? nameFromEmail(email.trim()) : '';
+        const words = derived.split(' ').filter(Boolean);
+        if (words.length > 1) {
+          name = words.slice(0, -1).join(' ');
+          lastName = words[words.length - 1];
+        } else {
+          name = derived || undefined;
+        }
+      }
+      if (!cancelled) {
+        setProfilePrefill({ name, lastName });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [postVerifyStep, profilePrefill, email]);
 
   const { isDark } = useTheme();
   const c = isDark ? themeColors.dark : themeColors.light;
@@ -272,9 +317,17 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
   };
 
   if (postVerifyStep === 'profile') {
+    if (!profilePrefill) {
+      return (
+        <SafeAreaView className="flex-1 bg-[#FEFEFE] dark:bg-night-950 items-center justify-center">
+          <ActivityIndicator size="large" color="#685CF0" />
+        </SafeAreaView>
+      );
+    }
     return (
       <BuyerProfileOnboardingScreen
-        initialName={email.trim() ? nameFromEmail(email.trim()) : undefined}
+        initialName={profilePrefill.name}
+        initialLastName={profilePrefill.lastName}
         onSkip={() => setPostVerifyStep('interests')}
         onSkipAll={() => void finishBuyerOnboarding()}
         onContinue={async (payload) => {

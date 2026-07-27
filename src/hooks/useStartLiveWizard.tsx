@@ -63,9 +63,10 @@ function stepAfterSurvey(
   _isFirst: boolean | null,
   hasPayout: boolean
 ): StartLiveWizardStep {
-  // Un comprador nunca puede transmitir sin upgrade a vendedor (datos fiscales),
-  // aunque en la encuesta responda que ya vendió en vivo en otra plataforma.
-  if (onboarding.user_type === 'buyer_user') {
+  // Nadie puede transmitir sin tienda asociada (datos fiscales del seller upgrade):
+  // las cuentas nacen como seller pero sin customer, así que se decide por
+  // customer_uuid y no por user_type.
+  if (onboarding.user_type === 'buyer_user' || !onboarding.customer_uuid) {
     return 'sellerUpgrade';
   }
   if (!hasPayout) {

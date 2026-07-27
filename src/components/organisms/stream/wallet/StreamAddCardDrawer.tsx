@@ -183,6 +183,7 @@ export const StreamAddCardDrawer: React.FC<StreamAddCardDrawerProps> = ({
       visible={visible}
       title={t('stream.wallet.cardFormTitle')}
       onClose={onClose}
+      dismissOnBackdropPress={false}
       bottomPanel={false}
       scrollEnabled={!webViewActive}
       cancelLabel={t('common.cancel')}

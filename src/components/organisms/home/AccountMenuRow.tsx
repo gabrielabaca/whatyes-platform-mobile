@@ -1,30 +1,22 @@
 import React from 'react';
-import { TouchableOpacity, View, StyleSheet, Platform } from 'react-native';
+import { TouchableOpacity, View, StyleSheet } from 'react-native';
 import { Text } from '../../atoms/Text';
-import { IconChevronRight, type SvgIconProps } from '../../icons';
 import { FONT_FAMILY } from '../../../theme/typography';
+import ArrowForwardIcon from '../../../../assets/icons/account/arrow-forward-ios.svg';
 
-/** Tokens Figma nodo 536:16114 */
+/** Tokens Figma nodo 698:2693 */
 const BORDER = '#CBCEFF';
 const ICON_BG = '#DBDBDF';
 const LABEL_COLOR = '#18181B';
 const DANGER_COLOR = '#DC2626';
-const CHEVRON_COLOR = '#18181B';
-
-const ROW_SHADOW = Platform.select({
-  ios: {
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-  },
-  android: { elevation: 2 },
-  default: {},
-});
 
 export interface AccountMenuRowProps {
   label: string;
-  icon: React.FC<SvgIconProps>;
+  /**
+   * SVG exportado de Figma (assets/icons/account, usa width/height) o ícono del
+   * proyecto (Icons.tsx, usa size/color) — se pasan ambos juegos de props.
+   */
+  icon: React.FC<any>;
   onPress: () => void;
   variant?: 'default' | 'danger';
 }
@@ -36,9 +28,6 @@ export const AccountMenuRow: React.FC<AccountMenuRowProps> = ({
   variant = 'default',
 }) => {
   const isDanger = variant === 'danger';
-  const labelColor = isDanger ? DANGER_COLOR : LABEL_COLOR;
-  const iconColor = isDanger ? DANGER_COLOR : LABEL_COLOR;
-
   return (
     <TouchableOpacity
       onPress={onPress}
@@ -48,19 +37,29 @@ export const AccountMenuRow: React.FC<AccountMenuRowProps> = ({
     >
       <View style={styles.left}>
         <View style={styles.iconCircle}>
-          <IconCmp size={18} color={iconColor} strokeWidth={1.75} />
+          <IconCmp
+            width={18}
+            height={18}
+            size={18}
+            color={isDanger ? DANGER_COLOR : LABEL_COLOR}
+            strokeWidth={1.75}
+          />
         </View>
         <Text
           numberOfLines={1}
-          style={[styles.label, { color: labelColor, fontFamily: FONT_FAMILY.semibold }]}
+          style={[
+            styles.label,
+            { fontFamily: FONT_FAMILY.semibold },
+            isDanger ? { color: DANGER_COLOR } : null,
+          ]}
         >
           {label}
         </Text>
       </View>
-      {!isDanger ? (
-        <IconChevronRight size={16} color={CHEVRON_COLOR} strokeWidth={2} />
-      ) : (
+      {isDanger ? (
         <View style={styles.chevronSpacer} />
+      ) : (
+        <ArrowForwardIcon width={16} height={16} />
       )}
     </TouchableOpacity>
   );
@@ -76,8 +75,9 @@ const styles = StyleSheet.create({
     borderRadius: 1000,
     borderWidth: 1,
     borderColor: BORDER,
-    backgroundColor: '#FFFFFF',
-    ...ROW_SHADOW,
+    // Figma 698:2693: fill transparente — la fila deja ver el gradiente de la
+    // página. Sin fondo, la sombra iOS/elevation no renderiza bien, así que se omite.
+    backgroundColor: 'transparent',
   },
   left: {
     flexDirection: 'row',
@@ -98,6 +98,7 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     lineHeight: 20,
+    color: LABEL_COLOR,
     flexShrink: 1,
   },
   chevronSpacer: {

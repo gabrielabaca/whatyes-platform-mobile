@@ -278,7 +278,8 @@ export default {
     "welcome": "Welcome!",
     "liveStreams": "Live streams",
     "activeStreams": "{{count}} active streams",
-    "noLiveStreams": "No live streams",
+    "noLiveStreams": "No live streams right now",
+    "noLiveStreamsSubtitle": "When a seller goes live, you'll see it here. Check back soon!",
     "noMoreLiveCarousel": "No more streams in carousel",
     "menuHome": "Home",
     "menuProfile": "Profile",
@@ -329,7 +330,8 @@ export default {
     "bestSellers": "Top sellers",
     "popularSection": "🙌 Popular",
     "livesSection": "▶️ Lives",
-    "noLivesInCategory": "No live streams in this category."
+    "noLivesInCategory": "No live streams in this category",
+    "noLivesInCategorySubtitle": "Try another category or check back later."
   },
   "account": {
     "viewProfile": "View profile",
@@ -370,7 +372,9 @@ export default {
       "title": "Shipping address",
       "close": "Close",
       "useLocation": "Use my current location",
-      "locationComingSoon": "Automatic location will be available soon.",
+      "locationDetecting": "Detecting your location…",
+      "locationPermissionDenied": "We couldn't access your location. Enable the location permission in your phone settings.",
+      "locationFailed": "We couldn't detect your address. Please fill it in manually.",
       "fullName": "Full name",
       "country": "Country",
       "address": "Address",
@@ -660,6 +664,7 @@ export default {
     "tabClips": "Clips",
     "noShows": "No shows to display yet.",
     "noProducts": "No products to display yet.",
+    "noClips": "No clips to display yet.",
     "productLive": "Live",
     "productArticles": "{{count}} items",
     "startsSoon": "Starting soon",

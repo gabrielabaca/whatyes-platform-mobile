@@ -98,6 +98,7 @@ export const ContactModal: React.FC<ContactModalProps> = ({ visible, onClose }) 
       onClose={onClose}
       backdropDelayMs={400}
       backdropAccessibilityLabel={t('account.contactModal.cancel')}
+        dismissOnBackdropPress={false}
       containerStyle={[styles.container, { paddingTop: insets.top + 16 }]}
       scrollStyle={styles.contentScroll}
       contentContainerStyle={styles.contentScrollInner}

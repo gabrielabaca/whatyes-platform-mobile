@@ -7,7 +7,7 @@
 
 import './global.css';
 import React, { useState, useEffect, useRef } from 'react';
-import { StatusBar, Linking, View, StyleSheet } from 'react-native';
+import { Alert, StatusBar, Linking, View, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
@@ -17,7 +17,8 @@ import { StartLiveWizardHost } from './src/components/organisms/startLive/StartL
 import { storage } from './src/utils/storage';
 import { isBuyerKycReturnUrl, notifyBuyerKycReturn } from './src/utils/buyerKycDeepLink';
 import { isMpWalletReturnUrl, notifyMpWalletReturn } from './src/utils/mpWalletDeepLink';
-import { getBuyerKycStatus } from './src/api';
+import { getBuyerKycStatus, ApiError } from './src/api';
+import i18n from './src/i18n';
 import { BuyerKycOnboardingScreen } from './src/components/pages/BuyerKycOnboardingScreen';
 import { LoginScreen } from './src/components/pages/LoginScreen';
 import { RegisterScreen } from './src/components/pages/RegisterScreen';
@@ -102,9 +103,12 @@ function AuthenticatedAppShell({
           return;
         }
         setKycGate({ proceed });
-      } catch {
-        // Sin estado confiable: pedir verificación igualmente (la pantalla permite reintentar).
-        setKycGate({ proceed });
+      } catch (error) {
+        // No se pudo determinar el estado (red caída, backend viejo, etc.): avisar
+        // en lugar de reemplazar la pantalla por el flujo de verificación.
+        const message =
+          error instanceof ApiError ? error.message : i18n.t('buyerOnboarding.kycPollError');
+        Alert.alert(i18n.t('common.error'), message);
       } finally {
         kycCheckingRef.current = false;
       }

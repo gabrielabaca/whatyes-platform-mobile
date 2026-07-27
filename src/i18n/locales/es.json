@@ -277,7 +277,8 @@
     "welcome": "¡Bienvenido!",
     "liveStreams": "Streams en Vivo",
     "activeStreams": "{{count}} transmisiones activas",
-    "noLiveStreams": "No hay transmisiones en vivo",
+    "noLiveStreams": "No hay vivos en este momento",
+    "noLiveStreamsSubtitle": "Cuando un vendedor salga en vivo, lo vas a ver acá. ¡Volvé en un rato!",
     "noMoreLiveCarousel": "No hay más transmisiones en carrusel",
     "menuHome": "Inicio",
     "menuProfile": "Perfil",
@@ -328,7 +329,8 @@
     "bestSellers": "Mejores vendedores",
     "popularSection": "🙌 Popular",
     "livesSection": "▶️ Lives",
-    "noLivesInCategory": "No hay transmisiones en vivo en esta categoría."
+    "noLivesInCategory": "No hay vivos en esta categoría",
+    "noLivesInCategorySubtitle": "Probá con otra categoría o volvé más tarde."
   },
   "account": {
     "viewProfile": "Ver Perfil",
@@ -369,7 +371,9 @@
       "title": "Dirección de Envío",
       "close": "Cerrar",
       "useLocation": "Usar Mi Localización Actual",
-      "locationComingSoon": "La ubicación automática estará disponible pronto.",
+      "locationDetecting": "Detectando tu ubicación…",
+      "locationPermissionDenied": "No pudimos acceder a tu ubicación. Habilitá el permiso de ubicación en los ajustes del teléfono.",
+      "locationFailed": "No pudimos detectar tu dirección. Completala manualmente.",
       "fullName": "Nombre Completo",
       "country": "País",
       "address": "Dirección",
@@ -659,6 +663,7 @@
     "tabClips": "Clips",
     "noShows": "Aún no hay shows para mostrar.",
     "noProducts": "Aún no hay productos para mostrar.",
+    "noClips": "Aún no hay clips para mostrar.",
     "productLive": "Live",
     "productArticles": "{{count}} artículos",
     "startsSoon": "Comienza pronto",

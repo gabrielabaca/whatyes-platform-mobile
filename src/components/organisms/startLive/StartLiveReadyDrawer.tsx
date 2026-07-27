@@ -27,6 +27,8 @@ export const StartLiveReadyDrawer: React.FC<StartLiveReadyDrawerProps> = ({
       onClose={onClose}
       {...startLiveWelcomeSheetProps}
       contentContainerStyle={startLiveStyles.sheetContent}
+      showCloseButton={false}
+      dismissOnBackdropPress={false}
     >
       <View style={{ gap: 24, alignItems: 'center', width: '100%' }}>
         <View style={{ gap: 12, alignItems: 'center' }}>

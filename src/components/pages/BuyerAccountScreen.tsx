@@ -20,18 +20,15 @@ import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { useTranslation } from 'react-i18next';
 import { Text } from '../atoms/Text';
 import { AccountMenuRow } from '../organisms/home/AccountMenuRow';
-import {
-  IconUser,
-  IconBell,
-  IconCreditCard,
-  IconLocation,
-  IconSettings,
-  IconLock,
-  IconChat,
-  IconDocument,
-  IconHelpCircle,
-  IconLogOut,
-} from '../icons';
+import { IconUser, IconLogOut } from '../icons';
+import AddCardIcon from '../../../assets/icons/account/add-card.svg';
+import LocationIcon from '../../../assets/icons/account/location-on.svg';
+import NotificationsIcon from '../../../assets/icons/account/notifications.svg';
+import SettingsIcon from '../../../assets/icons/account/settings.svg';
+import LockIcon from '../../../assets/icons/account/lock.svg';
+import ChatIcon from '../../../assets/icons/account/chat.svg';
+import ArticleIcon from '../../../assets/icons/account/article.svg';
+import HelpIcon from '../../../assets/icons/account/help.svg';
 import { FONT_FAMILY } from '../../theme/typography';
 import { themeColors } from '../../theme/colors';
 
@@ -105,27 +102,27 @@ export const BuyerAccountScreen: React.FC<BuyerAccountScreenProps> = ({
         <View style={styles.rowList}>
           <AccountMenuRow
             label={t('account.paymentsShipping')}
-            icon={IconCreditCard}
+            icon={AddCardIcon}
             onPress={showPlaceholder}
           />
           <AccountMenuRow
             label={t('account.address')}
-            icon={IconLocation}
+            icon={LocationIcon}
             onPress={() => setShippingModalVisible(true)}
           />
           <AccountMenuRow
             label={t('account.notifications')}
-            icon={IconBell}
+            icon={NotificationsIcon}
             onPress={() => setNotificationsModalVisible(true)}
           />
           <AccountMenuRow
             label={t('account.preferences')}
-            icon={IconSettings}
+            icon={SettingsIcon}
             onPress={() => setPreferencesModalVisible(true)}
           />
           <AccountMenuRow
             label={t('account.changePassword')}
-            icon={IconLock}
+            icon={LockIcon}
             onPress={() => setChangePasswordVisible(true)}
           />
         </View>
@@ -135,12 +132,12 @@ export const BuyerAccountScreen: React.FC<BuyerAccountScreenProps> = ({
         <View style={styles.rowList}>
           <AccountMenuRow
             label={t('account.contact')}
-            icon={IconChat}
+            icon={ChatIcon}
             onPress={() => setContactModalVisible(true)}
           />
-          <AccountMenuRow label={t('account.terms')} icon={IconDocument} onPress={showPlaceholder} />
-          <AccountMenuRow label={t('account.privacy')} icon={IconDocument} onPress={showPlaceholder} />
-          <AccountMenuRow label={t('account.faq')} icon={IconHelpCircle} onPress={showPlaceholder} />
+          <AccountMenuRow label={t('account.terms')} icon={ArticleIcon} onPress={showPlaceholder} />
+          <AccountMenuRow label={t('account.privacy')} icon={ArticleIcon} onPress={showPlaceholder} />
+          <AccountMenuRow label={t('account.faq')} icon={HelpIcon} onPress={showPlaceholder} />
           <AccountMenuRow
             label={t('account.logout')}
             icon={IconLogOut}

@@ -12,7 +12,6 @@ import {
   Alert,
   Text as RNText,
   useWindowDimensions,
-  Platform,
 } from 'react-native';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { BadgeCheck } from 'lucide-react-native';
@@ -51,18 +50,6 @@ const LAVENDER = '#E7E7FF';
 const BORDER_LAVENDER = '#CBCEFF';
 const BIO_SEE_MORE_MIN_LENGTH = 200;
 
-/** Figma 536:23161 — bg transparente; sombra solo iOS (elevation rompe el fondo en Android). */
-const STAT_CARD_SHADOW = Platform.select({
-  ios: {
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-  },
-  android: {},
-  default: {},
-});
-
 type ProfileTab = 'shows' | 'products' | 'reviews' | 'clips';
 
 export interface UserProfileScreenProps {
@@ -71,6 +58,12 @@ export interface UserProfileScreenProps {
   onShowPress?: (show: UserShowItem) => void;
   /** Figma 536-20602 — perfil de vendedor visto por otro usuario (p. ej. desde un live). */
   variant?: 'default' | 'sellerPublic';
+  /**
+   * true cuando la pantalla se monta full-bleed (overlay sobre un stream) y el cover
+   * queda debajo del status bar: agrega el safe area inset arriba de los íconos.
+   * false (default) cuando el padre ya aplica el safe area (Home).
+   */
+  underStatusBar?: boolean;
 }
 
 export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
@@ -78,6 +71,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   onBack,
   onShowPress,
   variant = 'default',
+  underStatusBar = false,
 }) => {
   const { t } = useTranslation();
   const { width } = useWindowDimensions();
@@ -241,7 +235,8 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
             style={[
               styles.coverInner,
               styles.coverInnerPadBottom,
-              { paddingTop: insets.top + 12 },
+              // Figma 698:10949 py-16; el inset solo aplica si el cover pasa por debajo del status bar.
+              { paddingTop: underStatusBar ? insets.top + 12 : 16 },
             ]}
           >
             <View style={styles.coverTopBar}>
@@ -273,7 +268,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                   {showSellerPublicUi && profile.is_verified ? (
                     <BadgeCheck
                       size={16}
-                      color="#FB2C36"
+                      color="#FFFFFF"
                       fill="#FB2C36"
                       style={styles.verifiedBadge}
                     />
@@ -316,7 +311,8 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                     <IconChat size={24} color={PRIMARY} strokeWidth={1.75} />
                   </TouchableOpacity>
                 </View>
-              ) : !profile.is_own_profile ? (
+              ) : (
+                // Figma 698:10969 — el botón de mensajes también aparece en el perfil propio.
                 <TouchableOpacity
                   style={styles.coverActionBtn}
                   onPress={placeholder}
@@ -325,7 +321,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                 >
                   <IconChat size={24} color={PRIMARY} strokeWidth={1.75} />
                 </TouchableOpacity>
-              ) : null}
+              )}
             </View>
           </View>
         </View>
@@ -429,16 +425,17 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
               ) : null}
             </View>
 
-            {/* Clips excluido por ahora (Figma 698-8461). */}
             <View style={styles.tabsRow}>
-              {(['shows', 'products', 'reviews'] as ProfileTab[]).map((key) => {
+              {(['shows', 'products', 'reviews', 'clips'] as ProfileTab[]).map((key) => {
                 const active = tab === key;
                 const label =
                   key === 'shows'
                     ? t('profile.tabShows')
                     : key === 'products'
                       ? t('profile.tabProducts')
-                      : t('profile.tabReviews');
+                      : key === 'reviews'
+                        ? t('profile.tabReviews')
+                        : t('profile.tabClips');
                 return (
                   <TouchableOpacity
                     key={key}
@@ -513,6 +510,10 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                 onPressReview={() => setReviewsDetailVisible(true)}
               />
             ) : null}
+
+            {tab === 'clips' ? (
+              <RNText style={styles.emptyShows}>{t('profile.noClips')}</RNText>
+            ) : null}
           </View>
         </View>
       </ScrollView>
@@ -556,30 +557,16 @@ const CoverBottomGradient: React.FC = () => (
   </Svg>
 );
 
-/** Figma 536:23161 — fill sutil + borde #CBCEFF */
-const STAT_CARD_GRADIENT_END = '#F0EEFF';
-
 /**
- * Tarjeta de métricas — Figma 536:23161 / 536:23173.
- * Degradado diagonal #FFF → lavanda suave; icono en círculo #CBCEFF.
+ * Tarjeta de métricas — Figma 698:10992 / 698:11004.
+ * Fill transparente (deja ver el gradiente del body) + borde #CBCEFF;
+ * icono en círculo #CBCEFF.
  */
-const StatCard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const gradientId = useId().replace(/:/g, '');
-  return (
-    <View style={styles.statCard}>
-      <Svg pointerEvents="none" style={StyleSheet.absoluteFill} width="100%" height="100%">
-        <Defs>
-          <LinearGradient id={gradientId} x1="0" y1="0" x2="1" y2="1">
-            <Stop offset="0" stopColor="#FFFFFF" />
-            <Stop offset="1" stopColor={STAT_CARD_GRADIENT_END} />
-          </LinearGradient>
-        </Defs>
-        <Rect width="100%" height="100%" rx={8} fill={`url(#${gradientId})`} />
-      </Svg>
-      <View style={styles.statCardInner}>{children}</View>
-    </View>
-  );
-};
+const StatCard: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <View style={styles.statCard}>
+    <View style={styles.statCardInner}>{children}</View>
+  </View>
+);
 
 /** Fondo body white → #E7E7FF */
 const BodyBackground: React.FC = () => {
@@ -809,7 +796,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: BORDER_LAVENDER,
     overflow: 'hidden',
-    ...STAT_CARD_SHADOW,
+    // Figma 698:10992: fill transparente. La sombra (5%) se omite: iOS/Android
+    // no renderizan sombras sobre vistas sin fondo.
+    backgroundColor: 'transparent',
   },
   statCardInner: {
     flex: 1,
@@ -837,7 +826,8 @@ const styles = StyleSheet.create({
   statValue: {
     fontFamily: FONT_FAMILY.bold,
     fontSize: 20,
-    lineHeight: 16,
+    // Figma usa leading 0.8 (16px), pero RN recorta el glifo si lineHeight < fontSize.
+    lineHeight: 20,
     color: '#111928',
     includeFontPadding: false,
   },
@@ -887,7 +877,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   tabActive: {
-    borderBottomWidth: 2,
+    borderBottomWidth: 1,
     borderBottomColor: PRIMARY,
   },
   tabLabel: {

@@ -108,6 +108,7 @@ export const EditProfileDrawer: React.FC<EditProfileDrawerProps> = ({
       visible={visible}
       onClose={onClose}
       backdropAccessibilityLabel={t('profile.editCancel')}
+        dismissOnBackdropPress={false}
       contentContainerStyle={styles.scrollContent}
       footer={
         <View style={styles.actions}>

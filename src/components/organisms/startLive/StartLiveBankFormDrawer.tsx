@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
-import { ScrollView, Text as RNText, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Platform, ScrollView, Text as RNText, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { StreamBottomSheet } from '../stream/StreamBottomSheet';
+import { useAuth } from '../../../hooks/useAuth';
 import { upsertPayoutAccount } from '../../../api/paymentsApi';
 import { ApiError } from '../../../api/authApi';
 import { startLiveFullSheetProps, startLiveStyles } from './startLiveStyles';
@@ -31,7 +32,9 @@ export const StartLiveBankFormDrawer: React.FC<StartLiveBankFormDrawerProps> = (
   onSaved,
 }) => {
   const { t } = useTranslation();
-  const [holder, setHolder] = useState('');
+  const { user } = useAuth();
+  const knownFullName = `${user?.name ?? ''} ${user?.last_name ?? ''}`.trim();
+  const [holder, setHolder] = useState(knownFullName);
   const [cbu, setCbu] = useState('');
   const [alias, setAlias] = useState('');
   const [country, setCountry] = useState('');
@@ -39,6 +42,14 @@ export const StartLiveBankFormDrawer: React.FC<StartLiveBankFormDrawerProps> = (
   const [taxId, setTaxId] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Prefill del titular con el nombre ya conocido si el campo sigue vacío
+  // (p. ej. el user cargó después del primer render).
+  useEffect(() => {
+    if (visible && knownFullName) {
+      setHolder((prev) => (prev.trim() ? prev : knownFullName));
+    }
+  }, [visible, knownFullName]);
 
   const cbuDigits = normalizeCbu(cbu);
   const canSave =
@@ -74,12 +85,14 @@ export const StartLiveBankFormDrawer: React.FC<StartLiveBankFormDrawerProps> = (
       {...startLiveFullSheetProps}
       contentContainerStyle={startLiveStyles.sheetContent}
       scrollEnabled
+      dismissOnBackdropPress={false}
     >
       <ScrollView
         style={startLiveStyles.scrollBody}
         showsVerticalScrollIndicator={false}
         nestedScrollEnabled
         keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
       >
         <RNText style={startLiveStyles.subtitle}>{t('startLive.bankFormIntro')}</RNText>
 

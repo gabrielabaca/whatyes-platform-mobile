@@ -91,7 +91,7 @@ export const ProfileShowCard: React.FC<ProfileShowCardProps> = ({ show, onPress 
             </View>
           ) : isDraft ? (
             <View style={styles.notifyBtn}>
-              <IconBell size={18} color="#FFFFFF" strokeWidth={2} />
+              <IconBell size={16} color="#FFFFFF" strokeWidth={2} />
             </View>
           ) : null}
         </View>
@@ -155,16 +155,20 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     color: '#FFFFFF',
   },
+  /** Figma 698:11052 — pill translúcida clara */
   scheduledBadge: {
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    backgroundColor: 'rgba(217,217,217,0.2)',
+    height: 24,
+    paddingHorizontal: 8,
     borderRadius: 1000,
+    justifyContent: 'center',
   },
   scheduledText: {
-    fontFamily: FONT_FAMILY.semibold,
-    fontSize: 11,
+    fontFamily: FONT_FAMILY.bold,
+    fontSize: 12,
+    lineHeight: 20,
     color: '#FFFFFF',
+    includeFontPadding: false,
   },
   viewerBadge: {
     flexDirection: 'row',
@@ -180,27 +184,32 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#FFFFFF',
   },
+  /** Figma 698:11071 — misma pill translúcida que la fecha; el estado suscripto usa PRIMARY */
   notifyBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: PRIMARY,
+    width: 28,
+    height: 24,
+    borderRadius: 1000,
+    backgroundColor: 'rgba(217,217,217,0.2)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   bottomText: {
-    gap: 2,
+    gap: 4,
+    paddingTop: 16,
   },
+  /** Figma 698:11046/11047 — título SemiBold 14, subtítulo Bold 12 */
   title: {
-    fontFamily: FONT_FAMILY.bold,
+    fontFamily: FONT_FAMILY.semibold,
     fontSize: 14,
-    lineHeight: 18,
+    lineHeight: 20,
     color: '#FFFFFF',
+    includeFontPadding: false,
   },
   subtitle: {
-    fontFamily: FONT_FAMILY.semibold,
+    fontFamily: FONT_FAMILY.bold,
     fontSize: 12,
-    lineHeight: 16,
-    color: 'rgba(255,255,255,0.85)',
+    lineHeight: 12,
+    color: '#FFFFFF',
+    includeFontPadding: false,
   },
 });

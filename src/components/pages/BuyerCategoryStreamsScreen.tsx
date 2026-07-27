@@ -193,8 +193,8 @@ export const BuyerCategoryStreamsScreen: React.FC<BuyerCategoryStreamsScreenProp
         previews={sortedPreviews}
         loading={loading}
         onStreamPress={onStreamPress}
-        loadingLabel={t('common.loading')}
         emptyLabel={t('explore.noLivesInCategory')}
+        emptySubtitle={t('explore.noLivesInCategorySubtitle')}
         sectionHeader={
           !loading && sortedPreviews.length > 0
             ? sectionHeader(t('explore.livesSection'))

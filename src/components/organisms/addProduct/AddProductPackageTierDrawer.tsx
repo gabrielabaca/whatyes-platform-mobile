@@ -80,6 +80,7 @@ export const AddProductPackageTierDrawer: React.FC<AddProductPackageTierDrawerPr
       visible={visible}
       title={t('addProduct.weightTitle')}
       onClose={onClose}
+      dismissOnBackdropPress={false}
       bottomPanel
       panelStyle={panelStyle}
       contentContainerStyle={addProductStyles.drawerBody}

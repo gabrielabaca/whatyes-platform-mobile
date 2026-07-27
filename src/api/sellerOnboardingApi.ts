@@ -9,6 +9,8 @@ export interface SellerOnboardingStatus {
   user_type: string;
   live_setup_survey_completed: boolean;
   is_first_live_auction: boolean | null;
+  /** Tienda asociada; null/ausente hasta completar el paso de datos fiscales. */
+  customer_uuid?: string | null;
 }
 
 export interface UpgradeToSellerPayload {

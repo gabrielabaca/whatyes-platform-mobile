@@ -234,11 +234,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         return;
       }
       if (tab === 'account') {
-        setHomePath({ name: 'account' });
-        return;
-      }
-      if (tab === 'compras') {
-        setHomePath({ name: 'purchases' });
+        // Tab "Cuenta": directo al perfil del usuario; el menú de configuración
+        // queda accesible desde el back del perfil.
+        setHomePath({ name: 'profile' });
         return;
       }
       if (tab === 'create') {
@@ -292,7 +290,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         : homePath.name === 'activity' || homePath.name === 'purchaseDetail'
           ? 'activity'
           : homePath.name === 'purchases' || homePath.name === 'account' || homePath.name === 'profile'
-            ? 'compras'
+            ? 'account'
             : bottomTab;
 
   const isSellerDashboard = isSeller && homePath.name === 'sellerHub';
@@ -303,6 +301,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     homePath.name === 'category' ||
     homePath.name === 'sellerHub' ||
     homePath.name === 'activity' ||
+    homePath.name === 'account' ||
     homePath.name === 'addProduct';
 
   const paymentsAmount = t('sellerHome.paymentsAmount', {
@@ -403,8 +402,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                 previews={filteredPreviews}
                 loading={loading}
                 onStreamPress={handleStreamPress}
-                loadingLabel={t('common.loading')}
                 emptyLabel={t('home.noLiveStreams')}
+                emptySubtitle={t('home.noLiveStreamsSubtitle')}
                 gap={GRID_GAP}
                 previewWithCategory={previewWithCategory}
                 sectionHeader={

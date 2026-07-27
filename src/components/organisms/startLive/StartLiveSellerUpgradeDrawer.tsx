@@ -1,9 +1,24 @@
-import React, { useState } from 'react';
-import { ScrollView, View, Text as RNText } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View,
+  Text as RNText,
+} from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { StreamBottomSheet } from '../stream/StreamBottomSheet';
+import { useAuth } from '../../../hooks/useAuth';
 import { ApiError } from '../../../api/authApi';
+import {
+  detectCurrentAddress,
+  LocationPermissionDeniedError,
+} from '../../../services/locationAddress';
 import { startLiveFullSheetProps, startLiveStyles } from './startLiveStyles';
+import { FONT_FAMILY } from '../../../theme/typography';
 import {
   StartLiveCountryField,
   StartLivePillField,
@@ -29,7 +44,9 @@ export const StartLiveSellerUpgradeDrawer: React.FC<StartLiveSellerUpgradeDrawer
   onSubmit,
 }) => {
   const { t } = useTranslation();
-  const [fullName, setFullName] = useState('');
+  const { user } = useAuth();
+  const knownFullName = `${user?.name ?? ''} ${user?.last_name ?? ''}`.trim();
+  const [fullName, setFullName] = useState(knownFullName);
   const [taxId, setTaxId] = useState('');
   const [country, setCountry] = useState('');
   const [address, setAddress] = useState('');
@@ -38,6 +55,35 @@ export const StartLiveSellerUpgradeDrawer: React.FC<StartLiveSellerUpgradeDrawer
   const [postalCode, setPostalCode] = useState('');
   const [phone, setPhone] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [detectingLocation, setDetectingLocation] = useState(false);
+
+  // Prefill con el nombre ya conocido del usuario si el campo sigue vacío.
+  useEffect(() => {
+    if (visible && knownFullName) {
+      setFullName((prev) => (prev.trim() ? prev : knownFullName));
+    }
+  }, [visible, knownFullName]);
+
+  const handleUseLocation = async () => {
+    if (detectingLocation) return;
+    setDetectingLocation(true);
+    try {
+      const detected = await detectCurrentAddress();
+      if (detected.country) setCountry(detected.country);
+      if (detected.addressLine) setAddress(detected.addressLine);
+      if (detected.city) setCity(detected.city);
+      if (detected.state) setState(detected.state);
+      if (detected.postalCode) setPostalCode(detected.postalCode);
+    } catch (e) {
+      const key =
+        e instanceof LocationPermissionDeniedError
+          ? 'account.shippingAddress.locationPermissionDenied'
+          : 'account.shippingAddress.locationFailed';
+      Alert.alert(t('common.appName'), t(key));
+    } finally {
+      setDetectingLocation(false);
+    }
+  };
 
   const canSubmit =
     fullName.trim().length >= 2 &&
@@ -70,14 +116,30 @@ export const StartLiveSellerUpgradeDrawer: React.FC<StartLiveSellerUpgradeDrawer
       {...startLiveFullSheetProps}
       contentContainerStyle={startLiveStyles.sheetContent}
       scrollEnabled
+      dismissOnBackdropPress={false}
     >
       <RNText style={startLiveStyles.subtitle}>{t('startLive.addressSubtitle')}</RNText>
+
+      <TouchableOpacity
+        onPress={() => void handleUseLocation()}
+        activeOpacity={0.75}
+        disabled={detectingLocation}
+        style={localStyles.locationLinkRow}
+      >
+        <RNText style={localStyles.locationLink}>
+          {detectingLocation
+            ? t('account.shippingAddress.locationDetecting')
+            : t('account.shippingAddress.useLocation')}
+        </RNText>
+        {detectingLocation ? <ActivityIndicator size="small" color="#FDC700" /> : null}
+      </TouchableOpacity>
 
       <ScrollView
         style={startLiveStyles.scrollBody}
         showsVerticalScrollIndicator={false}
         nestedScrollEnabled
         keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
       >
         <StartLivePillField
           label={t('startLive.addressFullName')}
@@ -142,3 +204,18 @@ export const StartLiveSellerUpgradeDrawer: React.FC<StartLiveSellerUpgradeDrawer
     </StreamBottomSheet>
   );
 };
+
+const localStyles = StyleSheet.create({
+  locationLinkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  locationLink: {
+    fontFamily: FONT_FAMILY.bold,
+    fontSize: 12,
+    lineHeight: 16,
+    color: '#FDC700',
+    includeFontPadding: false,
+  },
+});

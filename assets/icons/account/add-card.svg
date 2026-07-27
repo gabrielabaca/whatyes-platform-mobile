@@ -1,0 +1,10 @@
+<svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="add_card">
+<mask id="mask0_0_23" style="mask-type:alpha" maskUnits="userSpaceOnUse" x="0" y="0" width="18" height="18">
+<rect id="Bounding box" width="18" height="18" fill="#D9D9D9"/>
+</mask>
+<g mask="url(#mask0_0_23)">
+<path id="add_card_2" d="M3 15C2.5875 15 2.23438 14.8531 1.94063 14.5594C1.64688 14.2656 1.5 13.9125 1.5 13.5V4.5C1.5 4.0875 1.64688 3.73438 1.94063 3.44063C2.23438 3.14688 2.5875 3 3 3H15C15.4125 3 15.7656 3.14688 16.0594 3.44063C16.3531 3.73438 16.5 4.0875 16.5 4.5V9H3V13.5H10.5V15H3ZM3 6H15V4.5H3V6ZM14.25 16.5V14.25H12V12.75H14.25V10.5H15.75V12.75H18V14.25H15.75V16.5H14.25Z" fill="#71717B"/>
+</g>
+</g>
+</svg>

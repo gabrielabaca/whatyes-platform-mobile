@@ -256,6 +256,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
       onClose={onClose}
       backdropDelayMs={400}
       backdropAccessibilityLabel={t('account.changePasswordModal.cancel')}
+        dismissOnBackdropPress={false}
       containerStyle={[styles.container, { paddingTop: insets.top + 16 }]}
       scrollStyle={styles.contentScroll}
       contentContainerStyle={styles.contentScrollInner}

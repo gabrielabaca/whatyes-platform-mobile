@@ -439,3 +439,25 @@ export function IconAccount({ size = 24, color = '#685CF0', strokeWidth = 2 }: S
     </Svg>
   );
 }
+/** Icono de cámara de video (estado vacío de vivos). */
+export function IconVideo({ size = 24, color = '#685CF0', strokeWidth = 2 }: SvgIconProps) {
+  const sw = (strokeWidth * size) / 24;
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M22 8L16 12L22 16V8Z"
+        stroke={color}
+        strokeWidth={sw}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M14 6H4C2.89543 6 2 6.89543 2 8V16C2 17.1046 2.89543 18 4 18H14C15.1046 18 16 17.1046 16 16V8C16 6.89543 15.1046 6 14 6Z"
+        stroke={color}
+        strokeWidth={sw}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}

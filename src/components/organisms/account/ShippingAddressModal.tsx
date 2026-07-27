@@ -22,10 +22,15 @@ import {
 } from '../profile/GlassFullScreenModal';
 import { FONT_FAMILY } from '../../../theme/typography';
 import { COUNTRIES, type Country } from '../../molecules/CountrySelect/CountrySelect';
+import { useAuth } from '../../../hooks/useAuth';
 import {
   getShippingAddress,
   updateShippingAddress,
 } from '../../../api/shippingAddressApi';
+import {
+  detectCurrentAddress,
+  LocationPermissionDeniedError,
+} from '../../../services/locationAddress';
 
 const PRIMARY = '#685CF0';
 const CANCEL_GOLD = '#FDC700';
@@ -47,8 +52,14 @@ export const ShippingAddressModal: React.FC<ShippingAddressModalProps> = ({
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const modalRef = useRef<GlassFullScreenModalHandle>(null);
+  const { user } = useAuth();
 
-  const [fullName, setFullName] = useState(defaultFullName);
+  // Nombre ya conocido del usuario: prop explícita > nombre del usuario logueado.
+  const knownFullName =
+    defaultFullName.trim() ||
+    `${user?.name ?? ''} ${user?.last_name ?? ''}`.trim();
+
+  const [fullName, setFullName] = useState(knownFullName);
   const [country, setCountry] = useState('');
   const [addressLine1, setAddressLine1] = useState('');
   const [city, setCity] = useState('');
@@ -59,6 +70,7 @@ export const ShippingAddressModal: React.FC<ShippingAddressModalProps> = ({
   const [saving, setSaving] = useState(false);
   const [countryPickerVisible, setCountryPickerVisible] = useState(false);
   const [countrySearch, setCountrySearch] = useState('');
+  const [detectingLocation, setDetectingLocation] = useState(false);
 
   useEffect(() => {
     if (!visible) {
@@ -74,7 +86,7 @@ export const ShippingAddressModal: React.FC<ShippingAddressModalProps> = ({
         if (cancelled) {
           return;
         }
-        setFullName(data.full_name?.trim() || defaultFullName);
+        setFullName(data.full_name?.trim() || knownFullName);
         setCountry(data.country?.trim() || '');
         setAddressLine1(data.address_line1?.trim() || '');
         setCity(data.city?.trim() || '');
@@ -82,7 +94,7 @@ export const ShippingAddressModal: React.FC<ShippingAddressModalProps> = ({
         setPostalCode(data.postal_code?.trim() || '');
       } catch {
         if (!cancelled) {
-          setFullName(defaultFullName);
+          setFullName(knownFullName);
           setCountry('');
           setAddressLine1('');
           setCity('');
@@ -99,14 +111,32 @@ export const ShippingAddressModal: React.FC<ShippingAddressModalProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [visible, defaultFullName]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible, knownFullName]);
 
   const handleClose = () => {
     modalRef.current?.dismiss();
   };
 
-  const handleUseLocation = () => {
-    Alert.alert(t('common.appName'), t('account.shippingAddress.locationComingSoon'));
+  const handleUseLocation = async () => {
+    if (detectingLocation) return;
+    setDetectingLocation(true);
+    try {
+      const detected = await detectCurrentAddress();
+      if (detected.country) setCountry(detected.country);
+      if (detected.addressLine) setAddressLine1(detected.addressLine);
+      if (detected.city) setCity(detected.city);
+      if (detected.state) setState(detected.state);
+      if (detected.postalCode) setPostalCode(detected.postalCode);
+    } catch (e) {
+      const key =
+        e instanceof LocationPermissionDeniedError
+          ? 'account.shippingAddress.locationPermissionDenied'
+          : 'account.shippingAddress.locationFailed';
+      Alert.alert(t('common.appName'), t(key));
+    } finally {
+      setDetectingLocation(false);
+    }
   };
 
   const handleSave = async () => {
@@ -175,6 +205,7 @@ export const ShippingAddressModal: React.FC<ShippingAddressModalProps> = ({
         visible={visible}
         onClose={onClose}
         backdropAccessibilityLabel={t('account.shippingAddress.cancel')}
+        dismissOnBackdropPress={false}
         header={
           <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
             <RNText style={styles.title}>{t('account.shippingAddress.title')}</RNText>
@@ -212,8 +243,20 @@ export const ShippingAddressModal: React.FC<ShippingAddressModalProps> = ({
         }
         contentContainerStyle={styles.scrollContent}
       >
-        <TouchableOpacity onPress={handleUseLocation} activeOpacity={0.75} style={styles.locationLinkWrap}>
-          <RNText style={styles.locationLink}>{t('account.shippingAddress.useLocation')}</RNText>
+        <TouchableOpacity
+          onPress={() => void handleUseLocation()}
+          activeOpacity={0.75}
+          style={styles.locationLinkWrap}
+          disabled={detectingLocation}
+        >
+          <View style={styles.locationLinkRow}>
+            <RNText style={styles.locationLink}>
+              {detectingLocation
+                ? t('account.shippingAddress.locationDetecting')
+                : t('account.shippingAddress.useLocation')}
+            </RNText>
+            {detectingLocation ? <ActivityIndicator size="small" color={LOCATION_LINK} /> : null}
+          </View>
         </TouchableOpacity>
 
         {loading ? (
@@ -397,6 +440,11 @@ const styles = StyleSheet.create({
   locationLinkWrap: {
     paddingHorizontal: 24,
     paddingBottom: 16,
+  },
+  locationLinkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   locationLink: {
     fontFamily: FONT_FAMILY.bold,

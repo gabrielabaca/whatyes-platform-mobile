@@ -11,6 +11,7 @@ import {
   Text as RNText,
   Animated,
   ScrollView,
+  Keyboard,
   Modal,
   Platform,
   useWindowDimensions,
@@ -60,6 +61,16 @@ export interface StreamBottomSheetProps {
    * jerarquía nativa que la pantalla de fondo (en Modal no hay nada que difuminar).
    */
   nativeModal?: boolean;
+  /**
+   * Tocar el fondo cierra el drawer. Ponerlo en false en drawers con formulario:
+   * un toque al costado de un campo no debe descartar lo que el usuario escribió.
+   */
+  dismissOnBackdropPress?: boolean;
+  /**
+   * false = sin X en el header (pasos que solo avanzan con su CTA,
+   * p. ej. "Todo listo para tu show"). Combinar con dismissOnBackdropPress={false}.
+   */
+  showCloseButton?: boolean;
 }
 
 /** Props compartidas para drawers inferiores (fondo visible + anclado abajo). */
@@ -81,6 +92,8 @@ export const StreamBottomSheet: React.FC<StreamBottomSheetProps> = ({
   onCancelPress,
   scrollEnabled = true,
   nativeModal,
+  dismissOnBackdropPress = true,
+  showCloseButton = true,
 }) => {
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
@@ -96,6 +109,18 @@ export const StreamBottomSheet: React.FC<StreamBottomSheetProps> = ({
   const [bottomContentHeight, setBottomContentHeight] = useState<number | undefined>(undefined);
   const [headerHeight, setHeaderHeight] = useState<number | undefined>(undefined);
   const [footerHeight, setFooterHeight] = useState<number | undefined>(undefined);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const showEvt = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvt = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const showSub = Keyboard.addListener(showEvt, () => setKeyboardVisible(true));
+    const hideSub = Keyboard.addListener(hideEvt, () => setKeyboardVisible(false));
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   useEffect(() => {
     if (!visible) return;
@@ -118,6 +143,20 @@ export const StreamBottomSheet: React.FC<StreamBottomSheetProps> = ({
     });
   };
 
+  /**
+   * Con el teclado abierto, tocar fuera solo lo baja: el usuario está pasando de un
+   * campo a otro, no pidiendo cerrar el drawer (y perder lo que escribió).
+   */
+  const handleBackdropPress = () => {
+    if (keyboardVisible) {
+      Keyboard.dismiss();
+      return;
+    }
+    if (dismissOnBackdropPress) {
+      handleClose();
+    }
+  };
+
   const translateY = slideAnim.interpolate({
     inputRange: [0, 1],
     outputRange: [0, 800],
@@ -128,14 +167,16 @@ export const StreamBottomSheet: React.FC<StreamBottomSheetProps> = ({
       <RNText style={styles.title} numberOfLines={2} maxFontSizeMultiplier={1.15}>
         {title}
       </RNText>
-      <TouchableOpacity
-        onPress={handleClose}
-        hitSlop={12}
-        style={styles.closeBtn}
-        accessibilityRole="button"
-      >
-        <X size={22} color="#FFFFFF" strokeWidth={2.2} />
-      </TouchableOpacity>
+      {showCloseButton ? (
+        <TouchableOpacity
+          onPress={handleClose}
+          hitSlop={12}
+          style={styles.closeBtn}
+          accessibilityRole="button"
+        >
+          <X size={22} color="#FFFFFF" strokeWidth={2.2} />
+        </TouchableOpacity>
+      ) : null}
     </View>
   );
 
@@ -173,6 +214,7 @@ export const StreamBottomSheet: React.FC<StreamBottomSheetProps> = ({
       nestedScrollEnabled
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+      automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
       showsVerticalScrollIndicator={false}
       bounces={false}
       style={useFullPanel ? styles.scroll : styles.scrollBottom}
@@ -324,7 +366,7 @@ export const StreamBottomSheet: React.FC<StreamBottomSheetProps> = ({
           !useFullPanel ? { bottom: bottomPanelMaxHeightPx } : null,
         ]}
         activeOpacity={1}
-        onPress={handleClose}
+        onPress={handleBackdropPress}
         accessibilityRole="button"
       />
 

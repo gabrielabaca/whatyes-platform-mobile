@@ -34,8 +34,9 @@ interface BuyerProfileOnboardingScreenProps {
   /** Salta todo el onboarding restante y entra directo a la app. */
   onSkipAll?: () => void;
   onContinue: (payload: BuyerProfilePayload) => Promise<void>;
-  /** Nombre sugerido (derivado del email) para que el usuario lo corrija si quiere. */
+  /** Datos ya conocidos del usuario (registro o /auth/me) para no pedirlos de nuevo. */
   initialName?: string;
+  initialLastName?: string;
 }
 
 export const BuyerProfileOnboardingScreen: React.FC<BuyerProfileOnboardingScreenProps> = ({
@@ -44,12 +45,13 @@ export const BuyerProfileOnboardingScreen: React.FC<BuyerProfileOnboardingScreen
   onSkipAll,
   onContinue,
   initialName,
+  initialLastName,
 }) => {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const c = isDark ? themeColors.dark : themeColors.light;
   const [name, setName] = useState(initialName ?? '');
-  const [lastName, setLastName] = useState('');
+  const [lastName, setLastName] = useState(initialLastName ?? '');
   const [photo, setPhoto] = useState<BuyerProfilePayload['photo'] | undefined>();
   const [previewUri, setPreviewUri] = useState<string | undefined>();
   const [busy, setBusy] = useState(false);
