@@ -23,7 +23,8 @@ import { BuyerKycOnboardingScreen } from './src/components/pages/BuyerKycOnboard
 import { LoginScreen } from './src/components/pages/LoginScreen';
 import { RegisterScreen } from './src/components/pages/RegisterScreen';
 import { ForgotPasswordScreen } from './src/components/pages/ForgotPasswordScreen';
-import { OnboardingScreen } from './src/components/pages/OnboardingScreen';
+// Onboarding desactivado por ahora (faltan textos e imágenes definitivos).
+// import { OnboardingScreen } from './src/components/pages/OnboardingScreen';
 import { HomeScreen } from './src/components/pages/HomeScreen';
 import { LoadingScreen } from './src/components/pages/LoadingScreen';
 import { StreamScreen } from './src/components/pages/StreamScreen';
@@ -244,8 +245,9 @@ const MIN_SPLASH_MS = 1000;
 
 function AppNavigator() {
   const { isAuthenticated, isBootstrapping } = useAuth();
-  const [authScreen, setAuthScreen] = useState<AuthScreen>('onboarding');
-  const [currentScreen, setCurrentScreen] = useState<AppScreen>('onboarding');
+  // Onboarding desactivado: la app arranca en login hasta completar textos e imágenes.
+  const [authScreen, setAuthScreen] = useState<AuthScreen>('login');
+  const [currentScreen, setCurrentScreen] = useState<AppScreen>('home');
   const prevAuthenticated = useRef(false);
   const [minSplashElapsed, setMinSplashElapsed] = useState(false);
 
@@ -254,7 +256,7 @@ function AppNavigator() {
     return () => clearTimeout(timer);
   }, []);
 
-  /** El carrusel de bienvenida solo se muestra en el primer arranque tras instalar. */
+  /* ONBOARDING (desactivado — restaurar junto con el bloque de render de abajo)
   const [welcomeSeen, setWelcomeSeen] = useState(false);
   useEffect(() => {
     void storage.getWelcomeCarouselSeen().then((seen) => {
@@ -264,6 +266,7 @@ function AppNavigator() {
       }
     });
   }, []);
+  */
 
   // Si la sesión vence en medio del uso (refresh fallido), ir directo al login.
   useEffect(() => {
@@ -349,6 +352,8 @@ function AppNavigator() {
         );
       }
 
+  /* ONBOARDING (desactivado — restaurar junto con el estado welcomeSeen de arriba,
+     el import de OnboardingScreen y los `onBack` comentados más abajo)
   if (authScreen === 'onboarding') {
     return (
       <OnboardingScreen
@@ -365,11 +370,13 @@ function AppNavigator() {
       />
     );
   }
+  */
 
   if (authScreen === 'register') {
     return (
       <RegisterScreen
-        onBackToLogin={() => setAuthScreen(welcomeSeen ? 'login' : 'onboarding')}
+        // Con onboarding: setAuthScreen(welcomeSeen ? 'login' : 'onboarding')
+        onBackToLogin={() => setAuthScreen('login')}
         onRegisterSuccess={() => setAuthScreen('login')}
       />
     );
@@ -383,7 +390,7 @@ function AppNavigator() {
 
   return (
     <LoginScreen
-      onBack={welcomeSeen ? undefined : () => setAuthScreen('onboarding')}
+      // Con onboarding: onBack={welcomeSeen ? undefined : () => setAuthScreen('onboarding')}
       onNavigateToRegister={() => setAuthScreen('register')}
       onNavigateToForgotPassword={() => setAuthScreen('forgot-password')}
     />
