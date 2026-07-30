@@ -1,11 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import {
-  View,
-  Text as RNText,
-  TouchableOpacity,
-  type StyleProp,
-  type ViewStyle,
-} from 'react-native';
+import { View, Text as RNText, TouchableOpacity } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Check, Package, PackageOpen } from 'lucide-react-native';
 import { StreamBottomSheet } from '../stream/StreamBottomSheet';
@@ -13,9 +7,9 @@ import {
   SALE_FORMAT_OPTIONS,
   type SaleFormatId,
 } from '../../../constants/productWeightPresets';
-import { addProductStyles } from './addProductStyles';
+import { addProductDrawerProps, addProductStyles } from './addProductStyles';
 import { StartLivePrimaryButton } from '../startLive/StartLivePrimitives';
-import { startLivePanelStyle } from '../startLive/startLiveStyles';
+import { themeColors } from '../../../theme/colors';
 
 export interface AddProductSaleFormatDrawerProps {
   visible: boolean;
@@ -33,7 +27,6 @@ export const AddProductSaleFormatDrawer: React.FC<AddProductSaleFormatDrawerProp
 }) => {
   const { t } = useTranslation();
   const [selected, setSelected] = useState<SaleFormatId | null>(initialValue ?? null);
-  const panelStyle: StyleProp<ViewStyle> = [startLivePanelStyle, { paddingTop: 28 }];
 
   useEffect(() => {
     if (visible) {
@@ -46,8 +39,8 @@ export const AddProductSaleFormatDrawer: React.FC<AddProductSaleFormatDrawerProp
       visible={visible}
       title={t('addProduct.saleFormatTitle')}
       onClose={onClose}
-      bottomPanel
-      panelStyle={panelStyle}
+      dismissOnBackdropPress={false}
+      {...addProductDrawerProps}
       contentContainerStyle={addProductStyles.drawerBody}
       footer={
         <StartLivePrimaryButton
@@ -72,7 +65,7 @@ export const AddProductSaleFormatDrawer: React.FC<AddProductSaleFormatDrawerProp
             >
               <View style={addProductStyles.conditionLeft}>
                 <View style={addProductStyles.conditionIcon}>
-                  <Icon size={18} color="#18181B" strokeWidth={2} />
+                  <Icon size={18} color={themeColors.glass.text} strokeWidth={2} />
                 </View>
                 <View style={addProductStyles.saleFormatTextCol}>
                   <RNText style={addProductStyles.conditionLabel}>{t(opt.labelKey)}</RNText>
@@ -80,7 +73,7 @@ export const AddProductSaleFormatDrawer: React.FC<AddProductSaleFormatDrawerProp
                 </View>
               </View>
               <View style={[addProductStyles.conditionCheck, on && addProductStyles.conditionCheckOn]}>
-                {on ? <Check size={12} color="#FFFFFF" strokeWidth={3} /> : null}
+                {on ? <Check size={12} color={themeColors.glass.text} strokeWidth={3} /> : null}
               </View>
             </TouchableOpacity>
           );

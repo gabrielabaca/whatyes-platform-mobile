@@ -11,6 +11,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { StreamBottomSheet, streamBottomPanelStyle, streamSheetStyles } from './StreamBottomSheet';
 import { FONT_FAMILY } from '../../../theme/typography';
+import { themeColors } from '../../../theme/colors';
 import { SaleModeTabs, type LiveProductSaleMode } from '../../molecules/stream/SaleModeTabs';
 import { LiveProductCard, type LiveProductCardVM } from '../../molecules/stream/LiveProductCard';
 
@@ -79,10 +80,10 @@ export const StreamRoomProductsDrawer: React.FC<StreamRoomProductsDrawerProps> =
   return (
     <StreamBottomSheet
       visible={visible}
-      nativeModal
       title={t('stream.productsCatalogTitle')}
       onClose={onClose}
       panelStyle={[streamBottomPanelStyle, styles.panel]}
+      fillToMaxHeight
       contentContainerStyle={styles.content}
       scrollEnabled={false}
       footer={footer}
@@ -90,7 +91,7 @@ export const StreamRoomProductsDrawer: React.FC<StreamRoomProductsDrawerProps> =
       {saleModeTabs}
 
       {loading ? (
-        <ActivityIndicator color="#FFFFFF" style={styles.loader} />
+        <ActivityIndicator color={themeColors.glass.text} style={styles.loader} />
       ) : errorMessage ? (
         <RNText style={styles.errorText}>{errorMessage}</RNText>
       ) : items.length === 0 ? (
@@ -141,7 +142,7 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.regular,
     fontSize: 14,
     lineHeight: 22,
-    color: 'rgba(255,255,255,0.88)',
+    color: themeColors.glass.textSoft,
     textAlign: 'center',
     paddingVertical: 16,
   },
@@ -149,7 +150,7 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.regular,
     fontSize: 14,
     lineHeight: 22,
-    color: 'rgba(255,255,255,0.75)',
+    color: themeColors.glass.textSoft,
     textAlign: 'center',
     paddingVertical: 24,
   },

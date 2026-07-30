@@ -5,6 +5,8 @@ import React from 'react';
 import { View, Image, StyleSheet, Text as RNText } from 'react-native';
 import { Star, ImageIcon } from 'lucide-react-native';
 import { FONT_FAMILY } from '../../../theme/typography';
+import { themeColors } from '../../../theme/colors';
+import { useTheme } from '../../../context/ThemeContext';
 import type { UserReviewListItem } from '../../../api/profileApi';
 
 const GOLD = '#FDC700';
@@ -22,6 +24,12 @@ export interface ProfileReviewRowProps {
 }
 
 export const ProfileReviewRow: React.FC<ProfileReviewRowProps> = ({ review }) => {
+  /** Overrides de color sólo en oscuro; el oro de las estrellas es de marca y no se tematiza. */
+  const { isDark } = useTheme();
+  const d = themeColors.dark;
+  const darkText = isDark ? { color: d.text } : null;
+  const darkMuted = isDark ? { color: d.textMuted } : null;
+  const darkSecondary = isDark ? { color: d.textSecondary } : null;
   const ratingLabel =
     Number.isInteger(review.rating) ? String(review.rating) : review.rating.toFixed(1);
 
@@ -32,21 +40,27 @@ export const ProfileReviewRow: React.FC<ProfileReviewRowProps> = ({ review }) =>
           {review.reviewer_avatar_url ? (
             <Image source={{ uri: review.reviewer_avatar_url }} style={styles.avatar} />
           ) : (
-            <View style={[styles.avatar, styles.avatarPlaceholder]} />
+            <View
+              style={[
+                styles.avatar,
+                styles.avatarPlaceholder,
+                isDark ? { backgroundColor: d.surfaceAlt } : null,
+              ]}
+            />
           )}
-          <RNText style={styles.authorName} numberOfLines={1}>
+          <RNText style={[styles.authorName, darkText]} numberOfLines={1}>
             {review.reviewer_name}
           </RNText>
           <View style={styles.ratingBadge}>
             <Star size={12} color={GOLD} fill={GOLD} strokeWidth={1.5} />
-            <RNText style={styles.ratingText}>{ratingLabel}</RNText>
+            <RNText style={[styles.ratingText, darkText]}>{ratingLabel}</RNText>
           </View>
         </View>
-        <RNText style={styles.date}>{formatReviewDate(review.created_at)}</RNText>
+        <RNText style={[styles.date, darkMuted]}>{formatReviewDate(review.created_at)}</RNText>
       </View>
 
       {review.comment ? (
-        <RNText style={styles.comment} numberOfLines={4}>
+        <RNText style={[styles.comment, darkSecondary]} numberOfLines={4}>
           {review.comment}
         </RNText>
       ) : null}
@@ -57,10 +71,10 @@ export const ProfileReviewRow: React.FC<ProfileReviewRowProps> = ({ review }) =>
             <Image source={{ uri: review.product_image_url }} style={styles.productThumb} />
           ) : (
             <View style={styles.productIconWrap}>
-              <ImageIcon size={14} color="#71717B" strokeWidth={2} />
+              <ImageIcon size={14} color={isDark ? d.textMuted : '#71717B'} strokeWidth={2} />
             </View>
           )}
-          <RNText style={styles.productLabel} numberOfLines={1}>
+          <RNText style={[styles.productLabel, darkMuted]} numberOfLines={1}>
             {review.product_label}
           </RNText>
         </View>

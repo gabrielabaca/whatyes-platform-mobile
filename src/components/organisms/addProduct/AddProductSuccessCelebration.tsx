@@ -13,6 +13,7 @@ import { CheckCircle2 } from 'lucide-react-native';
 import ConfettiCannon from 'react-native-confetti-cannon';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FONT_FAMILY } from '../../../theme/typography';
+import { LAYERS } from '../../../theme/layers';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const PRIMARY = '#685CF0';
@@ -125,8 +126,8 @@ const styles = StyleSheet.create({
   host: {
     flex: 1,
     backgroundColor: 'transparent',
-    zIndex: 300,
-    elevation: 300,
+    zIndex: LAYERS.host,
+    elevation: LAYERS.host,
   },
   toastWrap: {
     position: 'absolute',

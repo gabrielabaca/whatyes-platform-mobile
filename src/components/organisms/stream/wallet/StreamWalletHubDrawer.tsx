@@ -10,8 +10,9 @@ import {
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { CreditCard, Truck } from 'lucide-react-native';
-import { StreamBottomSheet, streamBottomPanelStyle } from '../StreamBottomSheet';
+import { StreamBottomSheet, streamBottomPanelStyle, streamSheetStyles } from '../StreamBottomSheet';
 import { FONT_FAMILY } from '../../../../theme/typography';
+import { themeColors } from '../../../../theme/colors';
 
 /** Figma 536-20085 — hub wallet */
 export interface StreamWalletHubDrawerProps {
@@ -51,20 +52,21 @@ export const StreamWalletHubDrawer: React.FC<StreamWalletHubDrawerProps> = ({
       onClose={onClose}
       panelStyle={streamBottomPanelStyle}
       contentContainerStyle={styles.content}
+      dismissOnBackdropPress={false}
     >
       {loading ? (
-        <ActivityIndicator color="#FFFFFF" style={styles.loader} />
+        <ActivityIndicator color={themeColors.glass.text} style={styles.loader} />
       ) : (
         <>
           <View style={styles.configSection}>
             <HubPillRow
-              icon={<CreditCard size={24} color="#02050F" strokeWidth={2} />}
+              icon={<CreditCard size={24} color={themeColors.glass.text} strokeWidth={2} />}
               title={t('stream.wallet.paymentRow')}
               actionLabel={paymentActionLabel}
               onPress={onPaymentPress}
             />
             <HubPillRow
-              icon={<Truck size={24} color="#02050F" strokeWidth={2} />}
+              icon={<Truck size={24} color={themeColors.glass.text} strokeWidth={2} />}
               title={t('stream.wallet.shippingRow')}
               actionLabel={shippingActionLabel}
               onPress={onShippingPress}
@@ -77,14 +79,17 @@ export const StreamWalletHubDrawer: React.FC<StreamWalletHubDrawerProps> = ({
               value={bonusCode}
               onChangeText={setBonusCode}
               placeholder={t('stream.wallet.bonusPlaceholder')}
-              placeholderTextColor="#C4C4C4"
+              placeholderTextColor={themeColors.glass.placeholder}
             />
             <TouchableOpacity
-              style={styles.bonusApplyBtn}
+              style={[streamSheetStyles.primaryBtn, styles.bonusApplyBtn]}
               onPress={handleApplyBonus}
               activeOpacity={0.85}
+              accessibilityRole="button"
             >
-              <RNText style={styles.bonusApplyText}>{t('stream.wallet.bonusApply')}</RNText>
+              <RNText style={streamSheetStyles.primaryBtnText}>
+                {t('stream.wallet.bonusApply')}
+              </RNText>
             </TouchableOpacity>
           </View>
         </>
@@ -110,8 +115,13 @@ function HubPillRow({
         {icon}
         <RNText style={styles.pillTitle}>{title}</RNText>
       </View>
-      <TouchableOpacity style={styles.actionBtn} onPress={onPress} activeOpacity={0.85}>
-        <RNText style={styles.actionBtnText}>{actionLabel}</RNText>
+      <TouchableOpacity
+        style={[streamSheetStyles.primaryBtn, styles.actionBtn]}
+        onPress={onPress}
+        activeOpacity={0.85}
+        accessibilityRole="button"
+      >
+        <RNText style={streamSheetStyles.primaryBtnText}>{actionLabel}</RNText>
       </TouchableOpacity>
     </View>
   );
@@ -130,15 +140,15 @@ const styles = StyleSheet.create({
     gap: 16,
     paddingBottom: 24,
     borderBottomWidth: 1,
-    borderBottomColor: '#DDDDDD',
+    borderBottomColor: themeColors.glass.border,
   },
   pillRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#C9C9C9',
+    backgroundColor: themeColors.glass.rowBg,
     borderWidth: 1,
-    borderColor: 'rgba(221, 221, 221, 0.87)',
+    borderColor: themeColors.glass.border,
     borderRadius: 1000,
     paddingHorizontal: 16,
     paddingVertical: 12,
@@ -155,33 +165,21 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.semibold,
     fontSize: 16,
     lineHeight: 24,
-    color: '#02050F',
+    color: themeColors.glass.text,
     letterSpacing: 0.08,
     includeFontPadding: false,
   },
+  /** Acción dentro de la píldora: mismo botón primario, ancho al contenido. */
   actionBtn: {
-    height: 40,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 1000,
-    backgroundColor: '#685CF0',
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 'auto',
     minWidth: 80,
-  },
-  actionBtnText: {
-    fontFamily: FONT_FAMILY.bold,
-    fontSize: 14,
-    lineHeight: 20,
-    color: '#FFFFFF',
-    includeFontPadding: false,
   },
   bonusRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(24, 24, 27, 0.9)',
-    borderWidth: 0.701,
-    borderColor: '#27272A',
+    backgroundColor: themeColors.glass.inputBg,
+    borderWidth: 1,
+    borderColor: themeColors.glass.border,
     borderRadius: 1000,
     paddingHorizontal: 16,
     paddingVertical: 12,
@@ -194,24 +192,14 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.regular,
     fontSize: 14,
     lineHeight: 20,
-    color: '#FFFFFF',
+    color: themeColors.glass.text,
     padding: 0,
     margin: 0,
     includeFontPadding: false,
   },
+  /** Los bonos todavía no están disponibles: primario atenuado. */
   bonusApplyBtn: {
     width: 80,
-    height: 40,
-    borderRadius: 1000,
-    backgroundColor: '#A09FA1',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  bonusApplyText: {
-    fontFamily: FONT_FAMILY.bold,
-    fontSize: 14,
-    lineHeight: 20,
-    color: '#FFFFFF',
-    includeFontPadding: false,
+    opacity: themeColors.disabledOpacity,
   },
 });

@@ -71,7 +71,7 @@ export const StartLivePrimaryButton: React.FC<{
     activeOpacity={0.85}
   >
     {loading ? (
-      <ActivityIndicator color="#FFFFFF" size="small" />
+      <ActivityIndicator color={START_LIVE_COLORS.text} size="small" />
     ) : (
       <RNText style={startLiveStyles.primaryBtnText} maxFontSizeMultiplier={START_LIVE_TEXT_SCALE}>
         {label}
@@ -119,7 +119,7 @@ export const StartLiveCountryField: React.FC<{
         variant="pillDark"
         hideLabel
         modalTitle={t('register.country')}
-        searchPlaceholder={t('register.selectCountry')}
+        searchPlaceholder={t('account.shippingAddress.countrySearch')}
       />
     </View>
   );
@@ -156,7 +156,7 @@ export const StartLiveTermsCheckbox: React.FC<{
 }> = ({ checked, label, onToggle }) => (
   <TouchableOpacity style={startLiveStyles.termsRow} onPress={onToggle} activeOpacity={0.85}>
     <View style={[startLiveStyles.checkbox, checked && startLiveStyles.checkboxOn]}>
-      {checked ? <Check size={12} color="#FFFFFF" strokeWidth={3} /> : null}
+      {checked ? <Check size={12} color={START_LIVE_COLORS.text} strokeWidth={3} /> : null}
     </View>
     <RNText style={startLiveStyles.termsText}>{label}</RNText>
   </TouchableOpacity>
@@ -165,7 +165,7 @@ export const StartLiveTermsCheckbox: React.FC<{
 export const StartLiveConsentNote: React.FC<{ text: string }> = ({ text }) => (
   <View style={startLiveStyles.consentRow}>
     <View style={startLiveStyles.consentCheck}>
-      <Check size={8} color="#FFFFFF" strokeWidth={3} />
+      <Check size={8} color={START_LIVE_COLORS.text} strokeWidth={3} />
     </View>
     <RNText style={startLiveStyles.consentText}>{text}</RNText>
   </View>

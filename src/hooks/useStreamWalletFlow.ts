@@ -185,6 +185,15 @@ export function useStreamWalletFlow() {
     setStep('success');
   }, [t]);
 
+  /**
+   * `step` queda en 'methods' a propósito: el WebView de MP se abre encima y al cerrarlo
+   * el usuario vuelve a la lista de métodos.
+   *
+   * Funciona porque el drawer de métodos es un panel inline, no un Modal nativo. Si algún
+   * día se lo pasa a Modal (`fullHeight`, `bottomPanel={false}` o `nativeModal`), en iOS
+   * el WebView dejaría de aparecer sin error: no se puede presentar un segundo modal desde
+   * un VC que ya está presentando. En ese caso hay que cerrar el paso antes de abrir MP.
+   */
   const selectMpWallet = useCallback(async () => {
     setMpConnectLoading(true);
     setMpConnectVisible(true);

@@ -74,7 +74,10 @@ export const HomeBottomNav: React.FC<HomeBottomNavProps> = ({ activeTab, onTabPr
     <View
       style={[
         styles.bar,
-        { backgroundColor: isDark ? themeColors.dark.background : themeColors.home.navBar },
+        {
+          backgroundColor: isDark ? themeColors.dark.background : themeColors.home.navBar,
+          borderTopColor: isDark ? themeColors.dark.borderSubtle : NAV_BORDER,
+        },
       ]}
     >
       <NavItem tab="home" labelKey="home.tabHome" IconCmp={IconHome} />

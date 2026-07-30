@@ -24,7 +24,7 @@ export const TabSelector: React.FC<TabSelectorProps> = ({
   onValueChange,
 }) => {
   return (
-    <View className="flex-row bg-gray-100 rounded-xl p-1 mb-6">
+    <View className="flex-row bg-gray-100 dark:bg-night-800 rounded-xl p-1 mb-6">
       {options.map((option) => {
         const isSelected = selectedValue === option.value;
         return (
@@ -37,7 +37,7 @@ export const TabSelector: React.FC<TabSelectorProps> = ({
           >
             <Text
               className={`text-center font-semibold ${
-                isSelected ? 'text-white' : 'text-gray-600'
+                isSelected ? 'text-white' : 'text-gray-600 dark:text-night-muted'
               }`}
             >
               {option.label}

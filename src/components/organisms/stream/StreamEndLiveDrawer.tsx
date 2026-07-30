@@ -1,8 +1,8 @@
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity, Text as RNText } from 'react-native';
+import { StyleSheet, TouchableOpacity, Text as RNText } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { StreamBottomSheet, streamBottomPanelStyle, streamSheetStyles } from './StreamBottomSheet';
-import { FONT_FAMILY } from '../../../theme/typography';
+import { themeColors } from '../../../theme/colors';
 
 export interface StreamEndLiveDrawerProps {
   visible: boolean;
@@ -22,15 +22,12 @@ export const StreamEndLiveDrawer: React.FC<StreamEndLiveDrawerProps> = ({
   return (
     <StreamBottomSheet
       visible={visible}
-      nativeModal
       title={t('stream.endStreamConfirmTitle')}
       onClose={onClose}
       panelStyle={streamBottomPanelStyle}
       contentContainerStyle={styles.content}
-    >
-      <RNText style={styles.message}>{t('stream.endStreamConfirmMessage')}</RNText>
-
-      <View style={styles.actions}>
+      cancelLabel={t('common.cancel')}
+      footer={
         <TouchableOpacity
           style={[styles.endBtn, loading && styles.btnDisabled]}
           onPress={onConfirm}
@@ -40,11 +37,11 @@ export const StreamEndLiveDrawer: React.FC<StreamEndLiveDrawerProps> = ({
         >
           <RNText style={streamSheetStyles.primaryBtnText}>{t('stream.endStream')}</RNText>
         </TouchableOpacity>
-
-        <TouchableOpacity onPress={onClose} hitSlop={12} activeOpacity={0.8}>
-          <RNText style={styles.cancel}>{t('common.cancel')}</RNText>
-        </TouchableOpacity>
-      </View>
+      }
+    >
+      <RNText style={[streamSheetStyles.bodyText, styles.message]}>
+        {t('stream.endStreamConfirmMessage')}
+      </RNText>
     </StreamBottomSheet>
   );
 };
@@ -56,31 +53,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   message: {
-    fontFamily: FONT_FAMILY.regular,
-    fontSize: 14,
-    lineHeight: 22,
-    color: 'rgba(255,255,255,0.92)',
     textAlign: 'center',
-    includeFontPadding: false,
-  },
-  actions: {
-    width: '100%',
-    gap: 24,
-    alignItems: 'center',
   },
   endBtn: {
     ...streamSheetStyles.primaryBtn,
-    backgroundColor: '#EF4444',
-  },
-  cancel: {
-    fontFamily: FONT_FAMILY.bold,
-    fontSize: 14,
-    lineHeight: 20,
-    color: '#FDC700',
-    textAlign: 'center',
-    includeFontPadding: false,
+    backgroundColor: themeColors.danger,
   },
   btnDisabled: {
-    opacity: 0.6,
+    opacity: themeColors.disabledOpacity,
   },
 });

@@ -1,5 +1,6 @@
 /**
  * Drawer para elegir tipo de lista al agregar producto — Figma 698:13700.
+ * Picker de una sola opción: el tap ejecuta la acción y cierra, sin estado propio.
  */
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity, Text as RNText } from 'react-native';
@@ -7,6 +8,11 @@ import { CalendarCheck, CloudUpload, Timer } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { StreamBottomSheet, streamBottomPanelStyle } from './StreamBottomSheet';
 import { FONT_FAMILY } from '../../../theme/typography';
+import { themeColors } from '../../../theme/colors';
+
+/** Chip claro del icono (Figma): disco gris con el glifo en tinta oscura. */
+const ICON_CHIP_BG = '#DBDBDF';
+const ICON_CHIP_TINT = '#18181B';
 
 export type ProductListType = 'temporary' | 'permanent';
 
@@ -26,21 +32,21 @@ export const SellerAddProductTypeDrawer: React.FC<SellerAddProductTypeDrawerProp
   const rows = [
     {
       key: 'temporary',
-      icon: <Timer size={18} color="#18181B" strokeWidth={2} />,
+      icon: <Timer size={18} color={ICON_CHIP_TINT} strokeWidth={2} />,
       titleKey: 'stream.addProductTypeTemporary',
       descKey: 'stream.addProductTypeTemporaryDesc',
       disabled: false,
     },
     {
       key: 'permanent',
-      icon: <CalendarCheck size={18} color="#18181B" strokeWidth={2} />,
+      icon: <CalendarCheck size={18} color={ICON_CHIP_TINT} strokeWidth={2} />,
       titleKey: 'stream.addProductTypePermanent',
       descKey: 'stream.addProductTypePermanentDesc',
       disabled: false,
     },
     {
       key: 'import',
-      icon: <CloudUpload size={18} color="#18181B" strokeWidth={2} />,
+      icon: <CloudUpload size={18} color={ICON_CHIP_TINT} strokeWidth={2} />,
       titleKey: 'stream.addProductTypeImport',
       descKey: 'stream.addProductTypeImportDesc',
       disabled: true,
@@ -52,7 +58,7 @@ export const SellerAddProductTypeDrawer: React.FC<SellerAddProductTypeDrawerProp
       visible={visible}
       title={t('stream.addProductTypeTitle')}
       onClose={onClose}
-      panelStyle={[streamBottomPanelStyle, styles.panel]}
+      panelStyle={streamBottomPanelStyle}
       contentContainerStyle={styles.content}
       scrollEnabled
     >
@@ -76,7 +82,6 @@ export const SellerAddProductTypeDrawer: React.FC<SellerAddProductTypeDrawerProp
               <RNText style={styles.comingSoon}>{t('stream.comingSoon')}</RNText>
             ) : null}
           </View>
-          {!row.disabled ? <View style={styles.radio} /> : null}
         </TouchableOpacity>
       ))}
     </StreamBottomSheet>
@@ -84,9 +89,6 @@ export const SellerAddProductTypeDrawer: React.FC<SellerAddProductTypeDrawerProp
 };
 
 const styles = StyleSheet.create({
-  panel: {
-    maxHeight: '88%',
-  },
   content: {
     gap: 24,
     width: '100%',
@@ -100,13 +102,13 @@ const styles = StyleSheet.create({
     borderBottomColor: 'rgba(221, 221, 221, 0.35)',
   },
   rowDisabled: {
-    opacity: 0.5,
+    opacity: themeColors.disabledOpacity,
   },
   iconCircle: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#DBDBDF',
+    backgroundColor: ICON_CHIP_BG,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -118,26 +120,18 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.semibold,
     fontSize: 14,
     lineHeight: 20,
-    color: '#FFFFFF',
+    color: themeColors.glass.text,
   },
   rowDesc: {
     fontFamily: FONT_FAMILY.semibold,
     fontSize: 12,
     lineHeight: 18,
-    color: '#D9D9D9',
+    color: themeColors.glass.textMuted,
   },
   comingSoon: {
     fontFamily: FONT_FAMILY.semibold,
     fontSize: 11,
-    color: 'rgba(255,255,255,0.65)',
+    color: themeColors.glass.textSoft,
     marginTop: 2,
-  },
-  radio: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#CBCEFF',
-    backgroundColor: 'rgba(104, 92, 240, 0.1)',
   },
 });

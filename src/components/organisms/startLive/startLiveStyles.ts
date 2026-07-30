@@ -2,20 +2,29 @@ import { StyleSheet } from 'react-native';
 import { FONT_FAMILY } from '../../../theme/typography';
 
 import { drawerPanelGlass } from '../../../theme/glassTokens';
+import { themeColors } from '../../../theme/colors';
 
+/**
+ * Alias locales de los tokens de `src/theme/colors.ts` — se mantienen los nombres
+ * porque los consumen addProduct y StartLiveCategoryTile. No declarar hex nuevos acá:
+ * si falta un color, agregarlo primero como token en `themeColors`.
+ */
 export const START_LIVE_COLORS = {
   /** Tint de referencia del panel glass (ver glassTokens.ts). */
   panel: drawerPanelGlass.ios.tintOverlay,
-  primary: '#685CF0',
-  text: '#FFFFFF',
-  textMuted: '#D9D9D9',
+  primary: themeColors.primary,
+  text: themeColors.glass.text,
+  textMuted: themeColors.glass.textMuted,
+  /** Gris de textos terciarios del wizard — sin equivalente en themeColors todavía. */
   textSubtle: '#71717B',
+  /** Círculo claro de los íconos de feature (el ícono de adentro es oscuro). */
   iconCircle: '#DBDBDF',
+  /** Lila de marca (bordes de tiles e íconos del wizard) — sin token propio todavía. */
   border: '#CBCEFF',
-  borderInput: '#DDDDDD',
-  placeholder: '#BABABA',
-  radioBg: 'rgba(255, 255, 255, 0.4)',
-  success: '#00C566',
+  borderInput: themeColors.glass.border,
+  placeholder: themeColors.glass.placeholder,
+  radioBg: themeColors.glass.rowBg,
+  success: themeColors.success,
   homeIndicator: '#C7C8CA',
 };
 
@@ -144,6 +153,7 @@ export const startLiveStyles = StyleSheet.create({
     color: START_LIVE_COLORS.textMuted,
     includeFontPadding: false,
   },
+  /** Fila de opción sobre panel glass: misma piel que el resto del sistema (white-on-dark). */
   radioRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -152,8 +162,8 @@ export const startLiveStyles = StyleSheet.create({
     padding: 12,
     borderRadius: 1000,
     borderWidth: 1,
-    borderColor: START_LIVE_COLORS.border,
-    backgroundColor: START_LIVE_COLORS.radioBg,
+    borderColor: themeColors.glass.border,
+    backgroundColor: themeColors.glass.rowBg,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.05,
@@ -174,7 +184,7 @@ export const startLiveStyles = StyleSheet.create({
     fontFamily: FONT_FAMILY.semibold,
     fontSize: 14,
     lineHeight: 20,
-    color: '#18181B',
+    color: themeColors.glass.text,
     includeFontPadding: false,
   },
   radioOuter: {
@@ -210,7 +220,7 @@ export const startLiveStyles = StyleSheet.create({
     borderRadius: 1000,
     paddingHorizontal: 16,
     paddingVertical: 16,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: themeColors.glass.inputBg,
   },
   fieldInput: {
     fontFamily: FONT_FAMILY.bold,
@@ -270,7 +280,7 @@ export const startLiveStyles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   primaryBtnDisabled: {
-    opacity: 0.45,
+    opacity: themeColors.disabledOpacity,
   },
   primaryBtnText: {
     fontFamily: FONT_FAMILY.bold,
@@ -283,7 +293,7 @@ export const startLiveStyles = StyleSheet.create({
     fontFamily: FONT_FAMILY.regular,
     fontSize: 12,
     lineHeight: 18,
-    color: '#FF6B6B',
+    color: themeColors.danger,
     includeFontPadding: false,
   },
   readyHeadline: {

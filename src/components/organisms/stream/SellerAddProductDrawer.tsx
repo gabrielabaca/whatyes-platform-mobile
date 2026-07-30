@@ -1,12 +1,22 @@
 /**
- * Form in-live "Carga un producto" — pantalla completa clara (Figma 698:11652 / 698:11849 / 698:12046).
+ * Form in-live "Carga un producto" — modal glass full-screen (Figma 698:11652 / 698:11849 / 698:12046).
  * Campos por modalidad (lógicos):
  *  - Comprar Ahora: Precio
  *  - Subasta Rápida: Mínimo de Oferta + Tiempo límite de subasta
  *  - Sorteo: modo de participación (seguidores / todos / compradores)
  *  Comunes: Fotos, Categoría, Título, Descripción, Cantidad, Peso, SKU.
+ *
+ * Presentación: `GlassFullScreenModal` (misma base que los modales de cuenta/perfil), header
+ * canónico título + X y CTAs fijadas al pie. El teclado lo resuelve el KeyboardAvoidingView
+ * de la base (padding iOS / height Android), que además levanta el footer: por eso acá NO se
+ * declara otro KAV, sumaría una segunda compensación.
+ *
+ * Sub-drawers: cada uno monta su propio Modal RN por encima de este (categorías ya lo hacía;
+ * peso y origen de fotos lo piden explícito). Así quedan anclados al borde real de la pantalla
+ * y manejan el teclado por su cuenta, sin heredar el KAV de este modal — no hace falta un host
+ * absoluto con zIndex.
  */
-import React, { useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import {
   View,
   ScrollView,
@@ -16,22 +26,27 @@ import {
   TouchableOpacity,
   Image,
   ActivityIndicator,
-  KeyboardAvoidingView,
+  Alert,
   Platform,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
-import { ArrowRight, ChevronLeft, ImageUp, Minus, Plus, X } from 'lucide-react-native';
+import { ArrowRight, ChevronRight, ImageUp, Minus, Plus, X } from 'lucide-react-native';
 import { useInterestCategories } from '../../../hooks/useInterestCategories';
 import { useSellerLiveAddProduct } from '../../../hooks/useSellerLiveAddProduct';
 import { MAX_PRODUCT_PHOTOS } from '../../../hooks/useAddProductForm';
 import { SaleModeTabs } from '../../molecules/stream/SaleModeTabs';
-import { AddProductSelectField } from '../addProduct/AddProductSelectField';
 import { AddProductPackageTierDrawer } from '../addProduct/AddProductPackageTierDrawer';
 import { AddProductPhotoSourceDrawer } from '../addProduct/AddProductPhotoSourceDrawer';
 import { StartLiveCategoriesDrawer } from '../startLive/StartLiveCategoriesDrawer';
-import { addProductStyles, ADD_PRODUCT_COLORS } from '../addProduct/addProductStyles';
+import {
+  GlassFullScreenModal,
+  type GlassFullScreenModalHandle,
+} from '../profile/GlassFullScreenModal';
+import { GlassModalHeader } from '../profile/GlassModalHeader';
+import { streamSheetStyles } from './StreamBottomSheet';
+import { addProductGlassStyles, addProductStyles } from '../addProduct/addProductStyles';
 import { FONT_FAMILY } from '../../../theme/typography';
+import { themeColors } from '../../../theme/colors';
 import type { LiveSaleMode, ProductListScope } from '../../../api/types';
 import type { SaleFormatId } from '../../../constants/productWeightPresets';
 
@@ -40,6 +55,40 @@ const RAFFLE_MODES = [
   { id: 'everyone', titleKey: 'stream.raffleEveryone', descKey: 'stream.raffleEveryoneDesc' },
   { id: 'buyers', titleKey: 'stream.raffleBuyers', descKey: 'stream.raffleBuyersDesc' },
 ] as const;
+
+/** Select glass: la variante clara (`AddProductSelectField`) la usa la pantalla de alta. */
+const GlassSelectField: React.FC<{
+  label: string;
+  value?: string | null;
+  placeholder: string;
+  onPress: () => void;
+}> = ({ label, value, placeholder, onPress }) => (
+  <View style={addProductStyles.field}>
+    <RNText style={[addProductStyles.fieldLabel, addProductGlassStyles.fieldLabel]}>{label}</RNText>
+    <TouchableOpacity
+      style={[addProductStyles.pillSelect, addProductGlassStyles.surface]}
+      onPress={onPress}
+      activeOpacity={0.85}
+      accessibilityRole="button"
+    >
+      <RNText
+        style={[
+          addProductStyles.pillSelectText,
+          value ? addProductStyles.pillSelectTextFilled : null,
+          value ? addProductGlassStyles.inputText : addProductGlassStyles.selectPlaceholder,
+        ]}
+        numberOfLines={1}
+      >
+        {value || placeholder}
+      </RNText>
+      <ChevronRight
+        size={20}
+        color={themeColors.glass.textMuted}
+        style={{ transform: [{ rotate: '90deg' }] }}
+      />
+    </TouchableOpacity>
+  </View>
+);
 
 export interface SellerAddProductDrawerProps {
   visible: boolean;
@@ -64,6 +113,7 @@ export const SellerAddProductDrawer: React.FC<SellerAddProductDrawerProps> = ({
 }) => {
   const { t } = useTranslation();
   const { categories, loadOnce } = useInterestCategories();
+  const modalRef = useRef<GlassFullScreenModalHandle>(null);
 
   useEffect(() => {
     if (visible) loadOnce();
@@ -92,314 +142,374 @@ export const SellerAddProductDrawer: React.FC<SellerAddProductDrawerProps> = ({
     if (visible) setLiveSaleMode(defaultSaleMode);
   }, [visible, defaultSaleMode, setLiveSaleMode]);
 
-  const handleClose = useCallback(() => {
-    reset();
-    onClose();
-  }, [reset, onClose]);
+  /** Solo lo que el vendedor cargó a mano: categoría/peso/modalidad vienen del vivo. */
+  const hasChanges =
+    form.title.trim().length > 0 ||
+    form.description.trim().length > 0 ||
+    form.price.trim().length > 0 ||
+    form.minBidPrice.trim().length > 0 ||
+    form.sku.trim().length > 0 ||
+    form.photos.length > 0 ||
+    form.quantity !== 1;
+
+  /** Cerrar con datos cargados pide confirmación: antes se descartaba el form en silencio. */
+  const handleRequestClose = useCallback(() => {
+    if (form.submitting) return;
+    if (!hasChanges) {
+      modalRef.current?.dismiss();
+      return;
+    }
+    Alert.alert(
+      t('stream.addProductDiscardTitle'),
+      t('stream.addProductDiscardBody'),
+      [
+        { text: t('stream.addProductDiscardKeep'), style: 'cancel' },
+        {
+          text: t('stream.addProductDiscardConfirm'),
+          style: 'destructive',
+          onPress: () => modalRef.current?.dismiss(),
+        },
+      ],
+      { cancelable: true },
+    );
+  }, [form.submitting, hasChanges, t]);
 
   if (!visible) return null;
 
   const saleMode = form.liveSaleMode;
 
   return (
-    <View style={styles.host}>
-      <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={handleClose} hitSlop={12} accessibilityRole="button">
-            <ChevronLeft size={24} color={ADD_PRODUCT_COLORS.title} />
+    <GlassFullScreenModal
+      ref={modalRef}
+      visible={visible}
+      onClose={onClose}
+      dismissOnBackdropPress={false}
+      /** El botón atrás de Android pasa por la misma confirmación que la X. */
+      onRequestClose={handleRequestClose}
+      backdropAccessibilityLabel={t('common.close')}
+      /** Scroll propio: los sub-drawers van fuera de él, sin sumar gaps al contenido. */
+      scrollable={false}
+      header={
+        <GlassModalHeader
+          title={t('stream.addProductDrawerTitle')}
+          onClose={handleRequestClose}
+          closeDisabled={form.submitting}
+        />
+      }
+      footer={
+        <View style={addProductGlassStyles.footerActions}>
+          <TouchableOpacity
+            style={[streamSheetStyles.primaryBtn, form.submitting && addProductGlassStyles.disabled]}
+            onPress={form.submitPublish}
+            disabled={form.submitting}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+          >
+            {form.submitting ? (
+              <ActivityIndicator color={themeColors.glass.text} size="small" />
+            ) : (
+              <RNText style={streamSheetStyles.primaryBtnText}>{t('stream.publish')}</RNText>
+            )}
           </TouchableOpacity>
-          <RNText style={styles.headerTitle}>{t('stream.addProductDrawerTitle')}</RNText>
-          <View style={styles.headerSpacer} />
+          <TouchableOpacity
+            style={[addProductGlassStyles.secondaryBtn, form.submitting && addProductGlassStyles.disabled]}
+            onPress={form.submitDraft}
+            disabled={form.submitting}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+          >
+            <RNText style={addProductGlassStyles.secondaryBtnText}>{t('stream.saveDraft')}</RNText>
+          </TouchableOpacity>
         </View>
+      }
+    >
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={addProductGlassStyles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+        showsVerticalScrollIndicator={false}
+        bounces={false}
+      >
+        <TouchableOpacity
+          style={[addProductStyles.tipsBanner, addProductGlassStyles.tipsBanner]}
+          activeOpacity={0.85}
+        >
+          <View style={addProductStyles.tipsTextCol}>
+            <RNText style={[addProductStyles.tipsTitle, addProductGlassStyles.tipsTitle]}>
+              {t('addProduct.tipsTitle')}
+            </RNText>
+            <RNText style={[addProductStyles.tipsBody, addProductGlassStyles.tipsBody]}>
+              {t('addProduct.tipsBody')}
+            </RNText>
+          </View>
+          <View style={[addProductStyles.tipsArrow, addProductGlassStyles.tipsArrow]}>
+            <ArrowRight size={20} color={themeColors.glass.text} />
+          </View>
+        </TouchableOpacity>
 
-        <KeyboardAvoidingView
-          style={styles.flex}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        >
-        <ScrollView
-          style={styles.flex}
-          contentContainerStyle={[addProductStyles.scrollContent, styles.scrollPad]}
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="interactive"
-          showsVerticalScrollIndicator={false}
-        >
-          <TouchableOpacity style={addProductStyles.tipsBanner} activeOpacity={0.85}>
-            <View style={addProductStyles.tipsTextCol}>
-              <RNText style={addProductStyles.tipsTitle}>{t('addProduct.tipsTitle')}</RNText>
-              <RNText style={addProductStyles.tipsBody}>{t('addProduct.tipsBody')}</RNText>
-            </View>
-            <View style={addProductStyles.tipsArrow}>
-              <ArrowRight size={20} color={ADD_PRODUCT_COLORS.primary} />
-            </View>
+        <RNText style={[addProductStyles.sectionTitle, addProductGlassStyles.sectionTitle]}>
+          {t('addProduct.screenTitle')}
+        </RNText>
+
+        {form.photos.length === 0 ? (
+          <TouchableOpacity
+            style={[addProductStyles.photoBox, addProductGlassStyles.photoBox]}
+            onPress={form.pickPhotos}
+            activeOpacity={0.85}
+          >
+            <RNText style={[addProductStyles.photoBoxLabel, addProductGlassStyles.photoBoxLabel]}>
+              {t('addProduct.photosLabel')}
+            </RNText>
+            <ImageUp size={24} color={themeColors.glass.textMuted} />
           </TouchableOpacity>
-
-          <RNText style={addProductStyles.sectionTitle}>{t('addProduct.screenTitle')}</RNText>
-
-          {form.photos.length === 0 ? (
-            <TouchableOpacity style={addProductStyles.photoBox} onPress={form.pickPhotos} activeOpacity={0.85}>
-              <RNText style={addProductStyles.photoBoxLabel}>{t('addProduct.photosLabel')}</RNText>
-              <ImageUp size={24} color={ADD_PRODUCT_COLORS.muted} />
-            </TouchableOpacity>
-          ) : (
-            <View style={addProductStyles.photoRow}>
-              {form.photos.map((p) => (
-                <View key={p.uri} style={addProductStyles.photoThumb}>
-                  <Image source={{ uri: p.uri }} style={addProductStyles.photoThumbImage} />
-                  <TouchableOpacity
-                    style={addProductStyles.photoRemoveBtn}
-                    onPress={() => form.removePhoto(p.uri)}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  >
-                    <X size={14} color="#FFFFFF" strokeWidth={2.5} />
-                  </TouchableOpacity>
-                </View>
-              ))}
-              {form.canAddMorePhotos ? (
-                <TouchableOpacity style={addProductStyles.photoAddTile} onPress={form.pickPhotos} activeOpacity={0.85}>
-                  <Plus size={20} color={ADD_PRODUCT_COLORS.primary} />
-                </TouchableOpacity>
-              ) : null}
-            </View>
-          )}
-
-          <View style={addProductStyles.fields}>
-            <AddProductSelectField
-              label={t('addProduct.fieldCategory')}
-              value={form.categoryLabel}
-              placeholder={t('addProduct.fieldCategoryPlaceholder')}
-              onPress={() => form.setActiveDrawer('category')}
-            />
-
-            <View style={addProductStyles.field}>
-              <RNText style={addProductStyles.fieldLabel}>{t('addProduct.fieldTitle')}</RNText>
-              <TextInput
-                style={addProductStyles.pillInput}
-                value={form.title}
-                onChangeText={form.setTitle}
-                placeholder={t('addProduct.fieldTitlePlaceholder')}
-                placeholderTextColor={ADD_PRODUCT_COLORS.placeholder}
-              />
-            </View>
-
-            <View style={addProductStyles.field}>
-              <RNText style={addProductStyles.fieldLabel}>{t('addProduct.fieldDescription')}</RNText>
-              <TextInput
-                style={[addProductStyles.pillInput, addProductStyles.pillInputMultiline]}
-                value={form.description}
-                onChangeText={form.setDescription}
-                placeholder={t('addProduct.fieldDescriptionPlaceholder')}
-                placeholderTextColor={ADD_PRODUCT_COLORS.placeholder}
-                multiline
-              />
-            </View>
-
-            <View style={addProductStyles.field}>
-              <RNText style={addProductStyles.fieldLabel}>{t('addProduct.fieldQuantity')}</RNText>
-              <View style={styles.stepperRow}>
-                <TouchableOpacity style={styles.stepperBtn} onPress={form.decrementQuantity}>
-                  <Minus size={20} color={ADD_PRODUCT_COLORS.text} />
-                </TouchableOpacity>
-                <View style={styles.stepperValueWrap}>
-                  <RNText style={styles.stepperValue}>{form.quantity}</RNText>
-                </View>
-                <TouchableOpacity style={styles.stepperBtn} onPress={form.incrementQuantity}>
-                  <Plus size={20} color={ADD_PRODUCT_COLORS.text} />
+        ) : (
+          <View style={addProductStyles.photoRow}>
+            {form.photos.map((p) => (
+              <View key={p.uri} style={addProductStyles.photoThumb}>
+                <Image source={{ uri: p.uri }} style={addProductStyles.photoThumbImage} />
+                <TouchableOpacity
+                  style={addProductStyles.photoRemoveBtn}
+                  onPress={() => form.removePhoto(p.uri)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <X size={14} color={themeColors.glass.text} strokeWidth={2.5} />
                 </TouchableOpacity>
               </View>
-            </View>
+            ))}
+            {form.canAddMorePhotos ? (
+              <TouchableOpacity
+                style={[addProductStyles.photoAddTile, addProductGlassStyles.photoAddTile]}
+                onPress={form.pickPhotos}
+                activeOpacity={0.85}
+              >
+                <Plus size={20} color={themeColors.glass.text} />
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        )}
+
+        <View style={addProductStyles.fields}>
+          <GlassSelectField
+            label={t('addProduct.fieldCategory')}
+            value={form.categoryLabel}
+            placeholder={t('addProduct.fieldCategoryPlaceholder')}
+            onPress={() => form.setActiveDrawer('category')}
+          />
+
+          <View style={addProductStyles.field}>
+            <RNText style={[addProductStyles.fieldLabel, addProductGlassStyles.fieldLabel]}>
+              {t('addProduct.fieldTitle')}
+            </RNText>
+            <TextInput
+              style={[addProductStyles.pillInput, addProductGlassStyles.surface, addProductGlassStyles.inputText]}
+              value={form.title}
+              onChangeText={form.setTitle}
+              placeholder={t('addProduct.fieldTitlePlaceholder')}
+              placeholderTextColor={themeColors.glass.placeholder}
+            />
           </View>
 
-          <RNText style={addProductStyles.sectionTitle}>{t('addProduct.fieldPrice')}</RNText>
-          <SaleModeTabs value={saleMode} onChange={form.setLiveSaleMode} />
+          <View style={addProductStyles.field}>
+            <RNText style={[addProductStyles.fieldLabel, addProductGlassStyles.fieldLabel]}>
+              {t('addProduct.fieldDescription')}
+            </RNText>
+            <TextInput
+              style={[
+                addProductStyles.pillInput,
+                addProductStyles.pillInputMultiline,
+                addProductGlassStyles.surface,
+                addProductGlassStyles.inputText,
+              ]}
+              value={form.description}
+              onChangeText={form.setDescription}
+              placeholder={t('addProduct.fieldDescriptionPlaceholder')}
+              placeholderTextColor={themeColors.glass.placeholder}
+              multiline
+            />
+          </View>
 
-          <View style={addProductStyles.fields}>
-            {saleMode === 'buy_now' ? (
+          <View style={addProductStyles.field}>
+            <RNText style={[addProductStyles.fieldLabel, addProductGlassStyles.fieldLabel]}>
+              {t('addProduct.fieldQuantity')}
+            </RNText>
+            <View style={styles.stepperRow}>
+              <TouchableOpacity
+                style={[styles.stepperBtn, addProductGlassStyles.surface]}
+                onPress={form.decrementQuantity}
+              >
+                <Minus size={20} color={themeColors.glass.text} />
+              </TouchableOpacity>
+              <View style={[styles.stepperValueWrap, addProductGlassStyles.surface]}>
+                <RNText style={styles.stepperValue}>{form.quantity}</RNText>
+              </View>
+              <TouchableOpacity
+                style={[styles.stepperBtn, addProductGlassStyles.surface]}
+                onPress={form.incrementQuantity}
+              >
+                <Plus size={20} color={themeColors.glass.text} />
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+
+        <RNText style={[addProductStyles.sectionTitle, addProductGlassStyles.sectionTitle]}>
+          {t('addProduct.fieldPrice')}
+        </RNText>
+        <SaleModeTabs value={saleMode} onChange={form.setLiveSaleMode} />
+
+        <View style={addProductStyles.fields}>
+          {saleMode === 'buy_now' ? (
+            <View style={addProductStyles.field}>
+              <RNText style={[addProductStyles.fieldLabel, addProductGlassStyles.fieldLabel]}>
+                {t('addProduct.fieldPrice')}
+              </RNText>
+              <View style={[addProductStyles.priceInputWrap, addProductGlassStyles.surface]}>
+                <RNText style={[addProductStyles.pricePrefix, addProductGlassStyles.inputText]}>$</RNText>
+                <TextInput
+                  style={[addProductStyles.priceInput, addProductGlassStyles.inputText]}
+                  value={form.price}
+                  onChangeText={form.setPrice}
+                  placeholder={t('addProduct.fieldMinOfferPlaceholder')}
+                  placeholderTextColor={themeColors.glass.placeholder}
+                  keyboardType="decimal-pad"
+                />
+              </View>
+            </View>
+          ) : null}
+
+          {saleMode === 'auction' ? (
+            <>
               <View style={addProductStyles.field}>
-                <RNText style={addProductStyles.fieldLabel}>{t('addProduct.fieldPrice')}</RNText>
-                <View style={addProductStyles.priceInputWrap}>
-                  <RNText style={addProductStyles.pricePrefix}>$</RNText>
+                <RNText style={[addProductStyles.fieldLabel, addProductGlassStyles.fieldLabel]}>
+                  {t('stream.addProductMinBid')}
+                </RNText>
+                <View style={[addProductStyles.priceInputWrap, addProductGlassStyles.surface]}>
+                  <RNText style={[addProductStyles.pricePrefix, addProductGlassStyles.inputText]}>$</RNText>
                   <TextInput
-                    style={addProductStyles.priceInput}
-                    value={form.price}
-                    onChangeText={form.setPrice}
+                    style={[addProductStyles.priceInput, addProductGlassStyles.inputText]}
+                    value={form.minBidPrice}
+                    onChangeText={form.setMinBidPrice}
                     placeholder={t('addProduct.fieldMinOfferPlaceholder')}
-                    placeholderTextColor={ADD_PRODUCT_COLORS.placeholder}
+                    placeholderTextColor={themeColors.glass.placeholder}
                     keyboardType="decimal-pad"
                   />
                 </View>
               </View>
-            ) : null}
-
-            {saleMode === 'auction' ? (
-              <>
-                <View style={addProductStyles.field}>
-                  <RNText style={addProductStyles.fieldLabel}>{t('stream.addProductMinBid')}</RNText>
-                  <View style={addProductStyles.priceInputWrap}>
-                    <RNText style={addProductStyles.pricePrefix}>$</RNText>
-                    <TextInput
-                      style={addProductStyles.priceInput}
-                      value={form.minBidPrice}
-                      onChangeText={form.setMinBidPrice}
-                      placeholder={t('addProduct.fieldMinOfferPlaceholder')}
-                      placeholderTextColor={ADD_PRODUCT_COLORS.placeholder}
-                      keyboardType="decimal-pad"
-                    />
-                  </View>
+              <View style={addProductStyles.field}>
+                <RNText style={[addProductStyles.fieldLabel, addProductGlassStyles.fieldLabel]}>
+                  {t('stream.addProductAuctionTime')}
+                </RNText>
+                <View style={[addProductStyles.priceInputWrap, addProductGlassStyles.surface]}>
+                  <TextInput
+                    style={[addProductStyles.priceInput, addProductGlassStyles.inputText]}
+                    value={form.auctionDuration}
+                    onChangeText={form.setAuctionDuration}
+                    keyboardType="number-pad"
+                    placeholder="60"
+                    placeholderTextColor={themeColors.glass.placeholder}
+                  />
+                  <RNText style={styles.durationSuffix}>{t('stream.addProductSeconds')}</RNText>
                 </View>
-                <View style={addProductStyles.field}>
-                  <RNText style={addProductStyles.fieldLabel}>{t('stream.addProductAuctionTime')}</RNText>
-                  <View style={addProductStyles.priceInputWrap}>
-                    <TextInput
-                      style={addProductStyles.priceInput}
-                      value={form.auctionDuration}
-                      onChangeText={form.setAuctionDuration}
-                      keyboardType="number-pad"
-                      placeholder="60"
-                      placeholderTextColor={ADD_PRODUCT_COLORS.placeholder}
-                    />
-                    <RNText style={styles.durationSuffix}>{t('stream.addProductSeconds')}</RNText>
-                  </View>
-                </View>
-              </>
-            ) : null}
-
-            {saleMode === 'raffle' ? (
-              <View style={styles.raffleGroup}>
-                {RAFFLE_MODES.map((mode) => {
-                  const active = form.raffleMode === mode.id;
-                  return (
-                    <TouchableOpacity
-                      key={mode.id}
-                      style={styles.raffleRow}
-                      onPress={() => form.setRaffleMode(mode.id)}
-                      activeOpacity={0.85}
-                    >
-                      <View style={styles.raffleTextCol}>
-                        <RNText style={styles.raffleTitle}>{t(mode.titleKey)}</RNText>
-                        <RNText style={styles.raffleDesc}>{t(mode.descKey)}</RNText>
-                      </View>
-                      <View style={[styles.raffleRadio, active && styles.raffleRadioOn]} />
-                    </TouchableOpacity>
-                  );
-                })}
               </View>
-            ) : null}
+            </>
+          ) : null}
 
-            <AddProductSelectField
-              label={t('addProduct.fieldWeight')}
-              value={form.weightLabel}
-              placeholder={t('addProduct.fieldWeightPlaceholder')}
-              onPress={() => form.setActiveDrawer('weight')}
-            />
-
-            <View style={addProductStyles.field}>
-              <RNText style={addProductStyles.fieldLabel}>{t('addProduct.fieldSku')}</RNText>
-              <TextInput
-                style={addProductStyles.pillInput}
-                value={form.sku}
-                onChangeText={form.setSku}
-                placeholder={t('addProduct.fieldSkuPlaceholder')}
-                placeholderTextColor={ADD_PRODUCT_COLORS.placeholder}
-                autoCapitalize="characters"
-              />
+          {saleMode === 'raffle' ? (
+            <View style={styles.raffleGroup}>
+              {RAFFLE_MODES.map((mode) => {
+                const active = form.raffleMode === mode.id;
+                return (
+                  <TouchableOpacity
+                    key={mode.id}
+                    style={styles.raffleRow}
+                    onPress={() => form.setRaffleMode(mode.id)}
+                    activeOpacity={0.85}
+                  >
+                    <View style={styles.raffleTextCol}>
+                      <RNText style={[styles.raffleTitle, addProductGlassStyles.rowTitle]}>
+                        {t(mode.titleKey)}
+                      </RNText>
+                      <RNText style={[styles.raffleDesc, addProductGlassStyles.rowHint]}>
+                        {t(mode.descKey)}
+                      </RNText>
+                    </View>
+                    <View
+                      style={[
+                        styles.raffleRadio,
+                        addProductGlassStyles.radio,
+                        active && addProductGlassStyles.radioOn,
+                      ]}
+                    />
+                  </TouchableOpacity>
+                );
+              })}
             </View>
-          </View>
+          ) : null}
 
-          <View style={addProductStyles.actions}>
-            <TouchableOpacity
-              style={[addProductStyles.primaryBtn, form.submitting && addProductStyles.primaryBtnDisabled]}
-              onPress={form.submitPublish}
-              disabled={form.submitting}
-              activeOpacity={0.85}
-            >
-              {form.submitting ? (
-                <ActivityIndicator color="#FFFFFF" size="small" />
-              ) : (
-                <RNText style={addProductStyles.primaryBtnText}>{t('stream.publish')}</RNText>
-              )}
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={addProductStyles.cancelBtn}
-              onPress={form.submitDraft}
-              disabled={form.submitting}
-              activeOpacity={0.85}
-            >
-              <RNText style={addProductStyles.cancelBtnText}>{t('stream.saveDraft')}</RNText>
-            </TouchableOpacity>
-          </View>
-        </ScrollView>
-        </KeyboardAvoidingView>
-      </SafeAreaView>
+          <GlassSelectField
+            label={t('addProduct.fieldWeight')}
+            value={form.weightLabel}
+            placeholder={t('addProduct.fieldWeightPlaceholder')}
+            onPress={() => form.setActiveDrawer('weight')}
+          />
 
-      <View style={styles.drawerHost} pointerEvents="box-none">
-        <StartLiveCategoriesDrawer
-          visible={form.activeDrawer === 'category'}
-          selectionMode="single"
-          titleKey="addProduct.categoryTitle"
-          subtitleKey="addProduct.categorySubtitle"
-          initialSelected={form.categoryUuid ? [form.categoryUuid] : []}
-          onClose={() => form.setActiveDrawer('none')}
-          onContinue={(uuids) => {
-            if (uuids[0]) form.setCategoryUuid(uuids[0]);
-            form.setActiveDrawer('none');
-          }}
-        />
-        <AddProductPackageTierDrawer
-          visible={form.activeDrawer === 'weight'}
-          initialTier={form.packageTier}
-          initialManualKg={String(form.weightKg)}
-          onClose={() => form.setActiveDrawer('none')}
-          onConfirm={(tier, kg) => {
-            form.setPackageTier(tier, kg);
-            form.setActiveDrawer('none');
-          }}
-        />
-        <AddProductPhotoSourceDrawer
-          visible={form.activeDrawer === 'photos'}
-          presentation="overlay"
-          showCameraOption={false}
-          photoCount={form.photos.length}
-          maxPhotos={MAX_PRODUCT_PHOTOS}
-          onClose={() => form.setActiveDrawer('none')}
-          onTakePhoto={form.openCamera}
-          onChooseGallery={form.openGallery}
-        />
-      </View>
-    </View>
+          <View style={addProductStyles.field}>
+            <RNText style={[addProductStyles.fieldLabel, addProductGlassStyles.fieldLabel]}>
+              {t('addProduct.fieldSku')}
+            </RNText>
+            <TextInput
+              style={[addProductStyles.pillInput, addProductGlassStyles.surface, addProductGlassStyles.inputText]}
+              value={form.sku}
+              onChangeText={form.setSku}
+              placeholder={t('addProduct.fieldSkuPlaceholder')}
+              placeholderTextColor={themeColors.glass.placeholder}
+              autoCapitalize="characters"
+            />
+          </View>
+        </View>
+      </ScrollView>
+
+      <StartLiveCategoriesDrawer
+        visible={form.activeDrawer === 'category'}
+        selectionMode="single"
+        titleKey="addProduct.categoryTitle"
+        subtitleKey="addProduct.categorySubtitle"
+        initialSelected={form.categoryUuid ? [form.categoryUuid] : []}
+        onClose={() => form.setActiveDrawer('none')}
+        onContinue={(uuids) => {
+          if (uuids[0]) form.setCategoryUuid(uuids[0]);
+          form.setActiveDrawer('none');
+        }}
+      />
+      <AddProductPackageTierDrawer
+        visible={form.activeDrawer === 'weight'}
+        nativeModal
+        initialTier={form.packageTier}
+        initialManualKg={String(form.weightKg)}
+        onClose={() => form.setActiveDrawer('none')}
+        onConfirm={(tier, kg) => {
+          form.setPackageTier(tier, kg);
+          form.setActiveDrawer('none');
+        }}
+      />
+      <AddProductPhotoSourceDrawer
+        visible={form.activeDrawer === 'photos'}
+        presentation="modal"
+        showCameraOption={false}
+        photoCount={form.photos.length}
+        maxPhotos={MAX_PRODUCT_PHOTOS}
+        onClose={() => form.setActiveDrawer('none')}
+        onTakePhoto={form.openCamera}
+        onChooseGallery={form.openGallery}
+      />
+    </GlassFullScreenModal>
   );
 };
 
 const styles = StyleSheet.create({
-  host: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#FFFFFF',
-    zIndex: 250,
-    elevation: 250,
-  },
-  safe: {
+  scroll: {
     flex: 1,
-  },
-  flex: {
-    flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    height: 56,
-    paddingHorizontal: 16,
-  },
-  headerTitle: {
-    fontFamily: FONT_FAMILY.bold,
-    fontSize: 16,
-    lineHeight: 20,
-    color: ADD_PRODUCT_COLORS.title,
-  },
-  headerSpacer: {
-    width: 24,
-  },
-  scrollPad: {
-    paddingBottom: 40,
   },
   stepperRow: {
     flexDirection: 'row',
@@ -411,8 +521,6 @@ const styles = StyleSheet.create({
     height: 52,
     borderRadius: 100,
     borderWidth: 1,
-    borderColor: ADD_PRODUCT_COLORS.border,
-    backgroundColor: '#F4F2F2',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -421,21 +529,19 @@ const styles = StyleSheet.create({
     minHeight: 52,
     borderRadius: 100,
     borderWidth: 1,
-    borderColor: ADD_PRODUCT_COLORS.border,
-    backgroundColor: 'rgba(255,255,255,0.2)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   stepperValue: {
     fontFamily: FONT_FAMILY.semibold,
     fontSize: 12,
-    color: ADD_PRODUCT_COLORS.text,
+    color: themeColors.glass.text,
   },
   durationSuffix: {
     fontFamily: FONT_FAMILY.semibold,
     fontSize: 12,
     lineHeight: 20,
-    color: ADD_PRODUCT_COLORS.text,
+    color: themeColors.glass.text,
     marginLeft: 8,
   },
   raffleGroup: {
@@ -454,30 +560,16 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.semibold,
     fontSize: 14,
     lineHeight: 20,
-    color: ADD_PRODUCT_COLORS.text,
   },
   raffleDesc: {
     fontFamily: FONT_FAMILY.semibold,
     fontSize: 12,
     lineHeight: 16,
-    color: ADD_PRODUCT_COLORS.muted,
   },
   raffleRadio: {
     width: 24,
     height: 24,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: ADD_PRODUCT_COLORS.borderAccent,
-    backgroundColor: 'rgba(104, 92, 240, 0.1)',
-  },
-  raffleRadioOn: {
-    borderWidth: 2,
-    borderColor: ADD_PRODUCT_COLORS.primary,
-    backgroundColor: ADD_PRODUCT_COLORS.primary,
-  },
-  drawerHost: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 300,
-    elevation: 300,
   },
 });

@@ -1,7 +1,13 @@
 import { StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 import { FONT_FAMILY } from '../../../theme/typography';
-import { START_LIVE_COLORS, startLivePanelStyle } from '../startLive/startLiveStyles';
+import { themeColors } from '../../../theme/colors';
+import { startLivePanelStyle } from '../startLive/startLiveStyles';
 
+/**
+ * Paleta de la PANTALLA clara de alta de producto (`AddProductScreen`).
+ * No usar para los drawers: ellos viven sobre panel glass oscuro y usan
+ * `themeColors.glass` / `addProductGlassStyles`.
+ */
 export const ADD_PRODUCT_COLORS = {
   primary: '#685CF0',
   text: '#18181B',
@@ -15,6 +21,7 @@ export const ADD_PRODUCT_COLORS = {
   bannerEnd: 'rgba(250, 202, 77, 0.1)',
 };
 
+/** Presentación común de los drawers de alta de producto (panel inferior glass). */
 export const addProductDrawerProps = {
   bottomPanel: true as const,
   panelStyle: [startLivePanelStyle, { paddingTop: 28 }] as StyleProp<ViewStyle>,
@@ -137,11 +144,12 @@ export const addProductStyles = StyleSheet.create({
     textAlign: 'center',
     paddingHorizontal: 4,
   },
+  /** Solo drawers (glass): hint bajo el título de una fila de opción. */
   photoOptionHint: {
     fontFamily: FONT_FAMILY.semibold,
     fontSize: 12,
     lineHeight: 16,
-    color: '#71717B',
+    color: themeColors.glass.textMuted,
   },
   photoSourceBody: {
     gap: 18,
@@ -151,7 +159,7 @@ export const addProductStyles = StyleSheet.create({
     fontFamily: FONT_FAMILY.semibold,
     fontSize: 14,
     lineHeight: 20,
-    color: '#F4F4F5',
+    color: themeColors.glass.text,
   },
   photoSourceList: {
     gap: 12,
@@ -163,7 +171,7 @@ export const addProductStyles = StyleSheet.create({
     borderRadius: 24,
     borderWidth: 1,
     borderColor: 'rgba(203, 206, 255, 0.9)',
-    backgroundColor: 'rgba(255, 255, 255, 0.14)',
+    backgroundColor: themeColors.glass.rowBg,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
@@ -171,13 +179,13 @@ export const addProductStyles = StyleSheet.create({
     paddingVertical: 12,
   },
   photoSourceRowDisabled: {
-    opacity: 0.45,
+    opacity: themeColors.disabledOpacity,
   },
   photoSourceIconWrap: {
     width: 42,
     height: 42,
     borderRadius: 21,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: themeColors.glass.text,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -189,13 +197,13 @@ export const addProductStyles = StyleSheet.create({
     fontFamily: FONT_FAMILY.bold,
     fontSize: 15,
     lineHeight: 20,
-    color: '#FFFFFF',
+    color: themeColors.glass.text,
   },
   photoSourceHint: {
     fontFamily: FONT_FAMILY.semibold,
     fontSize: 12,
     lineHeight: 16,
-    color: '#D9D9D9',
+    color: themeColors.glass.textMuted,
   },
   photoCountHint: {
     fontFamily: FONT_FAMILY.regular,
@@ -323,7 +331,7 @@ export const addProductStyles = StyleSheet.create({
     fontFamily: FONT_FAMILY.bold,
     fontSize: 14,
     lineHeight: 20,
-    color: START_LIVE_COLORS.textMuted,
+    color: themeColors.glass.textMuted,
   },
   tierList: {
     gap: 24,
@@ -349,19 +357,19 @@ export const addProductStyles = StyleSheet.create({
     fontFamily: FONT_FAMILY.semibold,
     fontSize: 14,
     lineHeight: 20,
-    color: '#FFFFFF',
+    color: themeColors.glass.text,
   },
   tierRange: {
     fontFamily: FONT_FAMILY.semibold,
     fontSize: 14,
     lineHeight: 20,
-    color: '#FFFFFF',
+    color: themeColors.glass.text,
   },
   tierHint: {
     fontFamily: FONT_FAMILY.semibold,
     fontSize: 12,
     lineHeight: 16,
-    color: START_LIVE_COLORS.textMuted,
+    color: themeColors.glass.textMuted,
   },
   tierRadio: {
     width: 24,
@@ -372,65 +380,70 @@ export const addProductStyles = StyleSheet.create({
     backgroundColor: 'rgba(104, 92, 240, 0.1)',
   },
   tierRadioOn: {
-    borderColor: ADD_PRODUCT_COLORS.primary,
+    borderColor: themeColors.primary,
     borderWidth: 2,
-    backgroundColor: ADD_PRODUCT_COLORS.primary,
+    backgroundColor: themeColors.primary,
   },
   manualWeightLabel: {
     fontFamily: FONT_FAMILY.regular,
     fontSize: 14,
     lineHeight: 18,
-    color: '#FFFFFF',
+    color: themeColors.glass.text,
   },
   manualWeightRow: {
     borderWidth: 1,
-    borderColor: ADD_PRODUCT_COLORS.border,
+    borderColor: themeColors.glass.border,
     borderRadius: 100,
     paddingHorizontal: 16,
     paddingVertical: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: themeColors.glass.inputBg,
   },
   manualWeightInput: {
     flex: 1,
     fontFamily: FONT_FAMILY.semibold,
     fontSize: 12,
-    color: START_LIVE_COLORS.textMuted,
+    color: themeColors.glass.text,
     padding: 0,
   },
   manualWeightUnit: {
     fontFamily: FONT_FAMILY.semibold,
     fontSize: 12,
-    color: START_LIVE_COLORS.textMuted,
+    color: themeColors.glass.textMuted,
     marginRight: 4,
   },
   manualWeightHelp: {
     fontFamily: FONT_FAMILY.semibold,
     fontSize: 11,
     lineHeight: 16,
-    color: START_LIVE_COLORS.textMuted,
+    color: themeColors.glass.textMuted,
     paddingHorizontal: 16,
   },
   conditionList: {
     gap: 12,
     width: '100%',
   },
+  /**
+   * Filas de opción de los drawers (Formato de venta / Condición). Skin oscuro:
+   * el panel es glass, así que la fila es blanca-sobre-oscuro como el resto del
+   * sistema (antes era una fila clara con texto casi negro).
+   */
   conditionRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     borderWidth: 1,
-    borderColor: ADD_PRODUCT_COLORS.borderAccent,
+    borderColor: themeColors.glass.border,
     borderRadius: 1000,
     paddingHorizontal: 16,
     paddingVertical: 8,
     minHeight: 56,
-    backgroundColor: 'rgba(255,255,255,0.4)',
+    backgroundColor: themeColors.glass.rowBg,
   },
   conditionRowOn: {
-    borderColor: ADD_PRODUCT_COLORS.primary,
-    backgroundColor: 'rgba(104, 92, 240, 0.15)',
+    borderColor: themeColors.primary,
+    backgroundColor: 'rgba(104, 92, 240, 0.25)',
   },
   conditionLeft: {
     flexDirection: 'row',
@@ -442,7 +455,7 @@ export const addProductStyles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 1000,
-    backgroundColor: '#DBDBDF',
+    backgroundColor: themeColors.glass.rowBg,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -450,7 +463,7 @@ export const addProductStyles = StyleSheet.create({
     fontFamily: FONT_FAMILY.bold,
     fontSize: 14,
     lineHeight: 20,
-    color: ADD_PRODUCT_COLORS.text,
+    color: themeColors.glass.text,
   },
   saleFormatTextCol: {
     flex: 1,
@@ -461,26 +474,102 @@ export const addProductStyles = StyleSheet.create({
     height: 24,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: ADD_PRODUCT_COLORS.muted,
+    borderColor: themeColors.glass.border,
     backgroundColor: 'rgba(104, 92, 240, 0.1)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   conditionCheckOn: {
-    borderColor: ADD_PRODUCT_COLORS.primary,
-    backgroundColor: ADD_PRODUCT_COLORS.primary,
+    borderColor: themeColors.primary,
+    backgroundColor: themeColors.primary,
   },
-  weightPresetRow: {
-    flexDirection: 'row',
+});
+
+/**
+ * Piel oscura (glass) de los campos de alta de producto, para el form in-live
+ * `SellerAddProductDrawer`. Son SOLO overrides de color: la geometría sigue
+ * viniendo de `addProductStyles`, que consume también la pantalla clara
+ * `AddProductScreen` — por eso no se puede cambiar ahí el significado de los
+ * estilos base y estas variantes viven aparte.
+ */
+export const addProductGlassStyles = StyleSheet.create({
+  scrollContent: {
+    paddingHorizontal: 24,
+    paddingTop: 8,
+    paddingBottom: 24,
+    gap: 24,
+  },
+  tipsBanner: {
+    backgroundColor: 'rgba(104, 92, 240, 0.18)',
+  },
+  tipsTitle: {
+    color: themeColors.glass.text,
+  },
+  tipsBody: {
+    color: themeColors.glass.textMuted,
+  },
+  tipsArrow: {
+    backgroundColor: themeColors.glass.rowBg,
+  },
+  sectionTitle: {
+    color: themeColors.glass.text,
+  },
+  photoBox: {
+    borderColor: themeColors.glass.border,
+    backgroundColor: themeColors.glass.inputBg,
+  },
+  photoBoxLabel: {
+    color: themeColors.glass.textMuted,
+  },
+  photoAddTile: {
+    borderColor: themeColors.glass.border,
+    backgroundColor: themeColors.glass.inputBg,
+  },
+  fieldLabel: {
+    color: themeColors.glass.text,
+  },
+  surface: {
+    borderColor: themeColors.glass.border,
+    backgroundColor: themeColors.glass.inputBg,
+  },
+  inputText: {
+    color: themeColors.glass.text,
+  },
+  selectPlaceholder: {
+    color: themeColors.glass.placeholder,
+  },
+  rowTitle: {
+    color: themeColors.glass.text,
+  },
+  rowHint: {
+    color: themeColors.glass.textMuted,
+  },
+  radio: {
+    borderColor: themeColors.glass.border,
+    backgroundColor: 'rgba(104, 92, 240, 0.1)',
+  },
+  radioOn: {
+    borderWidth: 2,
+    borderColor: themeColors.primary,
+    backgroundColor: themeColors.primary,
+  },
+  footerActions: {
+    width: '100%',
+    paddingHorizontal: 24,
+    gap: 12,
+  },
+  secondaryBtn: {
+    minHeight: 40,
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(221,221,221,0.35)',
+    justifyContent: 'center',
   },
-  weightPresetLabel: {
-    fontFamily: FONT_FAMILY.semibold,
+  secondaryBtnText: {
+    fontFamily: FONT_FAMILY.bold,
     fontSize: 14,
-    color: '#FFFFFF',
+    lineHeight: 20,
+    color: themeColors.gold,
+  },
+  disabled: {
+    opacity: themeColors.disabledOpacity,
   },
 });

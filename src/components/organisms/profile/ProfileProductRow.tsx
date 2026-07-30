@@ -12,6 +12,8 @@ import {
 import { AudioLines, Clock, ChevronRight } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { FONT_FAMILY } from '../../../theme/typography';
+import { themeColors } from '../../../theme/colors';
+import { useTheme } from '../../../context/ThemeContext';
 import type { UserProfileProductItem } from '../../../api/platformApi';
 
 const THUMB = 132;
@@ -60,6 +62,13 @@ export interface ProfileProductRowProps {
 
 export const ProfileProductRow: React.FC<ProfileProductRowProps> = ({ item, onPress }) => {
   const { t } = useTranslation();
+  /** Overrides de color sólo en oscuro: en claro el StyleSheet manda sin cambios. */
+  const { isDark } = useTheme();
+  const d = themeColors.dark;
+  const darkText = isDark ? { color: d.text } : null;
+  const darkMuted = isDark ? { color: d.textMuted } : null;
+  const inkColor = isDark ? d.text : '#18181B';
+  const mutedColor = isDark ? d.textMuted : GRAY_500;
   const isLive = item.status === 'live';
   const isDraft = item.status === 'draft';
 
@@ -78,7 +87,7 @@ export const ProfileProductRow: React.FC<ProfileProductRowProps> = ({ item, onPr
 
   return (
     <TouchableOpacity
-      style={styles.row}
+      style={[styles.row, isDark ? { borderBottomColor: d.borderSubtle } : null]}
       activeOpacity={onPress ? 0.88 : 1}
       onPress={onPress}
       disabled={!onPress}
@@ -87,40 +96,46 @@ export const ProfileProductRow: React.FC<ProfileProductRowProps> = ({ item, onPr
         {item.thumbnail_url ? (
           <Image source={{ uri: item.thumbnail_url }} style={styles.thumb} resizeMode="cover" />
         ) : (
-          <View style={[styles.thumb, styles.thumbPlaceholder]} />
+          <View
+            style={[
+              styles.thumb,
+              styles.thumbPlaceholder,
+              isDark ? { backgroundColor: d.surfaceAlt } : null,
+            ]}
+          />
         )}
       </View>
 
       <View style={styles.body}>
         <View style={styles.statusRow}>
           {isLive ? (
-            <AudioLines size={20} color="#18181B" strokeWidth={2.5} />
+            <AudioLines size={20} color={inkColor} strokeWidth={2.5} />
           ) : (
-            <Clock size={20} color="#18181B" strokeWidth={2.5} />
+            <Clock size={20} color={inkColor} strokeWidth={2.5} />
           )}
-          <RNText style={styles.statusText}>{statusLabel}</RNText>
+          <RNText style={[styles.statusText, darkText]}>{statusLabel}</RNText>
         </View>
 
         <View style={styles.titleBlock}>
-          <RNText style={styles.title} numberOfLines={1}>
+          <RNText style={[styles.title, darkText]} numberOfLines={1}>
             {item.title}
           </RNText>
           <View style={styles.articlesRow}>
-            <RNText style={styles.articlesText}>
+            <RNText style={[styles.articlesText, darkMuted]}>
               {t('profile.productArticles', { count: item.article_count })}
             </RNText>
-            <ChevronRight size={16} color={GRAY_500} strokeWidth={2.5} />
+            <ChevronRight size={16} color={mutedColor} strokeWidth={2.5} />
           </View>
         </View>
 
         <View style={styles.footerRow}>
           <RNText style={styles.price}>{formatPrice(item.price_cents, item.currency)}</RNText>
           {showTimer ? (
-            <RNText style={styles.timer}>
+            <RNText style={[styles.timer, darkText]}>
               {formatTimer(item.auction_seconds_remaining!)}
             </RNText>
           ) : (
-            <RNText style={styles.timerMuted}>00:00</RNText>
+            <RNText style={[styles.timerMuted, darkText]}>00:00</RNText>
           )}
         </View>
       </View>

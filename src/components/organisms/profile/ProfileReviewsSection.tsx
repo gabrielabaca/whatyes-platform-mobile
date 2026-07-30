@@ -13,6 +13,8 @@ import { useTranslation } from 'react-i18next';
 import { StarRating } from '../../molecules/profile/StarRating';
 import { ProfileReviewRow } from './ProfileReviewRow';
 import { FONT_FAMILY } from '../../../theme/typography';
+import { themeColors } from '../../../theme/colors';
+import { useTheme } from '../../../context/ThemeContext';
 import type { UserReviewListItem, UserReviewsListResponse } from '../../../api/profileApi';
 
 const PRIMARY = '#685CF0';
@@ -35,13 +37,19 @@ export const ProfileReviewsSection: React.FC<ProfileReviewsSectionProps> = ({
   onPressReview,
 }) => {
   const { t } = useTranslation();
+  /** Overrides de color sólo en oscuro: en claro el StyleSheet manda sin cambios. */
+  const { isDark } = useTheme();
 
   if (loading && !data) {
     return <ActivityIndicator color={PRIMARY} style={styles.loader} />;
   }
 
   if (!data || data.total === 0) {
-    return <RNText style={styles.empty}>{t('profile.noReviews')}</RNText>;
+    return (
+      <RNText style={[styles.empty, isDark ? { color: themeColors.dark.textMuted } : null]}>
+        {t('profile.noReviews')}
+      </RNText>
+    );
   }
 
   const { category_averages: cat } = data;
@@ -82,15 +90,23 @@ export const ProfileReviewsSection: React.FC<ProfileReviewsSectionProps> = ({
   );
 };
 
-const CategoryColumn: React.FC<{ label: string; value: number }> = ({ label, value }) => (
-  <View style={styles.categoryCol}>
-    <RNText style={styles.categoryLabel}>{label}</RNText>
-    <View style={styles.categoryStars}>
-      <StarRating value={value} size={10} gap={2} />
-      <RNText style={styles.categoryScore}>{formatCategoryScore(value)}</RNText>
+const CategoryColumn: React.FC<{ label: string; value: number }> = ({ label, value }) => {
+  const { isDark } = useTheme();
+  const d = themeColors.dark;
+  return (
+    <View style={styles.categoryCol}>
+      <RNText style={[styles.categoryLabel, isDark ? { color: d.textSecondary } : null]}>
+        {label}
+      </RNText>
+      <View style={styles.categoryStars}>
+        <StarRating value={value} size={10} gap={2} />
+        <RNText style={[styles.categoryScore, isDark ? { color: d.text } : null]}>
+          {formatCategoryScore(value)}
+        </RNText>
+      </View>
     </View>
-  </View>
-);
+  );
+};
 
 const styles = StyleSheet.create({
   wrap: {

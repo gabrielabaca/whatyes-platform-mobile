@@ -14,6 +14,7 @@ import { ArrowRight, AudioLines, ShoppingCart } from 'lucide-react-native';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { FONT_FAMILY } from '../../../theme/typography';
 import { themeColors } from '../../../theme/colors';
+import { useTheme } from '../../../context/ThemeContext';
 import { ProfileShowCard } from '../profile/ProfileShowCard';
 import type { UserShowItem } from '../../../api/platformApi';
 
@@ -23,6 +24,23 @@ const TEXT = '#18181B';
 const TITLE = '#27272A';
 const MUTED = '#6B7280';
 const DARK = '#111928';
+
+/** Borde de tarjeta en oscuro: el lavanda de marca atenuado sobre `night.800`. */
+const BORDER_DARK = 'rgba(104, 92, 240, 0.35)';
+/** Relleno de los círculos de ícono: primario translúcido, más presente en oscuro. */
+const ICON_TINT_LIGHT = 'rgba(104, 92, 240, 0.1)';
+const ICON_TINT_DARK = 'rgba(104, 92, 240, 0.22)';
+/** Degradados de tarjeta por tema (claro = Figma 566-3736; oscuro = equivalente `night`). */
+const CARD_GRADIENTS = {
+  light: {
+    gray: ['#FFFFFF', '#F2F2F8', '#E0E0EC'],
+    verify: ['#F0EEFF', '#F7F6FF', '#FFF6E0'],
+  },
+  dark: {
+    gray: ['#152042', '#101A38', '#0C142D'],
+    verify: ['#1B1A4D', '#141B3B', '#2B2413'],
+  },
+} as const;
 
 /** Sombra Figma: 0 2px 4px -2px rgba(0,0,0,0.05) */
 const cardShadowSoft: ViewStyle = Platform.select({
@@ -68,7 +86,9 @@ type CardBackgroundKind = 'gray' | 'verify' | 'none';
 
 const CardBackground: React.FC<{ kind: Exclude<CardBackgroundKind, 'none'> }> = ({ kind }) => {
   const rawId = useId().replace(/:/g, '');
+  const { isDark } = useTheme();
   const gradientId = `seller-home-${kind}-${rawId}`;
+  const stops = CARD_GRADIENTS[isDark ? 'dark' : 'light'][kind];
 
   if (kind === 'verify') {
     return (
@@ -76,9 +96,9 @@ const CardBackground: React.FC<{ kind: Exclude<CardBackgroundKind, 'none'> }> = 
         <Svg style={StyleSheet.absoluteFill} width="100%" height="100%">
           <Defs>
             <LinearGradient id={gradientId} x1="0" y1="0.5" x2="1" y2="0.5">
-              <Stop offset="0" stopColor="#F0EEFF" />
-              <Stop offset="0.72" stopColor="#F7F6FF" />
-              <Stop offset="1" stopColor="#FFF6E0" />
+              <Stop offset="0" stopColor={stops[0]} />
+              <Stop offset="0.72" stopColor={stops[1]} />
+              <Stop offset="1" stopColor={stops[2]} />
             </LinearGradient>
           </Defs>
           <Rect width="100%" height="100%" fill={`url(#${gradientId})`} />
@@ -92,9 +112,9 @@ const CardBackground: React.FC<{ kind: Exclude<CardBackgroundKind, 'none'> }> = 
       <Svg style={StyleSheet.absoluteFill} width="100%" height="100%">
         <Defs>
           <LinearGradient id={gradientId} x1="0.5" y1="0" x2="0.5" y2="1">
-            <Stop offset="0" stopColor="#FFFFFF" />
-            <Stop offset="0.48" stopColor="#F2F2F8" />
-            <Stop offset="1" stopColor="#E0E0EC" />
+            <Stop offset="0" stopColor={stops[0]} />
+            <Stop offset="0.48" stopColor={stops[1]} />
+            <Stop offset="1" stopColor={stops[2]} />
           </LinearGradient>
         </Defs>
         <Rect width="100%" height="100%" fill={`url(#${gradientId})`} />
@@ -110,7 +130,15 @@ const BorderedCard: React.FC<{
   onPress?: () => void;
   children: React.ReactNode;
 }> = ({ style, shadow, background = 'gray', onPress, children }) => {
-  const shell = [styles.card, shadow, style];
+  const { isDark } = useTheme();
+  const shell = [
+    styles.card,
+    isDark
+      ? { backgroundColor: themeColors.dark.surface, borderColor: BORDER_DARK }
+      : null,
+    shadow,
+    style,
+  ];
   const content = (
     <>
       {background === 'none' ? null : <CardBackground kind={background} />}
@@ -143,6 +171,14 @@ export const SellerHomeDashboard: React.FC<SellerHomeDashboardProps> = ({
   onPressPastLive,
 }) => {
   const { t } = useTranslation();
+  const { isDark } = useTheme();
+  /** Overrides sólo para oscuro: en claro mandan los estilos estáticos. */
+  const darkText = isDark ? { color: themeColors.dark.text } : null;
+  const darkMuted = isDark ? { color: themeColors.dark.textSecondary } : null;
+  const darkIconWrap = isDark
+    ? { backgroundColor: ICON_TINT_DARK, borderColor: BORDER_DARK }
+    : null;
+  const arrowMuted = isDark ? themeColors.dark.textSecondary : MUTED;
 
   const pastLiveRows: UserShowItem[][] = [];
   for (let i = 0; i < pastLives.length; i += 2) {
@@ -164,10 +200,10 @@ export const SellerHomeDashboard: React.FC<SellerHomeDashboardProps> = ({
             onPress={onPressVerify}
           >
             <View style={styles.verifyTextCol}>
-              <RNText style={styles.verifyTitle}>{t('sellerHome.verifyTitle')}</RNText>
-              <RNText style={styles.verifyBody}>{t('sellerHome.verifyBody')}</RNText>
+              <RNText style={[styles.verifyTitle, darkText]}>{t('sellerHome.verifyTitle')}</RNText>
+              <RNText style={[styles.verifyBody, darkText]}>{t('sellerHome.verifyBody')}</RNText>
             </View>
-            <View style={styles.verifyArrowWrap}>
+            <View style={[styles.verifyArrowWrap, darkIconWrap]}>
               <ArrowRight size={22} color={PRIMARY} strokeWidth={2.2} />
             </View>
           </BorderedCard>
@@ -180,10 +216,10 @@ export const SellerHomeDashboard: React.FC<SellerHomeDashboardProps> = ({
             onPress={onPressPayments}
           >
             <View style={styles.statTop}>
-              <RNText style={styles.statLabel}>{t('sellerHome.payments')}</RNText>
-              <ArrowRight size={20} color={MUTED} strokeWidth={2} />
+              <RNText style={[styles.statLabel, darkMuted]}>{t('sellerHome.payments')}</RNText>
+              <ArrowRight size={20} color={arrowMuted} strokeWidth={2} />
             </View>
-            <RNText style={styles.statValue}>{paymentsAmount}</RNText>
+            <RNText style={[styles.statValue, darkText]}>{paymentsAmount}</RNText>
           </BorderedCard>
           <BorderedCard
             style={styles.statCard}
@@ -191,15 +227,15 @@ export const SellerHomeDashboard: React.FC<SellerHomeDashboardProps> = ({
             onPress={onPressSold}
           >
             <View style={styles.statTop}>
-              <RNText style={styles.statLabel}>{t('sellerHome.sold')}</RNText>
-              <ArrowRight size={20} color={MUTED} strokeWidth={2} />
+              <RNText style={[styles.statLabel, darkMuted]}>{t('sellerHome.sold')}</RNText>
+              <ArrowRight size={20} color={arrowMuted} strokeWidth={2} />
             </View>
-            <RNText style={styles.statValue}>{String(soldCount)}</RNText>
+            <RNText style={[styles.statValue, darkText]}>{String(soldCount)}</RNText>
           </BorderedCard>
         </View>
       </View>
 
-      <RNText style={styles.sectionTitle}>{t('sellerHome.whatToDoToday')}</RNText>
+      <RNText style={[styles.sectionTitle, darkText]}>{t('sellerHome.whatToDoToday')}</RNText>
 
       <View style={styles.actionsBlock}>
         <BorderedCard
@@ -207,10 +243,10 @@ export const SellerHomeDashboard: React.FC<SellerHomeDashboardProps> = ({
           shadow={cardShadowTile}
           onPress={onPressGoLive}
         >
-          <View style={styles.actionIconWrap}>
+          <View style={[styles.actionIconWrap, darkIconWrap]}>
             <AudioLines size={24} color={PRIMARY} strokeWidth={2.2} />
           </View>
-          <RNText style={styles.actionLabel}>{t('sellerHome.goLive')}</RNText>
+          <RNText style={[styles.actionLabel, darkText]}>{t('sellerHome.goLive')}</RNText>
         </BorderedCard>
 
         <BorderedCard
@@ -218,16 +254,16 @@ export const SellerHomeDashboard: React.FC<SellerHomeDashboardProps> = ({
           shadow={cardShadowTile}
           onPress={onPressAddProduct ?? onPressGoLive}
         >
-          <View style={styles.actionIconWrap}>
+          <View style={[styles.actionIconWrap, darkIconWrap]}>
             <ShoppingCart size={24} color={PRIMARY} strokeWidth={2.2} />
           </View>
-          <RNText style={styles.actionLabel}>{t('sellerHome.addProduct')}</RNText>
+          <RNText style={[styles.actionLabel, darkText]}>{t('sellerHome.addProduct')}</RNText>
         </BorderedCard>
 
         {showFirstLiveCta && pastLives.length === 0 ? (
           <BorderedCard style={styles.firstLiveCard} shadow={cardShadowTile}>
-            <RNText style={styles.firstLiveTitle}>{t('sellerHome.firstLiveTitle')}</RNText>
-            <RNText style={styles.firstLiveBody}>{t('sellerHome.firstLiveBody')}</RNText>
+            <RNText style={[styles.firstLiveTitle, darkText]}>{t('sellerHome.firstLiveTitle')}</RNText>
+            <RNText style={[styles.firstLiveBody, darkText]}>{t('sellerHome.firstLiveBody')}</RNText>
             <TouchableOpacity style={styles.firstLiveBtn} onPress={onPressFirstLiveCta} activeOpacity={0.85}>
               <RNText style={styles.firstLiveBtnText}>{t('sellerHome.firstLiveCta')}</RNText>
             </TouchableOpacity>
@@ -237,7 +273,7 @@ export const SellerHomeDashboard: React.FC<SellerHomeDashboardProps> = ({
 
       {pastLives.length > 0 ? (
         <>
-          <RNText style={styles.sectionTitle}>{t('sellerHome.pastLives')}</RNText>
+          <RNText style={[styles.sectionTitle, darkText]}>{t('sellerHome.pastLives')}</RNText>
           <View style={styles.pastLivesGrid}>
             {pastLiveRows.map((row, idx) => (
               <View key={`past-live-row-${idx}`} style={styles.pastLivesRow}>
@@ -315,7 +351,7 @@ const styles = StyleSheet.create({
     borderRadius: 1000,
     borderWidth: 1,
     borderColor: BORDER,
-    backgroundColor: 'rgba(104, 92, 240, 0.1)',
+    backgroundColor: ICON_TINT_LIGHT,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -375,7 +411,7 @@ const styles = StyleSheet.create({
     borderRadius: 1000,
     borderWidth: 1,
     borderColor: BORDER,
-    backgroundColor: 'rgba(104, 92, 240, 0.1)',
+    backgroundColor: ICON_TINT_LIGHT,
     marginBottom: 12,
   },
   actionLabel: {

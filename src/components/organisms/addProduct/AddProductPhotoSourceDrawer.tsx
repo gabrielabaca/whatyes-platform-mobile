@@ -1,19 +1,12 @@
 import React, { useCallback } from 'react';
-import {
-  Platform,
-  StyleSheet,
-  View,
-  Text as RNText,
-  TouchableOpacity,
-  type StyleProp,
-  type ViewStyle,
-} from 'react-native';
+import { Platform, StyleSheet, View, Text as RNText, TouchableOpacity } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Camera, ChevronRight, Images } from 'lucide-react-native';
 import { StreamBottomSheet } from '../stream/StreamBottomSheet';
-import { addProductStyles } from './addProductStyles';
-import { startLivePanelStyle } from '../startLive/startLiveStyles';
+import { addProductDrawerProps, addProductStyles } from './addProductStyles';
 import { deferMediaPicker } from '../../../utils/deferMediaPicker';
+import { themeColors } from '../../../theme/colors';
+import { LAYERS } from '../../../theme/layers';
 
 export interface AddProductPhotoSourceDrawerProps {
   visible: boolean;
@@ -50,7 +43,6 @@ export const AddProductPhotoSourceDrawer: React.FC<AddProductPhotoSourceDrawerPr
   const { t } = useTranslation();
   const remaining = maxPhotos - photoCount;
   const atLimit = remaining <= 0;
-  const panelStyle: StyleProp<ViewStyle> = [startLivePanelStyle, { paddingTop: 28 }];
   const useOverlay = presentation === 'overlay';
 
   const runPickerAction = useCallback(
@@ -91,9 +83,8 @@ export const AddProductPhotoSourceDrawer: React.FC<AddProductPhotoSourceDrawerPr
       visible={visible}
       title={t('addProduct.photoPickerTitle')}
       onClose={onClose}
-      bottomPanel
       nativeModal={!useOverlay}
-      panelStyle={panelStyle}
+      {...addProductDrawerProps}
       contentContainerStyle={addProductStyles.photoSourceBody}
       scrollEnabled={false}
     >
@@ -119,13 +110,13 @@ export const AddProductPhotoSourceDrawer: React.FC<AddProductPhotoSourceDrawerPr
               activeOpacity={0.85}
             >
               <View style={addProductStyles.photoSourceIconWrap}>
-                <Icon size={20} color="#685CF0" strokeWidth={2.3} />
+                <Icon size={20} color={themeColors.primary} strokeWidth={2.3} />
               </View>
               <View style={addProductStyles.photoSourceTextCol}>
                 <RNText style={addProductStyles.photoSourceTitle}>{t(opt.labelKey)}</RNText>
                 <RNText style={addProductStyles.photoSourceHint}>{t(opt.hintKey)}</RNText>
               </View>
-              <ChevronRight size={20} color="#D9D9D9" strokeWidth={2.2} />
+              <ChevronRight size={20} color={themeColors.glass.textMuted} strokeWidth={2.2} />
             </TouchableOpacity>
           );
         })}
@@ -144,7 +135,7 @@ export const AddProductPhotoSourceDrawer: React.FC<AddProductPhotoSourceDrawerPr
 const styles = StyleSheet.create({
   overlayHost: {
     ...StyleSheet.absoluteFillObject,
-    zIndex: 350,
-    elevation: 350,
+    zIndex: LAYERS.overlay,
+    elevation: LAYERS.overlay,
   },
 });

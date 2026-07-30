@@ -18,18 +18,17 @@ import {
   GlassFullScreenModal,
   type GlassFullScreenModalHandle,
 } from './GlassFullScreenModal';
+import { GlassModalHeader } from './GlassModalHeader';
 import { useTranslation } from 'react-i18next';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Camera } from 'lucide-react-native';
 import { launchPhotoLibraryNow } from '../../../utils/mediaPicker';
 import { deferMediaPicker } from '../../../utils/deferMediaPicker';
 import { IconUser } from '../../icons';
 import { FONT_FAMILY } from '../../../theme/typography';
+import { themeColors } from '../../../theme/colors';
 import { updateOwnProfile, type UserPublicProfile } from '../../../api/profileApi';
 
 const COVER_H = 164;
-const PRIMARY = '#685CF0';
-const CANCEL_GOLD = '#FDC700';
 
 export interface EditProfileDrawerProps {
   visible: boolean;
@@ -49,7 +48,6 @@ export const EditProfileDrawer: React.FC<EditProfileDrawerProps> = ({
   onSaved,
 }) => {
   const { t } = useTranslation();
-  const insets = useSafeAreaInsets();
   const modalRef = useRef<GlassFullScreenModalHandle>(null);
   const [displayName, setDisplayName] = useState(profile.display_name);
   const [bio, setBio] = useState(profile.bio ?? '');
@@ -80,6 +78,7 @@ export const EditProfileDrawer: React.FC<EditProfileDrawerProps> = ({
     });
   };
 
+  // TODO: subir `avatarUri` al guardar — falta el endpoint de avatar en service-users.
   const handleSave = async () => {
     const trimmedName = displayName.trim();
     if (!trimmedName) {
@@ -108,18 +107,25 @@ export const EditProfileDrawer: React.FC<EditProfileDrawerProps> = ({
       visible={visible}
       onClose={onClose}
       backdropAccessibilityLabel={t('profile.editCancel')}
-        dismissOnBackdropPress={false}
+      dismissOnBackdropPress={false}
       contentContainerStyle={styles.scrollContent}
+      header={
+        <GlassModalHeader
+          title={t('profile.editProfile')}
+          onClose={handleClose}
+          closeDisabled={saving}
+        />
+      }
       footer={
         <View style={styles.actions}>
           <TouchableOpacity
-            style={styles.saveBtn}
+            style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
             onPress={handleSave}
             disabled={saving}
             activeOpacity={0.88}
           >
             {saving ? (
-              <ActivityIndicator color="#FFFFFF" />
+              <ActivityIndicator color={themeColors.glass.text} />
             ) : (
               <RNText style={styles.saveBtnText}>{t('profile.editSave')}</RNText>
             )}
@@ -137,14 +143,7 @@ export const EditProfileDrawer: React.FC<EditProfileDrawerProps> = ({
                 <View style={[styles.coverImage, styles.coverFallback]} />
               )}
               <CoverGradient />
-              <View
-                style={[
-                  styles.coverInner,
-                  styles.coverInnerPadBottom,
-                  { paddingTop: insets.top + 12 },
-                ]}
-              >
-                <RNText style={styles.drawerTitle}>{t('profile.editProfile')}</RNText>
+              <View style={[styles.coverInner, styles.coverInnerPadBottom]}>
                 <View style={styles.avatarRow}>
                   {avatarUri ? (
                     <Image source={{ uri: avatarUri }} style={styles.avatar} />
@@ -158,7 +157,7 @@ export const EditProfileDrawer: React.FC<EditProfileDrawerProps> = ({
                     onPress={pickAvatar}
                     accessibilityRole="button"
                   >
-                    <Camera size={22} color="#FFFFFF" strokeWidth={2} />
+                    <Camera size={22} color={themeColors.glass.text} strokeWidth={2} />
                   </TouchableOpacity>
                 </View>
               </View>
@@ -209,7 +208,7 @@ const EditField: React.FC<{
         value={value}
         onChangeText={onChangeText}
         style={[styles.fieldInput, inputStyle]}
-        placeholderTextColor="rgba(255,255,255,0.5)"
+        placeholderTextColor={themeColors.glass.placeholder}
         multiline={multiline}
         textAlignVertical={multiline ? 'top' : 'center'}
       />
@@ -250,18 +249,11 @@ const styles = StyleSheet.create({
   coverInner: {
     flex: 1,
     paddingHorizontal: 12,
-    justifyContent: 'space-between',
+    justifyContent: 'flex-end',
     zIndex: 2,
   },
   coverInnerPadBottom: {
     paddingBottom: 16,
-  },
-  drawerTitle: {
-    fontFamily: FONT_FAMILY.bold,
-    fontSize: 16,
-    lineHeight: 20,
-    color: '#FFFFFF',
-    includeFontPadding: false,
   },
   avatarRow: {
     flexDirection: 'row',
@@ -281,7 +273,7 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     borderWidth: 1.402,
     borderColor: '#3F3F47',
-    backgroundColor: PRIMARY,
+    backgroundColor: themeColors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -306,17 +298,17 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.semibold,
     fontSize: 10,
     lineHeight: 18,
-    color: '#FFFFFF',
+    color: themeColors.glass.text,
     letterSpacing: 0.05,
     includeFontPadding: false,
   },
   fieldInputWrap: {
     borderWidth: 1,
-    borderColor: '#DDDDDD',
+    borderColor: themeColors.glass.border,
     borderRadius: 1000,
     paddingHorizontal: 16,
     paddingVertical: 16,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: themeColors.glass.inputBg,
   },
   fieldInputWrapMultiline: {
     borderRadius: 12,
@@ -330,7 +322,7 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.bold,
     fontSize: 12,
     lineHeight: 20,
-    color: 'rgba(255,255,255,0.75)',
+    color: themeColors.glass.textSoft,
     letterSpacing: 0.06,
     width: '100%',
     includeFontPadding: false,
@@ -339,7 +331,7 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.bold,
     fontSize: 12,
     lineHeight: 20,
-    color: '#FFFFFF',
+    color: themeColors.glass.text,
     letterSpacing: 0.06,
     width: '100%',
     padding: 0,
@@ -360,23 +352,26 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 40,
     borderRadius: 1000,
-    backgroundColor: PRIMARY,
+    backgroundColor: themeColors.primary,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 12,
+  },
+  saveBtnDisabled: {
+    opacity: themeColors.disabledOpacity,
   },
   saveBtnText: {
     fontFamily: FONT_FAMILY.bold,
     fontSize: 14,
     lineHeight: 20,
-    color: '#FFFFFF',
+    color: themeColors.glass.text,
     includeFontPadding: false,
   },
   cancelText: {
     fontFamily: FONT_FAMILY.bold,
     fontSize: 14,
     lineHeight: 20,
-    color: CANCEL_GOLD,
+    color: themeColors.gold,
     includeFontPadding: false,
   },
 });

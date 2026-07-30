@@ -51,6 +51,7 @@ export const StartLiveIntroDrawer: React.FC<StartLiveIntroDrawerProps> = ({
       {...startLiveFullSheetProps}
       contentContainerStyle={startLiveStyles.sheetContent}
       scrollEnabled={false}
+      dismissOnBackdropPress={false}
       footer={
         <StartLivePrimaryButton
           label={t('startLive.introCta')}

@@ -19,6 +19,12 @@ import { Input } from '../../atoms/Input';
 import { ProductListItem, Product } from '../../molecules/ProductListItem';
 import { ArrowLeft, Plus, Video, Save } from 'lucide-react-native';
 import { storage } from '../../../utils/storage';
+import { useTheme } from '../../../context/ThemeContext';
+import { themeColors } from '../../../theme/colors';
+
+/** Relleno del acento primario: claro `primary.50`, oscuro primario translúcido. */
+const ACCENT_TINT_LIGHT = '#F1F0FE';
+const ACCENT_TINT_DARK = 'rgba(104, 92, 240, 0.18)';
 
 interface StreamConfigScreenProps {
   onBack?: () => void;
@@ -48,6 +54,29 @@ export const StreamConfigScreen: React.FC<StreamConfigScreenProps> = ({
   onStartStream,
   draft = null,
 }) => {
+  const { isDark } = useTheme();
+  /** Overrides sólo para oscuro: en claro mandan los estilos estáticos. */
+  const darkScreen = isDark ? { backgroundColor: themeColors.dark.background } : null;
+  const darkSurface = isDark
+    ? { backgroundColor: themeColors.dark.surface, borderColor: themeColors.dark.borderSubtle }
+    : null;
+  const darkSurfaceAlt = isDark
+    ? { backgroundColor: themeColors.dark.surfaceAlt, borderColor: themeColors.dark.borderSubtle }
+    : null;
+  /** `borderColor` no pisa a `borderBottom/TopColor`: los separadores necesitan su propia clave. */
+  const darkHeader = isDark
+    ? {
+        backgroundColor: themeColors.dark.surface,
+        borderBottomColor: themeColors.dark.borderSubtle,
+      }
+    : null;
+  const darkFooter = isDark
+    ? { backgroundColor: themeColors.dark.surface, borderTopColor: themeColors.dark.borderSubtle }
+    : null;
+  const accentTint = { backgroundColor: isDark ? ACCENT_TINT_DARK : ACCENT_TINT_LIGHT };
+  const iconColor = isDark ? themeColors.dark.text : '#1f2937';
+  const iconMuted = isDark ? themeColors.dark.textSecondary : '#6b7280';
+
   // Stream info
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -190,13 +219,13 @@ export const StreamConfigScreen: React.FC<StreamConfigScreenProps> = ({
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, darkScreen]}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, darkHeader]}>
         <TouchableOpacity onPress={onBack} style={styles.backButton}>
-          <ArrowLeft size={24} color="#1f2937" />
+          <ArrowLeft size={24} color={iconColor} />
         </TouchableOpacity>
-        <Text variant="h2" className="flex-1 text-gray-900 font-bold ml-3">
+        <Text variant="h2" className="flex-1 text-gray-900 dark:text-white font-bold ml-3">
           Configurar Stream
         </Text>
       </View>
@@ -211,13 +240,13 @@ export const StreamConfigScreen: React.FC<StreamConfigScreenProps> = ({
           showsVerticalScrollIndicator={false}
         >
           {/* Stream Info Section */}
-          <View style={styles.section}>
-            <Text variant="h3" className="text-gray-900 font-semibold mb-4">
+          <View style={[styles.section, darkSurface]}>
+            <Text variant="h3" className="text-gray-900 dark:text-white font-semibold mb-4">
               Información del Stream
             </Text>
 
             <View style={styles.inputGroup}>
-              <Text variant="body" className="text-gray-700 mb-2 font-medium">
+              <Text variant="body" className="text-gray-700 dark:text-night-muted mb-2 font-medium">
                 Título del Stream *
               </Text>
               <Input
@@ -229,7 +258,7 @@ export const StreamConfigScreen: React.FC<StreamConfigScreenProps> = ({
             </View>
 
             <View style={styles.inputGroup}>
-              <Text variant="body" className="text-gray-700 mb-2 font-medium">
+              <Text variant="body" className="text-gray-700 dark:text-night-muted mb-2 font-medium">
                 Descripción *
               </Text>
               <Input
@@ -241,25 +270,25 @@ export const StreamConfigScreen: React.FC<StreamConfigScreenProps> = ({
                 style={styles.textArea}
                 maxLength={500}
               />
-              <Text variant="caption" className="text-gray-400 mt-1 text-right">
+              <Text variant="caption" className="text-gray-400 dark:text-night-muted mt-1 text-right">
                 {description.length}/500
               </Text>
             </View>
           </View>
 
           {/* Products Section */}
-          <View style={styles.section}>
+          <View style={[styles.section, darkSurface]}>
             <View style={styles.sectionHeader}>
               <View>
-                <Text variant="h3" className="text-gray-900 font-semibold">
+                <Text variant="h3" className="text-gray-900 dark:text-white font-semibold">
                   Productos a Vender
                 </Text>
-                <Text variant="caption" className="text-gray-500 mt-1">
+                <Text variant="caption" className="text-gray-500 dark:text-night-muted mt-1">
                   Opcional: agrega productos para vender durante el stream
                 </Text>
               </View>
-              <View style={styles.productCount}>
-                <Text variant="caption" className="text-primary-600 font-bold">
+              <View style={[styles.productCount, accentTint]}>
+                <Text variant="caption" className="text-primary-600 dark:text-primary-300 font-bold">
                   {products.length}
                 </Text>
               </View>
@@ -285,21 +314,21 @@ export const StreamConfigScreen: React.FC<StreamConfigScreenProps> = ({
                 onPress={() => setShowProductForm(true)}
                 activeOpacity={0.7}
               >
-                <Plus size={20} color="#2563eb" />
-                <Text variant="body" className="text-primary-600 font-semibold ml-2">
+                <Plus size={20} color={themeColors.primary} />
+                <Text variant="body" className="text-primary-600 dark:text-primary-300 font-semibold ml-2">
                   Agregar Producto
                 </Text>
               </TouchableOpacity>
             ) : (
-              <View style={styles.productForm}>
+              <View style={[styles.productForm, darkSurface]}>
                 <View style={styles.formHeader}>
-                  <Text variant="body" className="text-gray-900 font-semibold">
+                  <Text variant="body" className="text-gray-900 dark:text-white font-semibold">
                     Nuevo Producto
                   </Text>
                 </View>
 
                 <View style={styles.inputGroup}>
-                  <Text variant="body" className="text-gray-700 mb-2">
+                  <Text variant="body" className="text-gray-700 dark:text-night-muted mb-2">
                     Nombre del Producto *
                   </Text>
                   <Input
@@ -311,7 +340,7 @@ export const StreamConfigScreen: React.FC<StreamConfigScreenProps> = ({
                 </View>
 
                 <View style={styles.inputGroup}>
-                  <Text variant="body" className="text-gray-700 mb-2">
+                  <Text variant="body" className="text-gray-700 dark:text-night-muted mb-2">
                     Descripción *
                   </Text>
                   <Input
@@ -326,7 +355,7 @@ export const StreamConfigScreen: React.FC<StreamConfigScreenProps> = ({
 
                 <View style={styles.row}>
                   <View style={styles.halfInput}>
-                    <Text variant="body" className="text-gray-700 mb-2">
+                    <Text variant="body" className="text-gray-700 dark:text-night-muted mb-2">
                       Precio *
                     </Text>
                     <Input
@@ -338,7 +367,7 @@ export const StreamConfigScreen: React.FC<StreamConfigScreenProps> = ({
                   </View>
 
                   <View style={styles.halfInput}>
-                    <Text variant="body" className="text-gray-700 mb-2">
+                    <Text variant="body" className="text-gray-700 dark:text-night-muted mb-2">
                       Cantidad *
                     </Text>
                     <Input
@@ -352,14 +381,16 @@ export const StreamConfigScreen: React.FC<StreamConfigScreenProps> = ({
 
                 {/* Unit Selector */}
                 <View style={styles.inputGroup}>
-                  <Text variant="body" className="text-gray-700 mb-2">
+                  <Text variant="body" className="text-gray-700 dark:text-night-muted mb-2">
                     Tipo de Venta *
                   </Text>
                   <View style={styles.unitSelector}>
                     <TouchableOpacity
                       style={[
                         styles.unitOption,
+                        darkSurfaceAlt,
                         productUnit === 'unidad' && styles.unitOptionActive,
+                        productUnit === 'unidad' && accentTint,
                       ]}
                       onPress={() => setProductUnit('unidad')}
                       activeOpacity={0.7}
@@ -368,8 +399,8 @@ export const StreamConfigScreen: React.FC<StreamConfigScreenProps> = ({
                         variant="body"
                         className={
                           productUnit === 'unidad'
-                            ? 'text-primary-600 font-semibold'
-                            : 'text-gray-600'
+                            ? 'text-primary-600 dark:text-primary-300 font-semibold'
+                            : 'text-gray-600 dark:text-night-muted'
                         }
                       >
                         Por Unidad
@@ -379,7 +410,9 @@ export const StreamConfigScreen: React.FC<StreamConfigScreenProps> = ({
                     <TouchableOpacity
                       style={[
                         styles.unitOption,
+                        darkSurfaceAlt,
                         productUnit === 'lote' && styles.unitOptionActive,
+                        productUnit === 'lote' && accentTint,
                       ]}
                       onPress={() => setProductUnit('lote')}
                       activeOpacity={0.7}
@@ -388,8 +421,8 @@ export const StreamConfigScreen: React.FC<StreamConfigScreenProps> = ({
                         variant="body"
                         className={
                           productUnit === 'lote'
-                            ? 'text-primary-600 font-semibold'
-                            : 'text-gray-600'
+                            ? 'text-primary-600 dark:text-primary-300 font-semibold'
+                            : 'text-gray-600 dark:text-night-muted'
                         }
                       >
                         Por Lote
@@ -400,7 +433,7 @@ export const StreamConfigScreen: React.FC<StreamConfigScreenProps> = ({
 
                 <View style={styles.formActions}>
                   <TouchableOpacity
-                    style={styles.cancelButton}
+                    style={[styles.cancelButton, darkSurfaceAlt]}
                     onPress={() => {
                       setShowProductForm(false);
                       setProductName('');
@@ -411,7 +444,7 @@ export const StreamConfigScreen: React.FC<StreamConfigScreenProps> = ({
                     }}
                     activeOpacity={0.7}
                   >
-                    <Text variant="body" className="text-gray-600 font-medium">
+                    <Text variant="body" className="text-gray-600 dark:text-night-muted font-medium">
                       Cancelar
                     </Text>
                   </TouchableOpacity>
@@ -435,15 +468,15 @@ export const StreamConfigScreen: React.FC<StreamConfigScreenProps> = ({
         </ScrollView>
 
         {/* Footer Buttons */}
-        <View style={styles.footer}>
+        <View style={[styles.footer, darkFooter]}>
           {/* Save Draft Button */}
           <TouchableOpacity
-            style={styles.saveDraftButton}
+            style={[styles.saveDraftButton, darkSurfaceAlt]}
             onPress={handleSaveDraft}
             activeOpacity={0.8}
           >
-            <Save size={18} color="#6b7280" />
-            <Text variant="body" className="text-gray-600 font-semibold ml-2">
+            <Save size={18} color={iconMuted} />
+            <Text variant="body" className="text-gray-600 dark:text-night-muted font-semibold ml-2">
               Guardar Borrador
             </Text>
           </TouchableOpacity>
@@ -468,7 +501,7 @@ export const StreamConfigScreen: React.FC<StreamConfigScreenProps> = ({
           </TouchableOpacity>
           
           {!isFormValid() && (
-            <Text variant="caption" className="text-gray-500 text-center mt-2">
+            <Text variant="caption" className="text-gray-500 dark:text-night-muted text-center mt-2">
               Necesitas título y descripción para iniciar el stream
             </Text>
           )}
@@ -519,7 +552,6 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#eff6ff',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -539,7 +571,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 12,
     borderWidth: 2,
-    borderColor: '#2563eb',
+    borderColor: themeColors.primary,
     borderRadius: 12,
     borderStyle: 'dashed',
   },
@@ -575,8 +607,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   unitOptionActive: {
-    borderColor: '#2563eb',
-    backgroundColor: '#eff6ff',
+    borderColor: themeColors.primary,
   },
   formActions: {
     flexDirection: 'row',
@@ -594,7 +625,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 12,
     borderRadius: 8,
-    backgroundColor: '#2563eb',
+    backgroundColor: themeColors.primary,
     alignItems: 'center',
   },
   bottomSpacer: {

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Íconos oscuros sobre la barra de navegación clara. En values-night se invierte. -->
+    <bool name="app_light_navigation_bar">true</bool>
+</resources>

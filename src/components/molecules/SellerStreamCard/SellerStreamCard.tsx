@@ -7,6 +7,8 @@ import React from 'react';
 import { View, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { Text } from '../../atoms/Text';
 import { Eye, Heart, ShoppingCart, DollarSign } from 'lucide-react-native';
+import { useTheme } from '../../../context/ThemeContext';
+import { themeColors } from '../../../theme/colors';
 
 export interface SellerStreamData {
   id: string;
@@ -27,6 +29,11 @@ interface SellerStreamCardProps {
 }
 
 export const SellerStreamCard: React.FC<SellerStreamCardProps> = ({ stream, onPress }) => {
+  const { isDark } = useTheme();
+  /** Superficie y tinta de íconos por tema. Badge "EN VIVO" y verde de ventas: semánticos. */
+  const surface = isDark ? themeColors.dark.surface : themeColors.light.surface;
+  const mutedIcon = isDark ? themeColors.dark.textMuted : '#6b7280';
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('es-AR', {
       style: 'currency',
@@ -47,7 +54,7 @@ export const SellerStreamCard: React.FC<SellerStreamCardProps> = ({ stream, onPr
 
   return (
     <TouchableOpacity
-      style={styles.container}
+      style={[styles.container, { backgroundColor: surface }]}
       onPress={onPress}
       activeOpacity={0.7}
     >
@@ -77,10 +84,14 @@ export const SellerStreamCard: React.FC<SellerStreamCardProps> = ({ stream, onPr
       <View style={styles.content}>
         {/* Title and Date */}
         <View style={styles.header}>
-          <Text variant="body" className="font-semibold text-gray-900 flex-1" numberOfLines={2}>
+          <Text
+            variant="body"
+            className="font-semibold text-gray-900 dark:text-white flex-1"
+            numberOfLines={2}
+          >
             {stream.title}
           </Text>
-          <Text variant="caption" className="text-gray-500 ml-2">
+          <Text variant="caption" className="text-gray-500 dark:text-night-muted ml-2">
             {stream.date}
           </Text>
         </View>
@@ -89,24 +100,24 @@ export const SellerStreamCard: React.FC<SellerStreamCardProps> = ({ stream, onPr
         <View style={styles.stats}>
           {/* Views */}
           <View style={styles.statItem}>
-            <Eye size={16} color="#6b7280" />
-            <Text variant="caption" className="text-gray-600 ml-1">
+            <Eye size={16} color={mutedIcon} />
+            <Text variant="caption" className="text-gray-600 dark:text-night-muted ml-1">
               {formatNumber(stream.viewCount)}
             </Text>
           </View>
 
           {/* Likes */}
           <View style={styles.statItem}>
-            <Heart size={16} color="#6b7280" />
-            <Text variant="caption" className="text-gray-600 ml-1">
+            <Heart size={16} color={mutedIcon} />
+            <Text variant="caption" className="text-gray-600 dark:text-night-muted ml-1">
               {formatNumber(stream.likeCount)}
             </Text>
           </View>
 
           {/* Sales Count */}
           <View style={styles.statItem}>
-            <ShoppingCart size={16} color="#6b7280" />
-            <Text variant="caption" className="text-gray-600 ml-1">
+            <ShoppingCart size={16} color={mutedIcon} />
+            <Text variant="caption" className="text-gray-600 dark:text-night-muted ml-1">
               {stream.salesCount}
             </Text>
           </View>
@@ -127,7 +138,6 @@ export const SellerStreamCard: React.FC<SellerStreamCardProps> = ({ stream, onPr
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    backgroundColor: '#ffffff',
     borderRadius: 12,
     marginHorizontal: 16,
     marginVertical: 6,

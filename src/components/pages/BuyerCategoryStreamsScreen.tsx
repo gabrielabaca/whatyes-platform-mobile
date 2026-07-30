@@ -13,6 +13,7 @@ import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { Text } from '../atoms/Text';
 import { FONT_FAMILY } from '../../theme/typography';
 import { themeColors } from '../../theme/colors';
+import { useTheme } from '../../context/ThemeContext';
 import { useBuyerLiveRoomPreviews } from '../../hooks/useBuyerLiveRoomPreviews';
 import { BuyerLiveStreamsGrid } from '../organisms/home/BuyerLiveStreamsGrid';
 import { LiveStreamPreviewCard } from '../organisms/home/LiveStreamPreviewCard';
@@ -37,6 +38,10 @@ export const BuyerCategoryStreamsScreen: React.FC<BuyerCategoryStreamsScreenProp
 }) => {
   const { t } = useTranslation();
   const { width: windowWidth } = useWindowDimensions();
+  const { isDark } = useTheme();
+  /** Overrides sólo para oscuro: en claro mandan los estilos estáticos. */
+  const darkText = isDark ? { color: themeColors.dark.text } : null;
+  const darkSurfaceAlt = isDark ? { backgroundColor: themeColors.dark.surfaceAlt } : null;
   const popularCardW = Math.floor((windowWidth - 16 * 2 - 12) / 2);
   const popularCardStyle = useMemo(() => ({ width: popularCardW }), [popularCardW]);
   const [sort, setSort] = useState<CategorySortMode>('recommended');
@@ -74,7 +79,11 @@ export const BuyerCategoryStreamsScreen: React.FC<BuyerCategoryStreamsScreenProp
       <TouchableOpacity
         onPress={() => setSort(mode)}
         activeOpacity={0.8}
-        style={[styles.filterChip, on ? styles.filterChipActive : styles.filterChipIdle]}
+        style={[
+          styles.filterChip,
+          on ? styles.filterChipActive : styles.filterChipIdle,
+          on ? null : darkSurfaceAlt,
+        ]}
       >
         <Text
           style={{ fontFamily: FONT_FAMILY.semibold }}
@@ -88,7 +97,7 @@ export const BuyerCategoryStreamsScreen: React.FC<BuyerCategoryStreamsScreenProp
 
   const sectionHeader = (title: string, actionLabel?: string) => (
     <View style={styles.sectionHeader}>
-      <Text style={styles.sectionTitle}>{title}</Text>
+      <Text style={[styles.sectionTitle, darkText]}>{title}</Text>
       {actionLabel ? (
         <TouchableOpacity activeOpacity={0.7}>
           <Text style={styles.sectionAction}>{actionLabel}</Text>
@@ -115,9 +124,9 @@ export const BuyerCategoryStreamsScreen: React.FC<BuyerCategoryStreamsScreenProp
       <View style={styles.headingRow}>
         <View style={styles.headingLeft}>
           <TouchableOpacity onPress={onBack} hitSlop={12} style={styles.backButton}>
-            <Text style={styles.backIcon}>‹</Text>
+            <Text style={[styles.backIcon, darkText]}>‹</Text>
           </TouchableOpacity>
-          <Text style={styles.categoryTitle} numberOfLines={1}>
+          <Text style={[styles.categoryTitle, darkText]} numberOfLines={1}>
             {displayInterestCategoryIcon(category)} {category.label}
           </Text>
         </View>
@@ -148,7 +157,7 @@ export const BuyerCategoryStreamsScreen: React.FC<BuyerCategoryStreamsScreenProp
         <TouchableOpacity
           onPress={() => Alert.alert(t('common.appName'), t('explore.filtersComingSoon'))}
           activeOpacity={0.85}
-          style={styles.filterButton}
+          style={[styles.filterButton, darkSurfaceAlt]}
           accessibilityLabel={t('explore.filters')}
           accessibilityRole="button"
         >

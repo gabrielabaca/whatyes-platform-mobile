@@ -3,24 +3,19 @@
  * Modal full-screen oscuro con la lista completa de reseñas y la foto grande
  * del producto de cada una.
  */
-import React from 'react';
-import {
-  Modal,
-  View,
-  ScrollView,
-  Image,
-  StyleSheet,
-  TouchableOpacity,
-  Text as RNText,
-} from 'react-native';
-import { Star, X } from 'lucide-react-native';
+import React, { useRef } from 'react';
+import { View, Image, StyleSheet, Text as RNText } from 'react-native';
+import { Star } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
-import { IconChevronLeft } from '../../icons';
+import {
+  GlassFullScreenModal,
+  type GlassFullScreenModalHandle,
+} from './GlassFullScreenModal';
+import { GlassModalHeader } from './GlassModalHeader';
 import { FONT_FAMILY } from '../../../theme/typography';
+import { themeColors } from '../../../theme/colors';
 import type { UserReviewListItem } from '../../../api/profileApi';
-
-const GOLD = '#FDC700';
 
 function formatReviewDate(epochSec: number): string {
   const d = new Date(epochSec * 1000);
@@ -43,103 +38,80 @@ export const ProfileReviewsDetailModal: React.FC<ProfileReviewsDetailModalProps>
 }) => {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
+  const modalRef = useRef<GlassFullScreenModalHandle>(null);
+
+  const handleClose = () => {
+    modalRef.current?.dismiss();
+  };
 
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <View style={styles.root}>
-        <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-          <TouchableOpacity onPress={onClose} hitSlop={12} accessibilityRole="button">
-            <IconChevronLeft size={24} color="#FFFFFF" />
-          </TouchableOpacity>
-          <RNText style={styles.headerTitle}>{t('profile.reviewsDetailTitle')}</RNText>
-          <TouchableOpacity onPress={onClose} hitSlop={12} accessibilityRole="button">
-            <X size={24} color="#FFFFFF" strokeWidth={2} />
-          </TouchableOpacity>
-        </View>
-
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={[
-            styles.scrollContent,
-            { paddingBottom: insets.bottom + 24 },
-          ]}
-        >
-          {reviews.map((review) => (
-            <View key={review.uuid} style={styles.reviewBlock}>
-              <View style={styles.headerRow}>
-                <View style={styles.authorBlock}>
-                  {review.reviewer_avatar_url ? (
-                    <Image
-                      source={{ uri: review.reviewer_avatar_url }}
-                      style={styles.avatar}
-                    />
-                  ) : (
-                    <View style={[styles.avatar, styles.avatarPlaceholder]} />
-                  )}
-                  <RNText style={styles.authorName} numberOfLines={1}>
-                    {review.reviewer_name}
-                  </RNText>
-                  <View style={styles.ratingBadge}>
-                    <Star size={12} color={GOLD} fill={GOLD} strokeWidth={1.5} />
-                    <RNText style={styles.ratingText}>
-                      {Number.isInteger(review.rating)
-                        ? String(review.rating)
-                        : review.rating.toFixed(1)}
-                    </RNText>
-                  </View>
-                </View>
-                <RNText style={styles.date}>{formatReviewDate(review.created_at)}</RNText>
-              </View>
-
-              {review.comment ? (
-                <RNText style={styles.comment}>{review.comment}</RNText>
-              ) : null}
-
-              {review.product_label ? (
-                <RNText style={styles.productLabel} numberOfLines={1}>
-                  {review.product_label}
-                </RNText>
-              ) : null}
-
-              {review.product_image_url ? (
-                <Image
-                  source={{ uri: review.product_image_url }}
-                  style={styles.productImage}
-                  resizeMode="cover"
+    <GlassFullScreenModal
+      ref={modalRef}
+      visible={visible}
+      onClose={onClose}
+      keyboardAvoiding={false}
+      backdropAccessibilityLabel={t('common.close')}
+      header={
+        <GlassModalHeader title={t('profile.reviewsDetailTitle')} onClose={handleClose} />
+      }
+      contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 24 }]}
+    >
+      {reviews.map((review) => (
+        <View key={review.uuid} style={styles.reviewBlock}>
+          <View style={styles.headerRow}>
+            <View style={styles.authorBlock}>
+              {review.reviewer_avatar_url ? (
+                <Image source={{ uri: review.reviewer_avatar_url }} style={styles.avatar} />
+              ) : (
+                <View style={[styles.avatar, styles.avatarPlaceholder]} />
+              )}
+              <RNText style={styles.authorName} numberOfLines={1}>
+                {review.reviewer_name}
+              </RNText>
+              <View style={styles.ratingBadge}>
+                <Star
+                  size={12}
+                  color={themeColors.gold}
+                  fill={themeColors.gold}
+                  strokeWidth={1.5}
                 />
-              ) : null}
+                <RNText style={styles.ratingText}>
+                  {Number.isInteger(review.rating)
+                    ? String(review.rating)
+                    : review.rating.toFixed(1)}
+                </RNText>
+              </View>
             </View>
-          ))}
-        </ScrollView>
-      </View>
-    </Modal>
+            <RNText style={styles.date}>{formatReviewDate(review.created_at)}</RNText>
+          </View>
+
+          {review.comment ? (
+            <RNText style={styles.comment}>{review.comment}</RNText>
+          ) : null}
+
+          {review.product_label ? (
+            <RNText style={styles.productLabel} numberOfLines={1}>
+              {review.product_label}
+            </RNText>
+          ) : null}
+
+          {review.product_image_url ? (
+            <Image
+              source={{ uri: review.product_image_url }}
+              style={styles.productImage}
+              resizeMode="cover"
+            />
+          ) : null}
+        </View>
+      ))}
+    </GlassFullScreenModal>
   );
 };
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: 'rgba(20, 18, 34, 0.98)',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-    gap: 12,
-  },
-  headerTitle: {
-    flex: 1,
-    fontFamily: FONT_FAMILY.bold,
-    fontSize: 16,
-    lineHeight: 20,
-    color: '#FFFFFF',
-    marginLeft: 4,
-    includeFontPadding: false,
-  },
   scrollContent: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 24,
+    paddingTop: 8,
     gap: 24,
   },
   reviewBlock: {
@@ -171,7 +143,7 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.bold,
     fontSize: 14,
     lineHeight: 16,
-    color: '#FFFFFF',
+    color: themeColors.glass.text,
     flexShrink: 1,
     includeFontPadding: false,
   },
@@ -185,14 +157,14 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.bold,
     fontSize: 14,
     lineHeight: 16,
-    color: '#FFFFFF',
+    color: themeColors.glass.text,
     includeFontPadding: false,
   },
   date: {
     fontFamily: FONT_FAMILY.regular,
     fontSize: 12,
     lineHeight: 16,
-    color: '#C9C9D6',
+    color: themeColors.glass.textSoft,
     flexShrink: 0,
     includeFontPadding: false,
   },
@@ -200,14 +172,14 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.regular,
     fontSize: 13,
     lineHeight: 18,
-    color: '#E4E4EC',
+    color: themeColors.glass.textMuted,
     includeFontPadding: false,
   },
   productLabel: {
     fontFamily: FONT_FAMILY.regular,
     fontSize: 12,
     lineHeight: 16,
-    color: '#C9C9D6',
+    color: themeColors.glass.textSoft,
     includeFontPadding: false,
   },
   productImage: {

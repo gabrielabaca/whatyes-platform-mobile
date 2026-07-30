@@ -8,6 +8,7 @@ import { launchPhotoCameraNow, launchPhotoLibraryNow } from '../../../utils/medi
 import {
   Alert,
   ActivityIndicator,
+  Animated,
   Dimensions,
   Modal,
   Platform,
@@ -39,7 +40,10 @@ import { uploadRoomCover } from '../../../api/platformApi';
 import { ApiError } from '../../../api/authApi';
 import { useInterestCategories } from '../../../hooks/useInterestCategories';
 import { FONT_FAMILY } from '../../../theme/typography';
+import { themeColors } from '../../../theme/colors';
+import { LAYERS } from '../../../theme/layers';
 import { KeyboardDismissScrollView } from '../../atoms/KeyboardDismissScrollView';
+import { GlassBackdrop } from '../profile/GlassBackdrop';
 import { StreamBottomSheet } from '../stream/StreamBottomSheet';
 import { AddProductPhotoSourceDrawer } from '../addProduct/AddProductPhotoSourceDrawer';
 import { StartLiveCategoriesDrawer } from './StartLiveCategoriesDrawer';
@@ -71,7 +75,17 @@ const preLiveSheetPanelExtra: ViewStyle = {
 const panelStyle: StyleProp<ViewStyle> = [startLivePanelStyle, preLiveSheetPanelExtra];
 
 const { width: LIVE_PRE_LAUNCH_WIDTH, height: LIVE_PRE_LAUNCH_HEIGHT } = Dimensions.get('window');
-const LIVE_LAUNCH_CONFETTI_COLORS = ['#685CF0', '#FB2C36', '#FDC700', '#22C55E', '#FFFFFF', '#CBCEFF'];
+const LIVE_LAUNCH_CONFETTI_COLORS = [
+  themeColors.primary,
+  themeColors.danger,
+  themeColors.gold,
+  themeColors.success,
+  themeColors.glass.text,
+  START_LIVE_COLORS.border,
+];
+
+/** Animación de entrada del overlay: mismos valores que StreamBottomSheet. */
+const SHEET_SPRING = { tension: 68, friction: 12 } as const;
 
 function sanitizeWords(words: string[]): string[] {
   return Array.from(new Set(words.map((w) => w.trim().toLowerCase()).filter(Boolean))).slice(0, 50);
@@ -165,7 +179,7 @@ const SelectField: React.FC<{
           {value || placeholder}
         </RNText>
       </View>
-      <ChevronDown size={20} color="#FFFFFF" />
+      <ChevronDown size={20} color={themeColors.glass.text} />
     </TouchableOpacity>
   </View>
 );
@@ -189,7 +203,7 @@ const ToggleRow: React.FC<{
 
 const RadioMark: React.FC<{ selected: boolean; square?: boolean }> = ({ selected, square }) => (
   <View style={[styles.radioOuter, square && styles.checkOuter]}>
-    {selected ? square ? <Check size={14} color="#FFFFFF" strokeWidth={3} /> : <View style={styles.radioInner} /> : null}
+    {selected ? square ? <Check size={14} color={themeColors.glass.text} strokeWidth={3} /> : <View style={styles.radioInner} /> : null}
   </View>
 );
 
@@ -235,6 +249,7 @@ const BlockedWordsDrawer: React.FC<{
   onClose: () => void;
   onSave: (words: string[]) => void;
 }> = ({ visible, initialWords, onClose, onSave }) => {
+  const { t } = useTranslation();
   const [draft, setDraft] = useState(initialWords);
   const [input, setInput] = useState('');
 
@@ -260,9 +275,16 @@ const BlockedWordsDrawer: React.FC<{
       bottomPanel
       panelStyle={panelStyle}
       contentContainerStyle={styles.blockedBody}
-      footer={<StartLivePrimaryButton label="Guardar" onPress={() => onSave(sanitizeWords(draft))} />}
-      cancelLabel="Cancelar"
+      footer={
+        <StartLivePrimaryButton
+          label={t('startLive.saveCta')}
+          onPress={() => onSave(sanitizeWords(draft))}
+        />
+      }
+      cancelLabel={t('common.cancel')}
       onCancelPress={onClose}
+      /** Tiene input + chips en borrador: tocar el fondo no puede descartarlos. */
+      dismissOnBackdropPress={false}
     >
           <RNText style={styles.drawerText}>
             Permite filtrar términos específicos para evitar que aparezcan en el chat o comentarios para mantener un ambiente respetuoso y libre de contenido inapropiado durante la transmisión.
@@ -273,12 +295,12 @@ const BlockedWordsDrawer: React.FC<{
               value={input}
               onChangeText={setInput}
               placeholder="Agregar palabras"
-              placeholderTextColor="#FFFFFF"
+              placeholderTextColor={themeColors.glass.placeholder}
               returnKeyType="done"
               onSubmitEditing={addWord}
             />
             <TouchableOpacity onPress={addWord} hitSlop={12}>
-              <Search size={22} color="#CBCEFF" />
+              <Search size={22} color={START_LIVE_COLORS.border} />
             </TouchableOpacity>
           </View>
           {draft.length ? (
@@ -291,7 +313,7 @@ const BlockedWordsDrawer: React.FC<{
                   activeOpacity={0.85}
                 >
                   <RNText style={styles.wordChipText} numberOfLines={1}>{word}</RNText>
-                  <X size={16} color="#D9D9D9" />
+                  <X size={16} color={themeColors.glass.textMuted} />
                 </TouchableOpacity>
               ))}
             </View>
@@ -340,9 +362,11 @@ const ModeratorsDrawer: React.FC<{
       fullHeight
       panelStyle={panelStyle}
       contentContainerStyle={styles.moderatorsBody}
-      footer={<StartLivePrimaryButton label="Guardar" onPress={() => onSave(draft)} />}
-      cancelLabel="Cancelar"
+      footer={<StartLivePrimaryButton label={t('startLive.saveCta')} onPress={() => onSave(draft)} />}
+      cancelLabel={t('common.cancel')}
       onCancelPress={onClose}
+      /** Lista de moderadores en borrador: tocar el fondo no puede descartarla. */
+      dismissOnBackdropPress={false}
     >
           <View style={styles.searchPill}>
             <TextInput
@@ -356,12 +380,12 @@ const ModeratorsDrawer: React.FC<{
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
-              placeholderTextColor="#FFFFFF"
+              placeholderTextColor={themeColors.glass.placeholder}
               returnKeyType="done"
               onSubmitEditing={addModerator}
             />
             <TouchableOpacity onPress={addModerator} hitSlop={12}>
-              <Search size={22} color="#CBCEFF" />
+              <Search size={22} color={START_LIVE_COLORS.border} />
             </TouchableOpacity>
           </View>
           {moderatorEmailInvalid ? <RNText style={styles.moderatorEmailError}>{t('common.invalidEmail')}</RNText> : null}
@@ -374,7 +398,7 @@ const ModeratorsDrawer: React.FC<{
                 activeOpacity={0.85}
               >
                 <View style={styles.avatarFallback}>
-                  <UserRound size={30} color="#CBCEFF" />
+                  <UserRound size={30} color={START_LIVE_COLORS.border} />
                 </View>
                 <RNText style={styles.moderatorName} numberOfLines={1}>{id}</RNText>
                 <RadioMark selected square />
@@ -400,6 +424,8 @@ export const PreLiveSetupOverlay: React.FC<{
   const schemeDark = useColorScheme() === 'dark';
   const { categories } = useInterestCategories();
   const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  /** Entrada deslizando desde abajo, igual que las bases de sheet (el Modal no anima). */
+  const slideAnim = useRef(new Animated.Value(1)).current;
   const [drawer, setDrawer] = useState<Drawer>('none');
   const [mediaPickerActive, setMediaPickerActive] = useState(false);
   const [title, setTitle] = useState(initialConfig.title || '');
@@ -445,6 +471,23 @@ export const PreLiveSetupOverlay: React.FC<{
       setMediaPickerActive(false);
     }
   }, [visible]);
+
+  useEffect(() => {
+    if (!visible) {
+      slideAnim.setValue(1);
+      return;
+    }
+    Animated.spring(slideAnim, {
+      toValue: 0,
+      useNativeDriver: true,
+      ...SHEET_SPRING,
+    }).start();
+  }, [visible, slideAnim]);
+
+  const translateY = slideAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, LIVE_PRE_LAUNCH_HEIGHT],
+  });
 
   const handleLeavePreLive = useCallback(() => {
     clearLaunchTimers();
@@ -564,161 +607,171 @@ export const PreLiveSetupOverlay: React.FC<{
     <Modal
       visible={!mediaPickerActive}
       transparent
-      animationType="fade"
+      /** Sin animación de Modal: la entrada la hace el slide propio del sistema de sheets. */
+      animationType="none"
       statusBarTranslucent
       onRequestClose={handleLeavePreLive}
     >
       <View style={styles.overlay}>
-        <KeyboardDismissScrollView
-          contentContainerStyle={styles.content}
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={styles.header}>
-            <RNText style={styles.title}>Configura tu live</RNText>
-            <TouchableOpacity onPress={handleLeavePreLive} hitSlop={12}>
-              <X size={22} color="#FFFFFF" />
+        <GlassBackdrop />
+        <Animated.View style={[styles.sheet, { transform: [{ translateY }] }]}>
+          <KeyboardDismissScrollView
+            style={styles.scrollBody}
+            contentContainerStyle={[styles.content, { paddingTop: insets.top + 16 }]}
+            showsVerticalScrollIndicator={false}
+            automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
+          >
+            <View style={styles.header}>
+              <RNText style={styles.title}>Configura tu live</RNText>
+              <TouchableOpacity onPress={handleLeavePreLive} hitSlop={12}>
+                <X size={22} color={themeColors.glass.text} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.section}>
+              <View style={styles.field}>
+                <FieldLabel>Nombre del live</FieldLabel>
+                <View style={styles.inputPill}>
+                  <TextInput
+                    style={styles.input}
+                    value={title}
+                    onChangeText={(v) => setTitle(v.replace(/^\s/, '').slice(0, 80))}
+                    placeholder="Nombre"
+                    placeholderTextColor={themeColors.glass.placeholder}
+                  />
+                </View>
+              </View>
+              <View style={styles.field}>
+                <FieldLabel>Fecha</FieldLabel>
+                <TouchableOpacity
+                  style={styles.inputPill}
+                  onPress={() => setShowScheduleDatePicker(true)}
+                  activeOpacity={0.85}
+                >
+                  <RNText style={[styles.input, styles.inputTouchableText]}>{scheduledDateDisplay}</RNText>
+                  <CalendarDays size={18} color={themeColors.glass.textMuted} />
+                </TouchableOpacity>
+              </View>
+              <View style={styles.field}>
+                <FieldLabel>Hora</FieldLabel>
+                <TouchableOpacity style={styles.inputPill} onPress={() => setShowScheduleTimePicker(true)} activeOpacity={0.85}>
+                  <RNText style={[styles.input, styles.inputTouchableText]}>{scheduledTimeDisplay}</RNText>
+                  <Clock size={18} color={themeColors.glass.textMuted} />
+                </TouchableOpacity>
+              </View>
+              <SelectField label="Frecuencia" value={frequencyLabel} placeholder="No repetir" onPress={() => setDrawer('frequency')} />
+              <SelectField
+                label="Agregar moderadores"
+                value={moderatorIds.length ? `${moderatorIds.length} moderador(es)` : null}
+                placeholder="Seleccionar moderadores"
+                icon={<UserRound size={22} color={themeColors.glass.placeholder} />}
+                onPress={() => setDrawer('moderators')}
+              />
+            </View>
+
+            <View style={styles.section}>
+              <SelectField label="Categoría" value={categoryLabel} placeholder="Selecciona una categoría" onPress={() => setDrawer('categories')} />
+              <SelectField label="Formato de venta" value={saleFormatLabel} placeholder="Selecciona un formato" onPress={() => setDrawer('saleFormat')} />
+            </View>
+
+            <View style={styles.section}>
+              <View style={styles.sectionHeading}>
+                <RNText style={styles.sectionTitle}>Multimedia</RNText>
+                <RNText style={styles.sectionBody}>Agrega contenido multimedia para que tu live sea mas atractivo</RNText>
+              </View>
+              <View style={styles.mediaRow}>
+                <View style={[styles.mediaCard, !!(liveCoverUrl || coverStagingUri) && styles.mediaCardHasCover]}>
+                  <TouchableOpacity
+                    style={[styles.coverCardTouch, !!(liveCoverUrl || coverStagingUri) && styles.coverCardTouchFilled]}
+                    onPress={() => !coverUploading && setDrawer('coverSource')}
+                    activeOpacity={0.85}
+                    disabled={coverUploading}
+                    accessibilityRole="button"
+                    accessibilityLabel="Agregar cover del live"
+                  >
+                    {liveCoverUrl || coverStagingUri ? (
+                      <Image
+                        source={{ uri: coverStagingUri ?? liveCoverUrl! }}
+                        style={styles.coverThumb}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <>
+                        <ImagePlus size={24} color={START_LIVE_COLORS.border} />
+                        <RNText style={styles.mediaText}>Agregar un Cover</RNText>
+                      </>
+                    )}
+                    {coverUploading ? (
+                      <View style={styles.coverUploadingOverlay}>
+                        <ActivityIndicator size="large" color={themeColors.glass.text} />
+                      </View>
+                    ) : null}
+                  </TouchableOpacity>
+                  {(liveCoverUrl || coverStagingUri) && !coverUploading ? (
+                    <TouchableOpacity
+                      style={styles.coverClearBtn}
+                      onPress={() => {
+                        setLiveCoverUrl(null);
+                        setCoverStagingUri(null);
+                      }}
+                      hitSlop={10}
+                      accessibilityRole="button"
+                      accessibilityLabel="Quitar imagen de cover"
+                    >
+                      <X size={16} color={themeColors.glass.text} strokeWidth={2.5} />
+                    </TouchableOpacity>
+                  ) : null}
+                </View>
+                <TouchableOpacity style={styles.mediaCard} activeOpacity={0.85}>
+                  <Video size={24} color={START_LIVE_COLORS.border} />
+                  <RNText style={styles.mediaText}>Agregar un video</RNText>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <View style={styles.section}>
+              <ToggleRow title="Contenido explicito" body="Activalo si tu live contiene contenido explicito" value={explicitContent} onValueChange={setExplicitContent} />
+              <ToggleRow
+                title="Bloquear palabras"
+                body={blockedWords.length ? `${blockedWords.length} palabras bloqueadas` : 'Bloquea las palabras de tu chat en vivo'}
+                value={blockedWordsEnabled}
+                onValueChange={(value) => {
+                  setBlockedWordsEnabled(value);
+                  if (value) setDrawer('blockedWords');
+                }}
+              />
+            </View>
+
+            <View style={styles.section}>
+              <View style={styles.sectionHeading}>
+                <RNText style={styles.sectionTitle}>Privacidad</RNText>
+                <RNText style={styles.sectionBody}>¿Cómo quieres mostrar tus live?</RNText>
+              </View>
+              {(['public', 'private'] as Privacy[]).map((item) => (
+                <TouchableOpacity key={item} style={styles.privacyRow} onPress={() => setPrivacy(item)} activeOpacity={0.85}>
+                  <View style={styles.selectLeft}>
+                    <UserRound size={20} color={themeColors.glass.placeholder} />
+                    <RNText style={styles.selectText}>{item === 'public' ? 'Publica' : 'Privado'}</RNText>
+                  </View>
+                  {privacy === item ? <CheckCircle2 size={22} color={themeColors.glass.text} /> : <RadioMark selected={false} />}
+                </TouchableOpacity>
+              ))}
+            </View>
+
+          </KeyboardDismissScrollView>
+
+          {/* CTA fijada al pie, fuera del scroll (canon de drawers) + safe area. */}
+          <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+            <StartLivePrimaryButton
+              label={t('startLive.saveCta')}
+              onPress={startCountdown}
+              disabled={!title.trim() || !categoryUuids.length || coverUploading}
+            />
+            <TouchableOpacity style={styles.cancelButton} onPress={handleLeavePreLive} activeOpacity={0.85}>
+              <RNText style={styles.cancelText}>{t('common.cancel')}</RNText>
             </TouchableOpacity>
           </View>
-
-          <View style={styles.section}>
-            <View style={styles.field}>
-              <FieldLabel>Nombre del live</FieldLabel>
-              <View style={styles.inputPill}>
-                <TextInput
-                  style={styles.input}
-                  value={title}
-                  onChangeText={(v) => setTitle(v.replace(/^\s/, '').slice(0, 80))}
-                  placeholder="Nombre"
-                  placeholderTextColor="#BABABA"
-                />
-              </View>
-            </View>
-            <View style={styles.field}>
-              <FieldLabel>Fecha</FieldLabel>
-              <TouchableOpacity
-                style={styles.inputPill}
-                onPress={() => setShowScheduleDatePicker(true)}
-                activeOpacity={0.85}
-              >
-                <RNText style={[styles.input, styles.inputTouchableText]}>{scheduledDateDisplay}</RNText>
-                <CalendarDays size={18} color="#D9D9D9" />
-              </TouchableOpacity>
-            </View>
-            <View style={styles.field}>
-              <FieldLabel>Hora</FieldLabel>
-              <TouchableOpacity style={styles.inputPill} onPress={() => setShowScheduleTimePicker(true)} activeOpacity={0.85}>
-                <RNText style={[styles.input, styles.inputTouchableText]}>{scheduledTimeDisplay}</RNText>
-                <Clock size={18} color="#D9D9D9" />
-              </TouchableOpacity>
-            </View>
-            <SelectField label="Frecuencia" value={frequencyLabel} placeholder="No repetir" onPress={() => setDrawer('frequency')} />
-            <SelectField
-              label="Agregar moderadores"
-              value={moderatorIds.length ? `${moderatorIds.length} moderador(es)` : null}
-              placeholder="Seleccionar moderadores"
-              icon={<UserRound size={22} color="#BABABA" />}
-              onPress={() => setDrawer('moderators')}
-            />
-          </View>
-
-          <View style={styles.section}>
-            <SelectField label="Categoría" value={categoryLabel} placeholder="Selecciona una categoría" onPress={() => setDrawer('categories')} />
-            <SelectField label="Formato de venta" value={saleFormatLabel} placeholder="Selecciona un formato" onPress={() => setDrawer('saleFormat')} />
-          </View>
-
-          <View style={styles.section}>
-            <View style={styles.sectionHeading}>
-              <RNText style={styles.sectionTitle}>Multimedia</RNText>
-              <RNText style={styles.sectionBody}>Agrega contenido multimedia para que tu live sea mas atractivo</RNText>
-            </View>
-            <View style={styles.mediaRow}>
-              <View style={[styles.mediaCard, !!(liveCoverUrl || coverStagingUri) && styles.mediaCardHasCover]}>
-                <TouchableOpacity
-                  style={[styles.coverCardTouch, !!(liveCoverUrl || coverStagingUri) && styles.coverCardTouchFilled]}
-                  onPress={() => !coverUploading && setDrawer('coverSource')}
-                  activeOpacity={0.85}
-                  disabled={coverUploading}
-                  accessibilityRole="button"
-                  accessibilityLabel="Agregar cover del live"
-                >
-                  {liveCoverUrl || coverStagingUri ? (
-                    <Image
-                      source={{ uri: coverStagingUri ?? liveCoverUrl! }}
-                      style={styles.coverThumb}
-                      resizeMode="cover"
-                    />
-                  ) : (
-                    <>
-                      <ImagePlus size={24} color="#CBCEFF" />
-                      <RNText style={styles.mediaText}>Agregar un Cover</RNText>
-                    </>
-                  )}
-                  {coverUploading ? (
-                    <View style={styles.coverUploadingOverlay}>
-                      <ActivityIndicator size="large" color="#FFFFFF" />
-                    </View>
-                  ) : null}
-                </TouchableOpacity>
-                {(liveCoverUrl || coverStagingUri) && !coverUploading ? (
-                  <TouchableOpacity
-                    style={styles.coverClearBtn}
-                    onPress={() => {
-                      setLiveCoverUrl(null);
-                      setCoverStagingUri(null);
-                    }}
-                    hitSlop={10}
-                    accessibilityRole="button"
-                    accessibilityLabel="Quitar imagen de cover"
-                  >
-                    <X size={16} color="#FFFFFF" strokeWidth={2.5} />
-                  </TouchableOpacity>
-                ) : null}
-              </View>
-              <TouchableOpacity style={styles.mediaCard} activeOpacity={0.85}>
-                <Video size={24} color="#CBCEFF" />
-                <RNText style={styles.mediaText}>Agregar un video</RNText>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          <View style={styles.section}>
-            <ToggleRow title="Contenido explicito" body="Activalo si tu live contiene contenido explicito" value={explicitContent} onValueChange={setExplicitContent} />
-            <ToggleRow
-              title="Bloquear palabras"
-              body={blockedWords.length ? `${blockedWords.length} palabras bloqueadas` : 'Bloquea las palabras de tu chat en vivo'}
-              value={blockedWordsEnabled}
-              onValueChange={(value) => {
-                setBlockedWordsEnabled(value);
-                if (value) setDrawer('blockedWords');
-              }}
-            />
-          </View>
-
-          <View style={styles.section}>
-            <View style={styles.sectionHeading}>
-              <RNText style={styles.sectionTitle}>Privacidad</RNText>
-              <RNText style={styles.sectionBody}>¿Cómo quieres mostrar tus live?</RNText>
-            </View>
-            {(['public', 'private'] as Privacy[]).map((item) => (
-              <TouchableOpacity key={item} style={styles.privacyRow} onPress={() => setPrivacy(item)} activeOpacity={0.85}>
-                <View style={styles.selectLeft}>
-                  <UserRound size={20} color="#BABABA" />
-                  <RNText style={styles.selectText}>{item === 'public' ? 'Publica' : 'Privado'}</RNText>
-                </View>
-                {privacy === item ? <CheckCircle2 size={22} color="#FFFFFF" /> : <RadioMark selected={false} />}
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          <StartLivePrimaryButton
-            label="Guardar"
-            onPress={startCountdown}
-            disabled={!title.trim() || !categoryUuids.length || coverUploading}
-          />
-          <TouchableOpacity style={styles.cancelButton} onPress={handleLeavePreLive} activeOpacity={0.85}>
-            <RNText style={styles.cancelText}>Cancelar</RNText>
-          </TouchableOpacity>
-        </KeyboardDismissScrollView>
+        </Animated.View>
 
         <ChoiceDrawer
           visible={drawer === 'frequency'}
@@ -787,7 +840,7 @@ export const PreLiveSetupOverlay: React.FC<{
         >
           <View style={styles.schedulePickerBackdrop}>
             <Pressable style={styles.schedulePickerBackdropPress} onPress={() => setShowScheduleDatePicker(false)} />
-            <View style={[styles.schedulePickerChrome, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+            <View style={[styles.schedulePickerChrome, { paddingBottom: Math.max(insets.bottom, 16) }]}>
               <View style={styles.schedulePickerToolbar}>
                 <TouchableOpacity style={styles.schedulePickerToolbarBtn} onPress={() => setShowScheduleDatePicker(false)}>
                   <RNText style={styles.schedulePickerToolbarLabel}>{t('common.cancel')}</RNText>
@@ -822,7 +875,7 @@ export const PreLiveSetupOverlay: React.FC<{
         >
           <View style={styles.schedulePickerBackdrop}>
             <Pressable style={styles.schedulePickerBackdropPress} onPress={() => setShowScheduleTimePicker(false)} />
-            <View style={[styles.schedulePickerChrome, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+            <View style={[styles.schedulePickerChrome, { paddingBottom: Math.max(insets.bottom, 16) }]}>
               <View style={styles.schedulePickerToolbar}>
                 <TouchableOpacity style={styles.schedulePickerToolbarBtn} onPress={() => setShowScheduleTimePicker(false)}>
                   <RNText style={styles.schedulePickerToolbarLabel}>{t('common.cancel')}</RNText>
@@ -854,7 +907,7 @@ export const PreLiveSetupOverlay: React.FC<{
               <View style={styles.countdownSheetHeader}>
                 <RNText style={styles.countdownHeaderTitle}>{t('stream.liveStartHeader')}</RNText>
                 <TouchableOpacity onPress={handleLeavePreLive} hitSlop={12} accessibilityRole="button" accessibilityLabel={t('stream.cancelJoin')}>
-                  <X size={24} color="#FFFFFF" strokeWidth={2} />
+                  <X size={24} color={themeColors.glass.text} strokeWidth={2} />
                 </TouchableOpacity>
               </View>
               <View style={styles.countdownSheetBody}>
@@ -893,15 +946,28 @@ export const PreLiveSetupOverlay: React.FC<{
 };
 
 const styles = StyleSheet.create({
+  /** El fondo lo pone <GlassBackdrop /> (mismo glass que los sheets full). */
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(2, 5, 15, 0.6)',
+  },
+  sheet: {
+    flex: 1,
+    width: '100%',
+  },
+  scrollBody: {
+    flex: 1,
   },
   content: {
     gap: 24,
     padding: 24,
-    paddingTop: Platform.OS === 'ios' ? 58 : 32,
-    paddingBottom: 40,
+    /** paddingTop real = insets.top + 16 (se aplica inline). */
+    paddingBottom: 24,
+  },
+  footer: {
+    gap: 12,
+    width: '100%',
+    paddingHorizontal: 24,
+    paddingTop: 12,
   },
   header: {
     flexDirection: 'row',
@@ -913,7 +979,7 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.bold,
     fontSize: 16,
     lineHeight: 20,
-    color: '#FFFFFF',
+    color: themeColors.glass.text,
   },
   section: {
     gap: 12,
@@ -929,13 +995,13 @@ const styles = StyleSheet.create({
     fontSize: 10,
     lineHeight: 18,
     letterSpacing: 0.05,
-    color: '#FFFFFF',
+    color: themeColors.glass.text,
   },
   inputPill: {
     minHeight: 52,
     borderRadius: 100,
     borderWidth: 1,
-    borderColor: '#DDDDDD',
+    borderColor: themeColors.glass.border,
     paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
@@ -947,7 +1013,7 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.bold,
     fontSize: 12,
     lineHeight: 20,
-    color: '#FFFFFF',
+    color: themeColors.glass.text,
   },
   inputTouchableText: {
     textAlignVertical: 'center',
@@ -956,7 +1022,7 @@ const styles = StyleSheet.create({
     minHeight: 52,
     borderRadius: 100,
     borderWidth: 1,
-    borderColor: '#DDDDDD',
+    borderColor: themeColors.glass.border,
     paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
@@ -974,10 +1040,10 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.bold,
     fontSize: 12,
     lineHeight: 20,
-    color: '#FFFFFF',
+    color: themeColors.glass.text,
   },
   placeholder: {
-    color: '#BABABA',
+    color: themeColors.glass.placeholder,
   },
   sectionHeading: {
     gap: 4,
@@ -986,13 +1052,13 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.bold,
     fontSize: 20,
     lineHeight: 28,
-    color: '#FFFFFF',
+    color: themeColors.glass.text,
   },
   sectionBody: {
     fontFamily: FONT_FAMILY.bold,
     fontSize: 14,
     lineHeight: 20,
-    color: '#D9D9D9',
+    color: themeColors.glass.textMuted,
   },
   mediaRow: {
     flexDirection: 'row',
@@ -1003,7 +1069,7 @@ const styles = StyleSheet.create({
     minHeight: 160,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#CBCEFF',
+    borderColor: START_LIVE_COLORS.border,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 12,
@@ -1049,14 +1115,14 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.bold,
     fontSize: 14,
     lineHeight: 20,
-    color: '#D9D9D9',
+    color: themeColors.glass.textMuted,
     textAlign: 'center',
   },
   toggleRow: {
     minHeight: 62,
     borderRadius: 100,
     borderWidth: 1,
-    borderColor: '#DDDDDD',
+    borderColor: themeColors.glass.border,
     paddingHorizontal: 16,
     paddingVertical: 10,
     flexDirection: 'row',
@@ -1071,19 +1137,19 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.semibold,
     fontSize: 14,
     lineHeight: 20,
-    color: '#FFFFFF',
+    color: themeColors.glass.text,
   },
   toggleBody: {
     fontFamily: FONT_FAMILY.semibold,
     fontSize: 12,
     lineHeight: 16,
-    color: '#D9D9D9',
+    color: themeColors.glass.textMuted,
   },
   switchTrack: {
     width: 31,
     height: 16,
     borderRadius: 100,
-    backgroundColor: '#FFFEFE',
+    backgroundColor: themeColors.glass.text,
     justifyContent: 'center',
   },
   switchThumb: {
@@ -1100,7 +1166,7 @@ const styles = StyleSheet.create({
     minHeight: 52,
     borderRadius: 100,
     borderWidth: 1,
-    borderColor: '#DDDDDD',
+    borderColor: themeColors.glass.border,
     paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
@@ -1114,7 +1180,7 @@ const styles = StyleSheet.create({
   cancelText: {
     fontFamily: FONT_FAMILY.bold,
     fontSize: 14,
-    color: '#FBBF24',
+    color: themeColors.gold,
   },
   choiceBody: {
     gap: 24,
@@ -1134,20 +1200,20 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.semibold,
     fontSize: 14,
     lineHeight: 20,
-    color: '#FFFFFF',
+    color: themeColors.glass.text,
   },
   choiceBodyText: {
     fontFamily: FONT_FAMILY.semibold,
     fontSize: 12,
     lineHeight: 20,
-    color: '#D9D9D9',
+    color: themeColors.glass.textMuted,
   },
   radioOuter: {
     width: 24,
     height: 24,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#CBCEFF',
+    borderColor: START_LIVE_COLORS.border,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(104,92,240,0.1)',
@@ -1174,14 +1240,14 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.bold,
     fontSize: 14,
     lineHeight: 20,
-    color: '#D9D9D9',
+    color: themeColors.glass.textMuted,
   },
   searchPill: {
     minHeight: 56,
     borderRadius: 100,
     borderWidth: 1,
-    borderColor: '#CBCEFF',
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderColor: START_LIVE_COLORS.border,
+    backgroundColor: themeColors.glass.inputBg,
     paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
@@ -1192,14 +1258,14 @@ const styles = StyleSheet.create({
     margin: 0,
     fontFamily: FONT_FAMILY.semibold,
     fontSize: 12,
-    color: '#FFFFFF',
+    color: themeColors.glass.text,
   },
   moderatorEmailError: {
     marginTop: 8,
     fontFamily: FONT_FAMILY.semibold,
     fontSize: 11,
     lineHeight: 16,
-    color: '#FB7185',
+    color: themeColors.danger,
   },
   chipWrap: {
     flexDirection: 'row',
@@ -1211,7 +1277,7 @@ const styles = StyleSheet.create({
     maxWidth: 120,
     borderRadius: 100,
     borderWidth: 1,
-    borderColor: '#CBCEFF',
+    borderColor: START_LIVE_COLORS.border,
     paddingHorizontal: 12,
     flexDirection: 'row',
     alignItems: 'center',
@@ -1220,7 +1286,7 @@ const styles = StyleSheet.create({
   wordChipText: {
     fontFamily: FONT_FAMILY.semibold,
     fontSize: 12,
-    color: '#D9D9D9',
+    color: themeColors.glass.textMuted,
     maxWidth: 76,
   },
   moderatorList: {
@@ -1244,7 +1310,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontFamily: FONT_FAMILY.semibold,
     fontSize: 14,
-    color: '#FFFFFF',
+    color: themeColors.glass.text,
   },
   schedulePickerBackdrop: {
     flex: 1,
@@ -1252,7 +1318,7 @@ const styles = StyleSheet.create({
   },
   schedulePickerBackdropPress: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: themeColors.dark.overlay,
   },
   schedulePickerChrome: {
     borderTopLeftRadius: 24,
@@ -1290,8 +1356,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 24,
     backgroundColor: 'rgba(2, 5, 15, 0.55)',
-    zIndex: 500,
-    elevation: 500,
+    zIndex: LAYERS.countdown,
+    elevation: LAYERS.countdown,
   },
   countdownSheet: {
     width: '100%',
@@ -1312,7 +1378,7 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.bold,
     fontSize: 16,
     lineHeight: 20,
-    color: '#FFFFFF',
+    color: themeColors.glass.text,
   },
   countdownSheetBody: {
     minHeight: 136,
@@ -1324,7 +1390,7 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.semibold,
     fontSize: 20,
     lineHeight: 32,
-    color: '#FFFFFF',
+    color: themeColors.glass.text,
     textAlign: 'center',
     letterSpacing: 0.1,
   },
@@ -1332,7 +1398,7 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.semibold,
     fontSize: 20,
     lineHeight: 32,
-    color: '#FFFFFF',
+    color: themeColors.glass.text,
     textAlign: 'center',
     letterSpacing: 0.1,
   },
@@ -1341,7 +1407,7 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.bold,
     fontSize: 64,
     lineHeight: 72,
-    color: '#FFFFFF',
+    color: themeColors.glass.text,
     textAlign: 'center',
   },
   countdownConfettiLayer: {

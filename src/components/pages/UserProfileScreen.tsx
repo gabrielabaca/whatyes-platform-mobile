@@ -41,6 +41,8 @@ import { useSellerNotifications } from '../../hooks/useSellerNotifications';
 import { FollowSuccessCelebration } from '../molecules/profile';
 import { formatCompactCount } from '../../utils/formatCount';
 import { FONT_FAMILY } from '../../theme/typography';
+import { themeColors } from '../../theme/colors';
+import { useTheme } from '../../context/ThemeContext';
 import type { UserShowItem } from '../../api/platformApi';
 
 const COVER_H = 164;
@@ -76,6 +78,12 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   const { t } = useTranslation();
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  const { isDark } = useTheme();
+  const d = themeColors.dark;
+  // Overrides oscuros: en claro los estilos estáticos quedan intactos.
+  const darkBg = isDark ? { backgroundColor: d.background } : null;
+  const darkText = isDark ? { color: d.text } : null;
+  const darkMuted = isDark ? { color: d.textSecondary } : null;
   const [tab, setTab] = useState<ProfileTab>('shows');
   const [bioExpanded, setBioExpanded] = useState(false);
   const [editDrawerOpen, setEditDrawerOpen] = useState(false);
@@ -171,7 +179,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
 
   if (loading && !profile) {
     return (
-      <View style={styles.centered}>
+      <View style={[styles.centered, darkBg]}>
         <ActivityIndicator color={PRIMARY} />
       </View>
     );
@@ -179,8 +187,8 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
 
   if (error || !profile) {
     return (
-      <View style={styles.centered}>
-        <RNText style={styles.errorText}>{error ?? t('profile.loadError')}</RNText>
+      <View style={[styles.centered, darkBg]}>
+        <RNText style={[styles.errorText, darkMuted]}>{error ?? t('profile.loadError')}</RNText>
         <TouchableOpacity onPress={onBack} style={styles.backBtn}>
           <RNText style={styles.backBtnText}>{t('explore.back')}</RNText>
         </TouchableOpacity>
@@ -192,7 +200,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   const avatarUri = profile.profile_picture;
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, darkBg]}>
       <FollowSuccessCelebration
         visible={celebrationVisible}
         sellerName={sellerDisplayName}
@@ -224,7 +232,13 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
         style={styles.scroll}
       >
         {/* Cover 164px — Figma 536:23110 */}
-        <View style={[styles.coverWrap, { height: COVER_H }]}>
+        <View
+          style={[
+            styles.coverWrap,
+            { height: COVER_H },
+            isDark ? { backgroundColor: d.surface } : null,
+          ]}
+        >
           {coverUri ? (
             <Image source={{ uri: coverUri }} style={styles.coverImage} resizeMode="cover" />
           ) : (
@@ -334,22 +348,26 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
               <View style={styles.statsSection}>
                 <View style={styles.followRow}>
                   <View style={styles.followItem}>
-                    <RNText style={styles.followBold}>
+                    <RNText style={[styles.followBold, darkText]}>
                       {formatCompactCount(profile.followers_count)}
                     </RNText>
-                    <RNText style={styles.followLabel}>{t('profile.followers')}</RNText>
+                    <RNText style={[styles.followLabel, darkText]}>
+                      {t('profile.followers')}
+                    </RNText>
                   </View>
                   <View style={styles.followItem}>
-                    <RNText style={styles.followBold}>
+                    <RNText style={[styles.followBold, darkText]}>
                       {formatCompactCount(profile.following_count)}
                     </RNText>
-                    <RNText style={styles.followLabel}>{t('profile.following')}</RNText>
+                    <RNText style={[styles.followLabel, darkText]}>
+                      {t('profile.following')}
+                    </RNText>
                   </View>
                 </View>
 
                 {bioText ? (
                   <View style={styles.bioBlock}>
-                    <RNText style={styles.bioText}>{bioDisplayText}</RNText>
+                    <RNText style={[styles.bioText, darkMuted]}>{bioDisplayText}</RNText>
                     {bioIsLong ? (
                       <TouchableOpacity onPress={() => setBioExpanded((v) => !v)}>
                         <RNText style={styles.bioMore}>
@@ -362,23 +380,33 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
 
                 <View style={styles.statCardsRow}>
                   <StatCard>
-                    <View style={styles.statIconCircle}>
+                    <View
+                      style={[
+                        styles.statIconCircle,
+                        isDark ? { backgroundColor: d.surfaceAlt } : null,
+                      ]}
+                    >
                       <IconStar size={19} color={PRIMARY} />
                     </View>
                     <View style={styles.statCardText}>
-                      <RNText style={styles.statValue}>{reviewsRatingText}</RNText>
-                      <RNText style={styles.statLabel}>{reviewsLabelText}</RNText>
+                      <RNText style={[styles.statValue, darkText]}>{reviewsRatingText}</RNText>
+                      <RNText style={[styles.statLabel, darkMuted]}>{reviewsLabelText}</RNText>
                     </View>
                   </StatCard>
                   <StatCard>
-                    <View style={styles.statIconCircle}>
+                    <View
+                      style={[
+                        styles.statIconCircle,
+                        isDark ? { backgroundColor: d.surfaceAlt } : null,
+                      ]}
+                    >
                       <IconTag size={19} color={PRIMARY} />
                     </View>
                     <View style={styles.statCardText}>
-                      <RNText style={styles.statValue}>
+                      <RNText style={[styles.statValue, darkText]}>
                         {formatCompactCount(statSecondaryValue)}
                       </RNText>
-                      <RNText style={styles.statLabel}>{statSecondaryLabel}</RNText>
+                      <RNText style={[styles.statLabel, darkMuted]}>{statSecondaryLabel}</RNText>
                     </View>
                   </StatCard>
                 </View>
@@ -397,6 +425,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                   style={[
                     styles.primaryCtaBtn,
                     isFollowing && styles.primaryCtaBtnFollowing,
+                    isFollowing && isDark ? { backgroundColor: d.surfaceAlt } : null,
                     followLoading && styles.primaryCtaBtnDisabled,
                   ]}
                   onPress={() => {
@@ -410,12 +439,15 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                   }
                 >
                   {followLoading ? (
-                    <ActivityIndicator color={isFollowing ? '#71717B' : '#FFFFFF'} />
+                    <ActivityIndicator
+                      color={isFollowing ? (isDark ? d.textSecondary : '#71717B') : '#FFFFFF'}
+                    />
                   ) : (
                     <RNText
                       style={[
                         styles.primaryCtaBtnText,
                         isFollowing && styles.primaryCtaBtnTextFollowing,
+                        isFollowing && isDark ? { color: d.textSecondary } : null,
                       ]}
                     >
                       {isFollowing ? t('stream.following') : t('stream.follow')}
@@ -442,7 +474,13 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                     style={[styles.tab, active && styles.tabActive]}
                     onPress={() => setTab(key)}
                   >
-                    <RNText style={[styles.tabLabel, active && styles.tabLabelActive]}>
+                    <RNText
+                      style={[
+                        styles.tabLabel,
+                        active && styles.tabLabelActive,
+                        isDark ? { color: active ? d.text : d.textSecondary } : null,
+                      ]}
+                    >
                       {label}
                     </RNText>
                   </TouchableOpacity>
@@ -454,7 +492,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
               showsLoading && shows.length === 0 ? (
                 <ActivityIndicator color={PRIMARY} style={styles.showsLoader} />
               ) : showRows.length === 0 ? (
-                <RNText style={styles.emptyShows}>{t('profile.noShows')}</RNText>
+                <RNText style={[styles.emptyShows, darkMuted]}>{t('profile.noShows')}</RNText>
               ) : (
                 <View style={styles.showsGrid}>
                   {showRows.map((row, idx) => (
@@ -479,7 +517,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
               productsLoading && profileProducts.length === 0 ? (
                 <ActivityIndicator color={PRIMARY} style={styles.showsLoader} />
               ) : profileProducts.length === 0 ? (
-                <RNText style={styles.emptyShows}>{t('profile.noProducts')}</RNText>
+                <RNText style={[styles.emptyShows, darkMuted]}>{t('profile.noProducts')}</RNText>
               ) : (
                 <View style={styles.productsList}>
                   {profileProducts.map((product) => (
@@ -512,7 +550,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
             ) : null}
 
             {tab === 'clips' ? (
-              <RNText style={styles.emptyShows}>{t('profile.noClips')}</RNText>
+              <RNText style={[styles.emptyShows, darkMuted]}>{t('profile.noClips')}</RNText>
             ) : null}
           </View>
         </View>
@@ -527,15 +565,18 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   );
 };
 
-/** Placeholder cover sin imagen — lavanda Figma */
+/** Placeholder cover sin imagen — lavanda Figma (navy en oscuro) */
 const CoverPlaceholder: React.FC = () => {
   const gradientId = useId().replace(/:/g, '');
+  const { isDark } = useTheme();
+  const from = isDark ? themeColors.dark.surface : '#F5F5FF';
+  const to = isDark ? themeColors.dark.surfaceAlt : BORDER_LAVENDER;
   return (
     <Svg pointerEvents="none" style={StyleSheet.absoluteFill} width="100%" height="100%">
       <Defs>
         <LinearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-          <Stop offset="0" stopColor="#F5F5FF" />
-          <Stop offset="1" stopColor={BORDER_LAVENDER} />
+          <Stop offset="0" stopColor={from} />
+          <Stop offset="1" stopColor={to} />
         </LinearGradient>
       </Defs>
       <Rect width="100%" height="100%" fill={`url(#${gradientId})`} />
@@ -562,21 +603,32 @@ const CoverBottomGradient: React.FC = () => (
  * Fill transparente (deja ver el gradiente del body) + borde #CBCEFF;
  * icono en círculo #CBCEFF.
  */
-const StatCard: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <View style={styles.statCard}>
-    <View style={styles.statCardInner}>{children}</View>
-  </View>
-);
+const StatCard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { isDark } = useTheme();
+  return (
+    <View
+      style={[
+        styles.statCard,
+        isDark ? { borderColor: themeColors.dark.surfaceAlt } : null,
+      ]}
+    >
+      <View style={styles.statCardInner}>{children}</View>
+    </View>
+  );
+};
 
-/** Fondo body white → #E7E7FF */
+/** Fondo body white → #E7E7FF (plano #050f2f en oscuro) */
 const BodyBackground: React.FC = () => {
   const gradientId = useId().replace(/:/g, '');
+  const { isDark } = useTheme();
+  const from = isDark ? themeColors.dark.backgroundTop : '#FFFFFF';
+  const to = isDark ? themeColors.dark.backgroundBottom : LAVENDER;
   return (
     <Svg pointerEvents="none" style={StyleSheet.absoluteFill} width="100%" height="100%">
       <Defs>
         <LinearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-          <Stop offset="0" stopColor="#FFFFFF" />
-          <Stop offset="1" stopColor={LAVENDER} />
+          <Stop offset="0" stopColor={from} />
+          <Stop offset="1" stopColor={to} />
         </LinearGradient>
       </Defs>
       <Rect width="100%" height="100%" fill={`url(#${gradientId})`} />

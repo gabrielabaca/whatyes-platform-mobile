@@ -10,11 +10,17 @@ import {
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { Text } from '../../atoms/Text';
 import { FONT_FAMILY } from '../../../theme/typography';
+import { useTheme } from '../../../context/ThemeContext';
+import { themeColors } from '../../../theme/colors';
 import type { InterestCategoryItem } from '../../../api/types';
 import { displayInterestCategoryIcon } from '../../../utils/interestCategoryEmoji';
 
 const TILE_GAP = 12;
 const DEFAULT_H_PADDING = 16;
+/** Borde del tile en oscuro: lavanda de marca atenuado sobre `night.800`. */
+const TILE_BORDER_DARK = 'rgba(104, 92, 240, 0.35)';
+/** Tinta sobre el degradado de selección (claro en ambos temas). */
+const LABEL_ON_SELECTED = '#18181b';
 
 function chunkRows(items: InterestCategoryItem[]): InterestCategoryItem[][] {
   const rows: InterestCategoryItem[][] = [];
@@ -60,8 +66,17 @@ export const InterestCategoryGrid: React.FC<InterestCategoryGridProps> = ({
   withBottomGap = false,
 }) => {
   const { width: windowWidth } = useWindowDimensions();
+  const { isDark } = useTheme();
   const tileW = Math.floor((windowWidth - horizontalPadding * 2 - TILE_GAP * 2) / 3);
   const tileStyle = useMemo(() => ({ width: tileW, height: tileW + 1 }), [tileW]);
+
+  /** En oscuro el tile pasa a `night.800`; el seleccionado a `night.700`. */
+  const tileThemeStyle = isDark
+    ? { backgroundColor: themeColors.dark.surface, borderColor: TILE_BORDER_DARK }
+    : null;
+  const tileSelectedThemeStyle = isDark
+    ? { backgroundColor: themeColors.dark.surfaceAlt, borderColor: themeColors.primary }
+    : null;
 
   const renderTile = (item: InterestCategoryItem) => {
     const emoji = displayInterestCategoryIcon(item);
@@ -73,13 +88,29 @@ export const InterestCategoryGrid: React.FC<InterestCategoryGridProps> = ({
         disabled={disabled}
         onPressIn={() => onPressInItem?.(item.uuid)}
         onPress={() => onPressItem(item)}
-        style={[styles.tile, tileStyle, selected ? styles.tileSelected : null]}
+        style={[
+          styles.tile,
+          tileThemeStyle,
+          tileStyle,
+          selected ? styles.tileSelected : null,
+          selected ? tileSelectedThemeStyle : null,
+        ]}
       >
         {selected ? <SelectedTileBackground /> : null}
         {emoji ? <Text className="text-[20px] mb-1 text-center">{emoji}</Text> : null}
         <Text
-          style={{ fontFamily: FONT_FAMILY.semibold }}
-          className="text-[14px] text-[#18181b] dark:text-white text-center"
+          style={
+            selected
+              ? // El degradado de selección es claro en ambos temas (marca): la tinta se fija
+                // inline para que ninguna variante `dark:` del atom la aclare y quede ilegible.
+                { fontFamily: FONT_FAMILY.semibold, color: LABEL_ON_SELECTED }
+              : { fontFamily: FONT_FAMILY.semibold }
+          }
+          className={
+            selected
+              ? 'text-[14px] text-center'
+              : 'text-[14px] text-[#18181b] dark:text-white text-center'
+          }
           numberOfLines={2}
         >
           {item.label}

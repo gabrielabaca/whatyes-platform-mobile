@@ -7,6 +7,8 @@ import React from 'react';
 import { View, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { Text } from '../../atoms/Text';
 import { Users, Clock } from 'lucide-react-native';
+import { useTheme } from '../../../context/ThemeContext';
+import { themeColors } from '../../../theme/colors';
 
 export interface StreamData {
   id: string;
@@ -32,9 +34,14 @@ interface StreamCardProps {
 }
 
 export const StreamCard: React.FC<StreamCardProps> = ({ stream, onPress }) => {
+  const { isDark } = useTheme();
+  /** Superficie y tinta del ícono por tema. El badge "EN VIVO" es semántico: no se tematiza. */
+  const surface = isDark ? themeColors.dark.surface : themeColors.light.surface;
+  const mutedIcon = isDark ? themeColors.dark.textMuted : '#6b7280';
+
   return (
     <TouchableOpacity
-      style={styles.card}
+      style={[styles.card, { backgroundColor: surface }]}
       onPress={onPress}
       activeOpacity={0.8}
     >
@@ -63,12 +70,16 @@ export const StreamCard: React.FC<StreamCardProps> = ({ stream, onPress }) => {
 
       {/* Información del stream */}
       <View style={styles.infoContainer}>
-        <Text variant="body" className="text-gray-900 font-semibold mb-1" numberOfLines={1}>
+        <Text
+          variant="body"
+          className="text-gray-900 dark:text-white font-semibold mb-1"
+          numberOfLines={1}
+        >
           {stream.sellerName}
         </Text>
         <View style={styles.timeContainer}>
-          <Clock size={12} color="#6b7280" />
-          <Text variant="caption" className="text-gray-500 ml-1">
+          <Clock size={12} color={mutedIcon} />
+          <Text variant="caption" className="text-gray-500 dark:text-night-muted ml-1">
             {stream.streamingTime}
           </Text>
         </View>
@@ -79,7 +90,6 @@ export const StreamCard: React.FC<StreamCardProps> = ({ stream, onPress }) => {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#ffffff',
     borderRadius: 12,
     overflow: 'hidden',
     shadowColor: '#000',

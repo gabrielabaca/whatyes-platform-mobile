@@ -15,10 +15,19 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { IconBell } from '../../icons';
 import { FONT_FAMILY } from '../../../theme/typography';
+import { themeColors } from '../../../theme/colors';
+import { useTheme } from '../../../context/ThemeContext';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const PRIMARY = '#685CF0';
-const CONFETTI_COLORS = ['#685CF0', '#FB2C36', '#FDC700', '#22C55E', '#FFFFFF', '#CBCEFF'];
+const PRIMARY = themeColors.primary;
+const CONFETTI_COLORS = [
+  themeColors.primary,
+  themeColors.danger,
+  themeColors.gold,
+  themeColors.success,
+  '#FFFFFF',
+  '#CBCEFF',
+];
 
 export interface FollowSuccessCelebrationProps {
   visible: boolean;
@@ -41,6 +50,17 @@ export const FollowSuccessCelebration: React.FC<FollowSuccessCelebrationProps> =
 }) => {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
+  const { isDark } = useTheme();
+  /** El toast flota sobre el perfil: en oscuro una tarjeta blanca partía la pantalla. */
+  const darkToast = isDark
+    ? {
+        backgroundColor: themeColors.dark.surface,
+        borderColor: themeColors.dark.surfaceAlt,
+      }
+    : null;
+  const darkBell = isDark ? { backgroundColor: themeColors.dark.surfaceAlt } : null;
+  const darkTitle = isDark ? { color: themeColors.dark.text } : null;
+  const darkBody = isDark ? { color: themeColors.dark.textSecondary } : null;
   const toastOpacity = useRef(new Animated.Value(0)).current;
   const toastTranslateY = useRef(new Animated.Value(-16)).current;
   useEffect(() => {
@@ -118,15 +138,15 @@ export const FollowSuccessCelebration: React.FC<FollowSuccessCelebrationProps> =
           },
         ]}
       >
-        <View style={styles.toast}>
-          <View style={styles.bellCircle}>
+        <View style={[styles.toast, darkToast]}>
+          <View style={[styles.bellCircle, darkBell]}>
             <IconBell size={22} color={PRIMARY} strokeWidth={2} />
           </View>
           <View style={styles.toastTextCol}>
-            <RNText style={styles.toastTitle}>
+            <RNText style={[styles.toastTitle, darkTitle]}>
               {title ?? t('profile.followSuccessTitle')}
             </RNText>
-            <RNText style={styles.toastBody} numberOfLines={2}>
+            <RNText style={[styles.toastBody, darkBody]} numberOfLines={2}>
               {body ?? t('profile.followSuccessBody', { name: displayName })}
             </RNText>
           </View>

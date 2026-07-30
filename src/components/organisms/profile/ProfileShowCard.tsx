@@ -10,6 +10,8 @@ import {
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { IconBell, IconEye } from '../../icons';
 import { FONT_FAMILY } from '../../../theme/typography';
+import { themeColors } from '../../../theme/colors';
+import { useTheme } from '../../../context/ThemeContext';
 import type { UserShowItem } from '../../../api/platformApi';
 
 const CARD_H = 224;
@@ -40,6 +42,14 @@ export interface ProfileShowCardProps {
 
 export const ProfileShowCard: React.FC<ProfileShowCardProps> = ({ show, onPress }) => {
   const { width } = useWindowDimensions();
+  /**
+   * Sólo se tematizan las superficies que quedan a la vista sin miniatura (fondo de la
+   * tarjeta mientras carga la imagen y placeholder sin thumbnail): en oscuro eran parches
+   * claros sobre el navy. El degradado, las píldoras y los textos blancos van sobre overlay
+   * oscuro y son iguales en ambos temas.
+   */
+  const { isDark } = useTheme();
+  const d = themeColors.dark;
   const cardW = (width - 16 * 2 - 12) / 2;
   const isLive = show.status === 'live';
   const isDraft = show.status === 'draft';
@@ -51,12 +61,22 @@ export const ProfileShowCard: React.FC<ProfileShowCardProps> = ({ show, onPress 
     <TouchableOpacity
       activeOpacity={0.88}
       onPress={onPress}
-      style={[styles.card, { width: cardW, height: CARD_H }]}
+      style={[
+        styles.card,
+        { width: cardW, height: CARD_H },
+        isDark ? { backgroundColor: d.surface } : null,
+      ]}
     >
       {thumb ? (
         <Image source={{ uri: thumb }} style={styles.thumb} resizeMode="cover" />
       ) : (
-        <View style={[styles.thumb, styles.thumbFallback]} />
+        <View
+          style={[
+            styles.thumb,
+            styles.thumbFallback,
+            isDark ? { backgroundColor: d.surfaceAlt } : null,
+          ]}
+        />
       )}
       <Svg pointerEvents="none" style={StyleSheet.absoluteFill} width="100%" height="100%">
         <Defs>

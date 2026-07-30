@@ -1,7 +1,6 @@
 import React, { useId, useState, useCallback } from 'react';
 import { ShippingAddressModal } from '../organisms/account/ShippingAddressModal';
 import { PreferencesModal } from '../organisms/account/PreferencesModal';
-import { DeleteAccountModal } from '../organisms/account/DeleteAccountModal';
 import { NotificationsModal } from '../organisms/account/NotificationsModal';
 import { ChangePasswordModal } from '../organisms/account/ChangePasswordModal';
 import { ContactModal } from '../organisms/account/ContactModal';
@@ -31,6 +30,7 @@ import ArticleIcon from '../../../assets/icons/account/article.svg';
 import HelpIcon from '../../../assets/icons/account/help.svg';
 import { FONT_FAMILY } from '../../theme/typography';
 import { themeColors } from '../../theme/colors';
+import { useTheme } from '../../context/ThemeContext';
 
 /** Figma 536:16099 — Main Content */
 const H_PADDING = 16;
@@ -70,9 +70,11 @@ export const BuyerAccountScreen: React.FC<BuyerAccountScreenProps> = ({
   onLogout,
 }) => {
   const { t } = useTranslation();
+  const { isDark } = useTheme();
+  // Solo se agregan overrides oscuros: en claro los estilos estáticos quedan intactos.
+  const darkText = isDark ? { color: themeColors.dark.text } : null;
   const [shippingModalVisible, setShippingModalVisible] = useState(false);
   const [preferencesModalVisible, setPreferencesModalVisible] = useState(false);
-  const [deleteAccountVisible, setDeleteAccountVisible] = useState(false);
   const [notificationsModalVisible, setNotificationsModalVisible] = useState(false);
   const [changePasswordVisible, setChangePasswordVisible] = useState(false);
   const [contactModalVisible, setContactModalVisible] = useState(false);
@@ -97,7 +99,7 @@ export const BuyerAccountScreen: React.FC<BuyerAccountScreenProps> = ({
           viewProfileLabel={t('account.viewProfile')}
         />
 
-        <Text style={styles.sectionTitle}>{t('account.sectionAccount')}</Text>
+        <Text style={[styles.sectionTitle, darkText]}>{t('account.sectionAccount')}</Text>
 
         <View style={styles.rowList}>
           <AccountMenuRow
@@ -127,7 +129,7 @@ export const BuyerAccountScreen: React.FC<BuyerAccountScreenProps> = ({
           />
         </View>
 
-        <Text style={styles.sectionTitle}>{t('account.sectionHelp')}</Text>
+        <Text style={[styles.sectionTitle, darkText]}>{t('account.sectionHelp')}</Text>
 
         <View style={styles.rowList}>
           <AccountMenuRow
@@ -154,21 +156,13 @@ export const BuyerAccountScreen: React.FC<BuyerAccountScreenProps> = ({
       onClose={() => setShippingModalVisible(false)}
     />
 
+    {/* El modal de borrado lo monta PreferencesModal adentro suyo: apilado acá como
+        hermano, iOS no lo presentaba mientras Preferencias seguía abierto. */}
     <PreferencesModal
       visible={preferencesModalVisible}
       onClose={() => setPreferencesModalVisible(false)}
       onLogout={onLogout}
-      onDeleteAccount={() => setDeleteAccountVisible(true)}
-    />
-
-    <DeleteAccountModal
-      visible={deleteAccountVisible}
-      onClose={() => setDeleteAccountVisible(false)}
-      onDeleted={() => {
-        setDeleteAccountVisible(false);
-        setPreferencesModalVisible(false);
-        onLogout();
-      }}
+      onAccountDeleted={onLogout}
     />
 
     <NotificationsModal
@@ -206,6 +200,7 @@ const ProfileCard: React.FC<ProfileCardProps> = ({
   onViewProfile,
 }) => {
   const gradientId = useId().replace(/:/g, '');
+  const { isDark } = useTheme();
   const [cardSize, setCardSize] = useState({ width: 0, height: 0 });
 
   const onCardLayout = useCallback((e: LayoutChangeEvent) => {
@@ -218,7 +213,18 @@ const ProfileCard: React.FC<ProfileCardProps> = ({
   }, []);
 
   return (
-    <View style={styles.profileCard} onLayout={onCardLayout}>
+    <View
+      style={[
+        styles.profileCard,
+        isDark
+          ? {
+              backgroundColor: themeColors.dark.surface,
+              borderColor: themeColors.dark.surfaceAlt,
+            }
+          : null,
+      ]}
+      onLayout={onCardLayout}
+    >
       {cardSize.width > 0 && cardSize.height > 0 ? (
         <ProfileCardGradient
           gradientId={gradientId}
@@ -231,7 +237,12 @@ const ProfileCard: React.FC<ProfileCardProps> = ({
         <View style={styles.profileLeft}>
           <View style={styles.profileIdentity}>
             {profileImageUri ? (
-              <View style={styles.avatarShell}>
+              <View
+                style={[
+                  styles.avatarShell,
+                  isDark ? { backgroundColor: themeColors.dark.surfaceAlt } : null,
+                ]}
+              >
                 <Image source={{ uri: profileImageUri }} style={styles.avatarImage} resizeMode="cover" />
               </View>
             ) : (
@@ -240,10 +251,24 @@ const ProfileCard: React.FC<ProfileCardProps> = ({
               </View>
             )}
             <View style={styles.nameBlock}>
-              <RNText style={styles.displayName} numberOfLines={1} ellipsizeMode="tail">
+              <RNText
+                style={[
+                  styles.displayName,
+                  isDark ? { color: themeColors.dark.text } : null,
+                ]}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
                 {displayName}
               </RNText>
-              <RNText style={styles.subtitle} numberOfLines={1} ellipsizeMode="tail">
+              <RNText
+                style={[
+                  styles.subtitle,
+                  isDark ? { color: themeColors.dark.textSecondary } : null,
+                ]}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
                 {subtitle}
               </RNText>
             </View>

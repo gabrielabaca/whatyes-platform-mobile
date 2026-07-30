@@ -17,13 +17,14 @@ import { MapPinHouse, ChevronRight } from 'lucide-react-native';
 import { StreamBottomSheet, streamBottomPanelStyle } from './StreamBottomSheet';
 import { formatStreamPrice } from '../../atoms/stream/StreamPriceText';
 import { FONT_FAMILY } from '../../../theme/typography';
+import { themeColors } from '../../../theme/colors';
 import type { ShippingQuoteState } from '../../../hooks/useProductShippingQuote';
 
-const WHITE = '#FFFFFF';
-const SOFT = '#D9D9D9';
-const MUTED = '#BABABA';
-const GREEN = '#18AF1D';
-const BORDER = '#DDDDDD';
+const WHITE = themeColors.glass.text;
+const SOFT = themeColors.glass.textMuted;
+const MUTED = themeColors.glass.textSoft;
+const GREEN = themeColors.success;
+const BORDER = themeColors.glass.border;
 
 function estimatedArrivalLabel(estimatedDays: number | null, locale: string): string | null {
   if (estimatedDays == null || estimatedDays <= 0) return null;

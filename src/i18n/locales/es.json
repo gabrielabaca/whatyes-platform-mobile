@@ -5,6 +5,12 @@
     "dark": "Oscuro",
     "automatic": "Automático"
   },
+  "userMenu": {
+    "title": "Menú",
+    "statusVerified": "Verificado",
+    "statusIncompleteProfile": "Perfil incompleto",
+    "statusUnverified": "No verificado"
+  },
   "common": {
     "appName": "PulpoLive",
     "continue": "Continuar",
@@ -13,13 +19,15 @@
     "ok": "OK",
     "or": "O",
     "cancel": "Cancelar",
+    "close": "Cerrar",
     "back": "Volver",
     "done": "Listo",
     "loading": "Cargando...",
     "email": "Email",
     "password": "Contraseña",
     "emailPlaceholder": "Ejemplo@example.com",
-    "invalidEmail": "Introduce un correo electrónico válido."
+    "invalidEmail": "Introduce un correo electrónico válido.",
+    "noResults": "Sin resultados"
   },
   "loading": {
     "message": "Cargando..."
@@ -376,6 +384,7 @@
       "locationFailed": "No pudimos detectar tu dirección. Completala manualmente.",
       "fullName": "Nombre Completo",
       "country": "País",
+      "countrySearch": "Buscar país…",
       "address": "Dirección",
       "city": "Ciudad",
       "state": "Estado",
@@ -505,6 +514,10 @@
     "addProductNoCategory": "Configurá una categoría en el vivo para poder cargar productos",
     "addProductCameraBusy": "No se puede abrir la cámara mientras transmitís. Usá la galería para agregar fotos del producto.",
     "addProductGalleryOnlyHint": "Durante el vivo solo podés elegir fotos de la galería.",
+    "addProductDiscardTitle": "¿Descartar producto?",
+    "addProductDiscardBody": "Si cerrás ahora vas a perder los datos que cargaste.",
+    "addProductDiscardConfirm": "Descartar",
+    "addProductDiscardKeep": "Seguir editando",
     "flipCamera": "Cambiar cámara",
     "flipCameraWebRtcHint": "No se puede cambiar la cámara mientras la transmisión WebRTC está activa.",
     "auctionDurationHint": "Duración en segundos (5-300):",
@@ -606,6 +619,7 @@
       "mpWalletSubtitle": "Paga con tu cuenta Mercado Pago al ofertar",
       "mpWalletSelected": "Mercado Pago seleccionado como método de pago.",
       "mpWalletLinked": "Tu cuenta de Mercado Pago quedó vinculada correctamente.",
+      "mpConnectTitle": "Vincular Mercado Pago",
       "mpConnectLoading": "Abriendo Mercado Pago…",
       "mpBrowserTitle": "Completá en Mercado Pago",
       "mpBrowserBody": "Abrimos Mercado Pago en tu navegador. Cuando termines, volvé a PulpoLive; la app se actualizará sola.",
@@ -761,6 +775,7 @@
     "bankFormCta": "Agregar",
     "bankFormError": "No pudimos guardar la cuenta. Revisá el CBU e intentá de nuevo.",
     "nextCta": "Siguiente",
+    "saveCta": "Guardar",
     "readyTitle": "Listo para transmitir",
     "readyHeadline": "¡Todo listo para tu show!",
     "readyBody": "Ya configuraste lo necesario. Cuando pulses Comenzar entrarás al vivo con las categorías que elegiste.",

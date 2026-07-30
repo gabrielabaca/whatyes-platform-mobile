@@ -40,8 +40,12 @@ import {
 import { formatCompactCount } from '../../../utils/formatCount';
 import { storage } from '../../../utils/storage';
 import { FONT_FAMILY } from '../../../theme/typography';
+import { themeColors } from '../../../theme/colors';
+import { useTheme } from '../../../context/ThemeContext';
 
-const PRIMARY = '#685CF0';
+const PRIMARY = themeColors.primary;
+/** Paleta oscura: se aplica inline sobre los estilos estáticos (claro sin cambios). */
+const D = themeColors.dark;
 const TEXT = '#18181B';
 const MUTED = '#6B7280';
 const GOLD = '#EAB308';
@@ -80,7 +84,15 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
 }) => {
   const { t, i18n } = useTranslation();
   const insets = useSafeAreaInsets();
+  const { isDark } = useTheme();
   const sellerId = purchase.counterpart.user_id;
+
+  // Overrides oscuros; en claro todos son `null` y mandan los estilos estáticos.
+  const darkText = isDark ? { color: D.text } : null;
+  const darkMuted = isDark ? { color: D.textSecondary } : null;
+  const darkCard = isDark ? { backgroundColor: D.surface } : null;
+  const darkRow = isDark ? { backgroundColor: D.surfaceAlt } : null;
+  const darkHairline = isDark ? { borderColor: D.borderSubtle } : null;
 
   const [sellerProfile, setSellerProfile] = useState<UserPublicProfile | null>(null);
   const [similarProducts, setSimilarProducts] = useState<UserProfileProductItem[]>([]);
@@ -203,9 +215,9 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
     <View style={styles.root}>
       <View style={[styles.header, { paddingTop: insets.top ? 8 : 16 }]}>
         <TouchableOpacity onPress={onBack} hitSlop={12} accessibilityRole="button">
-          <IconChevronLeft size={24} color={TEXT} />
+          <IconChevronLeft size={24} color={isDark ? D.text : TEXT} />
         </TouchableOpacity>
-        <RNText style={styles.headerTitle}>{t('activity.detailTitle')}</RNText>
+        <RNText style={[styles.headerTitle, darkText]}>{t('activity.detailTitle')}</RNText>
         <TouchableOpacity
           onPress={() => Alert.alert(t('common.appName'), t('home.placeholderScreen'))}
           hitSlop={12}
@@ -219,14 +231,17 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 32 }]}
       >
         {/* Resumen del producto */}
-        <View style={styles.summaryRow}>
+        <View style={[styles.summaryRow, darkHairline]}>
           {purchase.product_image_url ? (
-            <Image source={{ uri: purchase.product_image_url }} style={styles.summaryImage} />
+            <Image
+              source={{ uri: purchase.product_image_url }}
+              style={[styles.summaryImage, darkRow]}
+            />
           ) : (
-            <View style={[styles.summaryImage, styles.summaryImageFallback]} />
+            <View style={[styles.summaryImage, styles.summaryImageFallback, darkRow]} />
           )}
           <View style={styles.summaryBody}>
-            <RNText style={styles.summaryTitle}>{purchase.product_title}</RNText>
+            <RNText style={[styles.summaryTitle, darkText]}>{purchase.product_title}</RNText>
             <TouchableOpacity
               style={styles.sellerChip}
               onPress={() => onOpenSellerProfile?.(sellerId)}
@@ -238,20 +253,20 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
                   style={styles.sellerChipAvatar}
                 />
               ) : (
-                <View style={[styles.sellerChipAvatar, styles.sellerChipFallback]} />
+                <View style={[styles.sellerChipAvatar, styles.sellerChipFallback, darkRow]} />
               )}
               <RNText style={styles.sellerChipText}>{sellerName}</RNText>
             </TouchableOpacity>
             <View style={styles.wonRow}>
-              <RNText style={styles.wonText}>🏆 {t('activity.wonAuction')}</RNText>
+              <RNText style={[styles.wonText, darkText]}>🏆 {t('activity.wonAuction')}</RNText>
               <RNText style={styles.wonPrice}>{priceLabel}</RNText>
             </View>
           </View>
         </View>
 
         {/* Detalles de la compra */}
-        <View style={styles.card}>
-          <RNText style={styles.cardTitle}>{t('activity.purchaseDetails')}</RNText>
+        <View style={[styles.card, darkCard]}>
+          <RNText style={[styles.cardTitle, darkText]}>{t('activity.purchaseDetails')}</RNText>
           <DetailRow
             label={t('activity.orderNumber')}
             value={`#${purchase.order_number}`}
@@ -272,8 +287,8 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
 
         {/* Clip de la Compra: video de la subasta (grabado por platform_livestream). */}
         {purchase.recording_asset_url && !clipError ? (
-          <View style={styles.card}>
-            <RNText style={styles.cardTitle}>{t('activity.clipTitle')}</RNText>
+          <View style={[styles.card, darkCard]}>
+            <RNText style={[styles.cardTitle, darkText]}>{t('activity.clipTitle')}</RNText>
             <TouchableOpacity
               style={styles.clipVideoWrap}
               activeOpacity={0.9}
@@ -318,12 +333,14 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
                 <VideoIcon size={20} color={PRIMARY} strokeWidth={1.75} />
               </View>
               <View style={styles.clipInfoTextCol}>
-                <RNText style={styles.clipInfoTitle} numberOfLines={1}>
+                <RNText style={[styles.clipInfoTitle, darkText]} numberOfLines={1}>
                   {sellerName} · {t('activity.clipOf', { title: purchase.product_title })}
                 </RNText>
-                <RNText style={styles.clipInfoSub}>{t('activity.clipSubtitle')}</RNText>
+                <RNText style={[styles.clipInfoSub, darkMuted]}>
+                  {t('activity.clipSubtitle')}
+                </RNText>
                 {purchase.won_at_ms ? (
-                  <RNText style={styles.clipInfoSub}>
+                  <RNText style={[styles.clipInfoSub, darkMuted]}>
                     {formatDateTime(Math.round(purchase.won_at_ms / 1000), i18n.language || 'es')}
                   </RNText>
                 ) : null}
@@ -333,8 +350,8 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
         ) : null}
 
         {/* Estado del Envío */}
-        <View style={styles.card}>
-          <RNText style={styles.cardTitle}>{t('activity.shippingStatus')}</RNText>
+        <View style={[styles.card, darkCard]}>
+          <RNText style={[styles.cardTitle, darkText]}>{t('activity.shippingStatus')}</RNText>
           <View style={styles.timeline}>
             {timelineSteps.map((step, idx) => (
               <View key={step.label} style={styles.timelineStep}>
@@ -342,6 +359,7 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
                   <View
                     style={[
                       styles.timelineDot,
+                      step.state === 'todo' && darkRow,
                       step.state === 'done' && styles.timelineDotDone,
                       step.state === 'current' && styles.timelineDotCurrent,
                     ]}
@@ -356,6 +374,7 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
                     <View
                       style={[
                         styles.timelineLine,
+                        step.state !== 'done' && darkRow,
                         step.state === 'done' && styles.timelineLineDone,
                       ]}
                     />
@@ -365,13 +384,15 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
                   <RNText
                     style={[
                       styles.timelineLabel,
+                      step.state !== 'todo' && darkText,
                       step.state === 'todo' && styles.timelineLabelTodo,
+                      step.state === 'todo' && isDark ? { color: D.textMuted } : null,
                     ]}
                   >
                     {step.label}
                   </RNText>
                   {step.sub ? (
-                    <RNText style={styles.timelineSub}>{step.sub}</RNText>
+                    <RNText style={[styles.timelineSub, darkMuted]}>{step.sub}</RNText>
                   ) : null}
                 </View>
               </View>
@@ -380,21 +401,21 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
         </View>
 
         {/* Detalle de Pago */}
-        <View style={styles.card}>
-          <RNText style={styles.cardTitle}>{t('activity.paymentDetail')}</RNText>
+        <View style={[styles.card, darkCard]}>
+          <RNText style={[styles.cardTitle, darkText]}>{t('activity.paymentDetail')}</RNText>
           <DetailRow
             label={t('activity.orderId')}
             value={`#PL-${purchase.order_number}`}
           />
-          <View style={styles.totalRow}>
-            <RNText style={styles.totalLabel}>{t('activity.totalPaid')}</RNText>
-            <RNText style={styles.totalValue}>{priceLabel}</RNText>
+          <View style={[styles.totalRow, darkHairline]}>
+            <RNText style={[styles.totalLabel, darkText]}>{t('activity.totalPaid')}</RNText>
+            <RNText style={[styles.totalValue, darkText]}>{priceLabel}</RNText>
           </View>
         </View>
 
         {/* Información del vendedor */}
-        <View style={styles.card}>
-          <RNText style={styles.cardTitle}>{t('activity.sellerInfo')}</RNText>
+        <View style={[styles.card, darkCard]}>
+          <RNText style={[styles.cardTitle, darkText]}>{t('activity.sellerInfo')}</RNText>
           <View style={styles.sellerHeaderRow}>
             <TouchableOpacity
               style={styles.sellerIdentity}
@@ -407,12 +428,12 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
                   style={styles.sellerAvatar}
                 />
               ) : (
-                <View style={[styles.sellerAvatar, styles.sellerChipFallback]} />
+                <View style={[styles.sellerAvatar, styles.sellerChipFallback, darkRow]} />
               )}
               <View style={styles.sellerNameCol}>
-                <RNText style={styles.sellerName}>{sellerName}</RNText>
+                <RNText style={[styles.sellerName, darkText]}>{sellerName}</RNText>
                 {sellerProfile?.subtitle ? (
-                  <RNText style={styles.sellerSubtitle} numberOfLines={1}>
+                  <RNText style={[styles.sellerSubtitle, darkMuted]} numberOfLines={1}>
                     {sellerProfile.subtitle}
                   </RNText>
                 ) : null}
@@ -420,7 +441,11 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
             </TouchableOpacity>
             <View style={styles.sellerActions}>
               <TouchableOpacity
-                style={[styles.sellerActionBtn, isSubscribed && styles.sellerActionBtnActive]}
+                style={[
+                  styles.sellerActionBtn,
+                  darkRow,
+                  isSubscribed && styles.sellerActionBtnActive,
+                ]}
                 onPress={() => {
                   void toggleSubscription();
                 }}
@@ -428,7 +453,7 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
                 <IconBell size={20} color={isSubscribed ? '#FFFFFF' : PRIMARY} strokeWidth={1.75} />
               </TouchableOpacity>
               <TouchableOpacity
-                style={styles.sellerActionBtn}
+                style={[styles.sellerActionBtn, darkRow]}
                 onPress={() => Alert.alert(t('common.appName'), t('home.placeholderScreen'))}
               >
                 <IconChat size={20} color={PRIMARY} strokeWidth={1.75} />
@@ -438,28 +463,32 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
 
           {sellerProfile ? (
             <View style={styles.sellerStatsRow}>
-              <View style={styles.sellerStatCard}>
+              <View style={[styles.sellerStatCard, darkRow]}>
                 <Star size={16} color={PRIMARY} strokeWidth={2} />
-                <RNText style={styles.sellerStatValue}>
+                <RNText style={[styles.sellerStatValue, darkText]}>
                   {sellerProfile.reviews_avg ?? '—'}
                 </RNText>
-                <RNText style={styles.sellerStatLabel}>
+                <RNText style={[styles.sellerStatLabel, darkMuted]}>
                   {formatCompactCount(sellerProfile.reviews_count ?? 0)}{' '}
                   {t('profile.reviewsLabel')}
                 </RNText>
               </View>
-              <View style={styles.sellerStatCard}>
+              <View style={[styles.sellerStatCard, darkRow]}>
                 <Tag size={16} color={PRIMARY} strokeWidth={2} />
-                <RNText style={styles.sellerStatValue}>
+                <RNText style={[styles.sellerStatValue, darkText]}>
                   {formatCompactCount(sellerProfile.sold_count ?? 0)}
                 </RNText>
-                <RNText style={styles.sellerStatLabel}>{t('profile.sold')}</RNText>
+                <RNText style={[styles.sellerStatLabel, darkMuted]}>{t('profile.sold')}</RNText>
               </View>
             </View>
           ) : null}
 
           <TouchableOpacity
-            style={[styles.followBtn, isFollowing && styles.followBtnFollowing]}
+            style={[
+              styles.followBtn,
+              isFollowing && styles.followBtnFollowing,
+              isFollowing ? darkRow : null,
+            ]}
             onPress={() => {
               void toggleFollow();
             }}
@@ -467,10 +496,17 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
             activeOpacity={0.85}
           >
             {followLoading ? (
-              <ActivityIndicator color={isFollowing ? MUTED : '#FFFFFF'} size="small" />
+              <ActivityIndicator
+                color={isFollowing ? (isDark ? D.textSecondary : MUTED) : '#FFFFFF'}
+                size="small"
+              />
             ) : (
               <RNText
-                style={[styles.followBtnText, isFollowing && styles.followBtnTextFollowing]}
+                style={[
+                  styles.followBtnText,
+                  isFollowing && styles.followBtnTextFollowing,
+                  isFollowing ? darkMuted : null,
+                ]}
               >
                 {isFollowing ? t('stream.following') : t('stream.follow')}
               </RNText>
@@ -479,9 +515,9 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
         </View>
 
         {/* Cuéntanos tu opinión */}
-        <View style={styles.card}>
+        <View style={[styles.card, darkCard]}>
           <View style={styles.reviewHeaderRow}>
-            <RNText style={styles.cardTitle}>{t('activity.reviewTitle')}</RNText>
+            <RNText style={[styles.cardTitle, darkText]}>{t('activity.reviewTitle')}</RNText>
             <TouchableOpacity onPress={() => onOpenSellerProfile?.(sellerId)}>
               <RNText style={styles.reviewSeeAll}>{t('activity.seeReviews')}</RNText>
             </TouchableOpacity>
@@ -490,16 +526,18 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
             <RNText style={styles.reviewThanks}>{t('activity.reviewThanks')}</RNText>
           ) : (
             <>
-              <View style={styles.reviewStarsWrap}>
+              <View style={[styles.reviewStarsWrap, darkRow]}>
                 <StarRatingInput value={reviewRating} onChange={setReviewRating} />
               </View>
-              <RNText style={styles.reviewFieldLabel}>{t('activity.reviewMessage')}</RNText>
+              <RNText style={[styles.reviewFieldLabel, darkMuted]}>
+                {t('activity.reviewMessage')}
+              </RNText>
               <TextInput
-                style={styles.reviewInput}
+                style={[styles.reviewInput, darkHairline, darkRow, darkText]}
                 value={reviewMessage}
                 onChangeText={setReviewMessage}
                 placeholder={t('activity.reviewMessagePlaceholder')}
-                placeholderTextColor={MUTED}
+                placeholderTextColor={isDark ? D.textMuted : MUTED}
                 multiline
               />
               <TouchableOpacity
@@ -525,31 +563,31 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
 
         {/* Productos similares */}
         {similarProducts.length > 0 ? (
-          <View style={styles.card}>
+          <View style={[styles.card, darkCard]}>
             <View style={styles.reviewHeaderRow}>
-              <RNText style={styles.cardTitle}>{t('activity.similarProducts')}</RNText>
+              <RNText style={[styles.cardTitle, darkText]}>{t('activity.similarProducts')}</RNText>
               <TouchableOpacity onPress={() => onOpenSellerProfile?.(sellerId)}>
                 <RNText style={styles.reviewSeeAll}>{t('activity.seeAll')}</RNText>
               </TouchableOpacity>
             </View>
             <View style={styles.similarRow}>
               {similarProducts.slice(0, 2).map((product) => (
-                <View key={product.room_uuid} style={styles.similarCard}>
+                <View key={product.room_uuid} style={[styles.similarCard, darkRow]}>
                   {product.thumbnail_url ? (
                     <Image
                       source={{ uri: product.thumbnail_url }}
                       style={styles.similarImage}
                     />
                   ) : (
-                    <View style={[styles.similarImage, styles.sellerChipFallback]} />
+                    <View style={[styles.similarImage, styles.sellerChipFallback, darkRow]} />
                   )}
-                  <RNText style={styles.similarTitle} numberOfLines={1}>
+                  <RNText style={[styles.similarTitle, darkText]} numberOfLines={1}>
                     {product.title}
                   </RNText>
-                  <RNText style={styles.similarSeller} numberOfLines={1}>
+                  <RNText style={[styles.similarSeller, darkMuted]} numberOfLines={1}>
                     {sellerName}
                   </RNText>
-                  <RNText style={styles.similarPrice}>
+                  <RNText style={[styles.similarPrice, darkText]}>
                     {formatStreamPrice(
                       Math.round(product.price_cents / 100),
                       product.currency
@@ -562,8 +600,8 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
         ) : null}
 
         {/* Soporte */}
-        <View style={styles.card}>
-          <RNText style={styles.cardTitle}>{t('activity.needHelp')}</RNText>
+        <View style={[styles.card, darkCard]}>
+          <RNText style={[styles.cardTitle, darkText]}>{t('activity.needHelp')}</RNText>
           <TouchableOpacity
             style={styles.followBtn}
             onPress={() => Alert.alert(t('common.appName'), t('home.placeholderScreen'))}
@@ -605,21 +643,32 @@ const DetailRow: React.FC<{
   value: string;
   valueColor?: string;
   onCopy?: () => void;
-}> = ({ label, value, valueColor, onCopy }) => (
-  <View style={styles.detailRow}>
-    <RNText style={styles.detailLabel}>{label}</RNText>
-    <View style={styles.detailValueWrap}>
-      <RNText style={[styles.detailValue, valueColor ? { color: valueColor } : null]}>
-        {value}
+}> = ({ label, value, valueColor, onCopy }) => {
+  const { isDark } = useTheme();
+  return (
+    <View style={[styles.detailRow, isDark ? { backgroundColor: D.surfaceAlt } : null]}>
+      <RNText style={[styles.detailLabel, isDark ? { color: D.textSecondary } : null]}>
+        {label}
       </RNText>
-      {onCopy ? (
-        <TouchableOpacity onPress={onCopy} hitSlop={8}>
-          <Copy size={16} color={PRIMARY} strokeWidth={2} />
-        </TouchableOpacity>
-      ) : null}
+      <View style={styles.detailValueWrap}>
+        <RNText
+          style={[
+            styles.detailValue,
+            isDark ? { color: D.text } : null,
+            valueColor ? { color: valueColor } : null,
+          ]}
+        >
+          {value}
+        </RNText>
+        {onCopy ? (
+          <TouchableOpacity onPress={onCopy} hitSlop={8}>
+            <Copy size={16} color={PRIMARY} strokeWidth={2} />
+          </TouchableOpacity>
+        ) : null}
+      </View>
     </View>
-  </View>
-);
+  );
+};
 
 const styles = StyleSheet.create({
   root: {
@@ -1087,7 +1136,7 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.semibold,
     fontSize: 14,
     lineHeight: 20,
-    color: '#18AF1D',
+    color: themeColors.success,
     includeFontPadding: false,
   },
   similarRow: {

@@ -4,10 +4,12 @@
  */
 import React, { useEffect } from 'react';
 import { View, StyleSheet, Text as RNText } from 'react-native';
-import { CreditCard, Wallet } from 'lucide-react-native';
+import { CreditCard } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import { StreamBottomSheet, streamBottomPanelStyle } from '../StreamBottomSheet';
 import { FONT_FAMILY } from '../../../../theme/typography';
+import { themeColors } from '../../../../theme/colors';
 
 export type SuccessPaymentMethod =
   | { type: 'mp_wallet' }
@@ -39,7 +41,9 @@ export const StreamWalletSuccessDrawer: React.FC<StreamWalletSuccessDrawerProps>
   return (
     <StreamBottomSheet
       visible={visible}
-      title={t('stream.wallet.walletTitle')}
+      /* Toast: se cierra solo a los 2,5 s, sin título ni X de drawer. */
+      title=""
+      showCloseButton={false}
       onClose={onClose}
       panelStyle={streamBottomPanelStyle}
       contentContainerStyle={styles.content}
@@ -56,7 +60,7 @@ export const StreamWalletSuccessDrawer: React.FC<StreamWalletSuccessDrawerProps>
 
 function resolveLabel(
   method: SuccessPaymentMethod | null | undefined,
-  t: (key: string) => string,
+  t: TFunction,
 ): string {
   if (!method) return t('stream.wallet.connectingDefault');
   if (method.type === 'mp_wallet') return t('stream.wallet.connectingMp');
@@ -84,7 +88,7 @@ function MethodIcon({ method }: { method?: SuccessPaymentMethod | null }) {
 
 const styles = StyleSheet.create({
   content: {
-    paddingVertical: 8,
+    paddingBottom: 8,
   },
   row: {
     flexDirection: 'row',
@@ -118,7 +122,7 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.semibold,
     fontSize: 16,
     lineHeight: 24,
-    color: '#FFFFFF',
+    color: themeColors.glass.text,
     letterSpacing: 0.08,
     flex: 1,
     includeFontPadding: false,

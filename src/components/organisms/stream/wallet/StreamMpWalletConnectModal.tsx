@@ -12,7 +12,9 @@ import {
 import { WebView } from 'react-native-webview';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { X } from 'lucide-react-native';
 import { FONT_FAMILY } from '../../../../theme/typography';
+import { themeColors } from '../../../../theme/colors';
 import type { MpWalletConnectSession } from '../../../../api/paymentsApi';
 import {
   isMpWalletReturnUrl,
@@ -79,9 +81,24 @@ export const StreamMpWalletConnectModal: React.FC<StreamMpWalletConnectModalProp
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onCancel}>
       <View style={[styles.host, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+        <View style={styles.header}>
+          <RNText style={styles.headerTitle} numberOfLines={2} maxFontSizeMultiplier={1.15}>
+            {t('stream.wallet.mpConnectTitle')}
+          </RNText>
+          <TouchableOpacity
+            onPress={onCancel}
+            hitSlop={12}
+            style={styles.closeBtn}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+          >
+            <X size={22} color={themeColors.glass.text} strokeWidth={2.2} />
+          </TouchableOpacity>
+        </View>
+
         {showLoader ? (
           <View style={styles.centerContent}>
-            <ActivityIndicator size="large" color="#685CF0" />
+            <ActivityIndicator size="large" color={themeColors.primary} />
             <RNText style={styles.bodyText}>{t('stream.wallet.mpConnectLoading')}</RNText>
           </View>
         ) : null}
@@ -115,20 +132,12 @@ export const StreamMpWalletConnectModal: React.FC<StreamMpWalletConnectModalProp
               startInLoadingState
               renderLoading={() => (
                 <View style={styles.webviewLoading}>
-                  <ActivityIndicator size="large" color="#685CF0" />
+                  <ActivityIndicator size="large" color={themeColors.primary} />
                 </View>
               )}
             />
           </View>
         ) : null}
-
-        <TouchableOpacity
-          onPress={onCancel}
-          style={[styles.cancelBtn, { top: insets.top + 12 }]}
-          activeOpacity={0.85}
-        >
-          <RNText style={styles.cancelText}>{t('common.cancel')}</RNText>
-        </TouchableOpacity>
       </View>
     </Modal>
   );
@@ -139,9 +148,33 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#02050F',
   },
+  /** Header canónico: título a la izquierda + X 22 en caja 40×40 a la derecha. */
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+    paddingHorizontal: 24,
+    paddingTop: 16,
+  },
+  headerTitle: {
+    fontFamily: FONT_FAMILY.bold,
+    fontSize: 16,
+    lineHeight: 20,
+    color: themeColors.glass.text,
+    flex: 1,
+    marginRight: 8,
+    includeFontPadding: false,
+  },
+  closeBtn: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   webviewWrap: {
     flex: 1,
-    paddingTop: 48,
+    paddingTop: 16,
   },
   webview: {
     flex: 1,
@@ -157,7 +190,7 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.regular,
     fontSize: 12,
     lineHeight: 18,
-    color: 'rgba(255,255,255,0.75)',
+    color: themeColors.glass.textSoft,
     textAlign: 'center',
     marginBottom: 8,
     paddingHorizontal: 16,
@@ -169,13 +202,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 16,
     paddingHorizontal: 28,
-    paddingTop: 48,
   },
   bodyText: {
     fontFamily: FONT_FAMILY.regular,
     fontSize: 14,
     lineHeight: 22,
-    color: 'rgba(255,255,255,0.88)',
+    color: themeColors.glass.textSoft,
     textAlign: 'center',
     includeFontPadding: false,
   },
@@ -183,14 +215,13 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: 'center',
     paddingHorizontal: 24,
-    paddingTop: 48,
     gap: 20,
   },
   testAckTitle: {
     fontFamily: FONT_FAMILY.bold,
     fontSize: 18,
     lineHeight: 26,
-    color: '#FFFFFF',
+    color: themeColors.glass.text,
     textAlign: 'center',
     includeFontPadding: false,
   },
@@ -198,14 +229,14 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.regular,
     fontSize: 14,
     lineHeight: 22,
-    color: 'rgba(255,255,255,0.88)',
+    color: themeColors.glass.textSoft,
     textAlign: 'center',
     includeFontPadding: false,
   },
   primaryBtn: {
-    height: 44,
+    height: 40,
     borderRadius: 1000,
-    backgroundColor: '#685CF0',
+    backgroundColor: themeColors.primary,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 8,
@@ -215,21 +246,7 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.bold,
     fontSize: 14,
     lineHeight: 20,
-    color: '#FFFFFF',
-    includeFontPadding: false,
-  },
-  cancelBtn: {
-    position: 'absolute',
-    right: 16,
-    backgroundColor: 'rgba(255,255,255,0.92)',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 1000,
-  },
-  cancelText: {
-    fontFamily: FONT_FAMILY.semibold,
-    fontSize: 14,
-    color: '#02050F',
+    color: themeColors.glass.text,
     includeFontPadding: false,
   },
 });

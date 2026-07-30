@@ -13,6 +13,7 @@ import { useTranslation } from 'react-i18next';
 import { Check } from 'lucide-react-native';
 import { StreamBottomSheet, streamSheetStyles } from '../StreamBottomSheet';
 import { FONT_FAMILY } from '../../../../theme/typography';
+import { themeColors } from '../../../../theme/colors';
 import { getMercadoPagoCardFormHtml } from '../../../../utils/mercadoPagoCardFormHtml';
 import {
   createSavedCard,
@@ -196,7 +197,7 @@ export const StreamAddCardDrawer: React.FC<StreamAddCardDrawerProps> = ({
             activeOpacity={0.85}
           >
             {saving ? (
-              <ActivityIndicator color="#FFFFFF" />
+              <ActivityIndicator color={themeColors.glass.text} />
             ) : (
               <RNText style={streamSheetStyles.primaryBtnText}>
                 {t('stream.wallet.addCardSubmit')}
@@ -215,7 +216,7 @@ export const StreamAddCardDrawer: React.FC<StreamAddCardDrawerProps> = ({
           style={styles.input}
           value={cardholderName}
           onChangeText={setCardholderName}
-          placeholderTextColor="rgba(255,255,255,0.45)"
+          placeholderTextColor={themeColors.glass.placeholder}
           placeholder={t('stream.wallet.cardholderPlaceholder')}
         />
       </Field>
@@ -226,13 +227,13 @@ export const StreamAddCardDrawer: React.FC<StreamAddCardDrawerProps> = ({
           value={identificationNumber}
           onChangeText={setIdentificationNumber}
           keyboardType="number-pad"
-          placeholderTextColor="rgba(255,255,255,0.45)"
+          placeholderTextColor={themeColors.glass.placeholder}
           placeholder={t('stream.wallet.docNumberPlaceholder')}
         />
       </Field>
 
       {loadingConfig || !publicKey ? (
-        <ActivityIndicator color="#FFFFFF" style={styles.loader} />
+        <ActivityIndicator color={themeColors.glass.text} style={styles.loader} />
       ) : (
         <View
           style={styles.webviewWrap}
@@ -263,7 +264,7 @@ export const StreamAddCardDrawer: React.FC<StreamAddCardDrawerProps> = ({
           />
           {!mpReady ? (
             <View style={styles.webviewLoading} pointerEvents="none">
-              <ActivityIndicator color="#FFFFFF" size="small" />
+              <ActivityIndicator color={themeColors.glass.text} size="small" />
             </View>
           ) : null}
         </View>
@@ -278,7 +279,7 @@ export const StreamAddCardDrawer: React.FC<StreamAddCardDrawerProps> = ({
           style={styles.input}
           value={country}
           onChangeText={setCountry}
-          placeholderTextColor="rgba(255,255,255,0.45)"
+          placeholderTextColor={themeColors.glass.placeholder}
         />
       </Field>
 
@@ -288,7 +289,7 @@ export const StreamAddCardDrawer: React.FC<StreamAddCardDrawerProps> = ({
           value={postalCode}
           onChangeText={setPostalCode}
           keyboardType="number-pad"
-          placeholderTextColor="rgba(255,255,255,0.45)"
+          placeholderTextColor={themeColors.glass.placeholder}
         />
       </Field>
 
@@ -298,7 +299,7 @@ export const StreamAddCardDrawer: React.FC<StreamAddCardDrawerProps> = ({
         activeOpacity={0.8}
       >
         <View style={[styles.checkbox, termsAccepted && styles.checkboxOn]}>
-          {termsAccepted ? <Check size={12} color="#FFFFFF" /> : null}
+          {termsAccepted ? <Check size={12} color={themeColors.glass.text} /> : null}
         </View>
         <RNText style={styles.termsText}>{t('stream.wallet.termsText')}</RNText>
       </TouchableOpacity>
@@ -324,19 +325,19 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.regular,
     fontSize: 10,
     lineHeight: 18,
-    color: '#FFFFFF',
+    color: themeColors.glass.text,
     includeFontPadding: false,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#DDDDDD',
+    borderColor: themeColors.glass.border,
     borderRadius: 1000,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontFamily: FONT_FAMILY.bold,
     fontSize: 12,
-    color: '#FFFFFF',
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    color: themeColors.glass.text,
+    backgroundColor: themeColors.glass.inputBg,
   },
   webviewWrap: {
     height: 260,
@@ -370,28 +371,27 @@ const styles = StyleSheet.create({
     height: 18,
     borderRadius: 4,
     borderWidth: 1,
-    borderColor: '#DDDDDD',
+    borderColor: themeColors.glass.border,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 2,
   },
   checkboxOn: {
-    backgroundColor: '#00C566',
-    borderColor: '#00C566',
+    backgroundColor: themeColors.success,
+    borderColor: themeColors.success,
   },
   termsText: {
     flex: 1,
     fontFamily: FONT_FAMILY.regular,
     fontSize: 10,
     lineHeight: 18,
-    color: '#FFFFFF',
+    color: themeColors.glass.text,
     includeFontPadding: false,
   },
   footer: {
-    paddingHorizontal: 24,
     paddingBottom: 8,
   },
   btnDisabled: {
-    opacity: 0.5,
+    opacity: themeColors.disabledOpacity,
   },
 });

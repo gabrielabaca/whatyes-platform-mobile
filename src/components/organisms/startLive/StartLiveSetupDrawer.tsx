@@ -107,6 +107,14 @@ export const StartLiveSetupDrawer: React.FC<StartLiveSetupDrawerProps> = ({
       contentContainerStyle={startLiveStyles.sheetContent}
       scrollEnabled
       dismissOnBackdropPress={false}
+      footer={
+        <StartLivePrimaryButton
+          label={t('startLive.nextCta')}
+          onPress={() => void handleSubmit()}
+          disabled={!canSubmit}
+          loading={busy}
+        />
+      }
     >
       <RNText style={startLiveStyles.subtitle}>{t('startLive.setupSubtitle')}</RNText>
 
@@ -174,13 +182,6 @@ export const StartLiveSetupDrawer: React.FC<StartLiveSetupDrawerProps> = ({
 
         {error ? <RNText style={startLiveStyles.error}>{error}</RNText> : null}
       </ScrollView>
-
-      <StartLivePrimaryButton
-        label={t('startLive.nextCta')}
-        onPress={() => void handleSubmit()}
-        disabled={!canSubmit}
-        loading={busy}
-      />
     </StreamBottomSheet>
   );
 };

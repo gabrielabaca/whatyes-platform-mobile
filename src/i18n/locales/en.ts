@@ -6,6 +6,12 @@ export default {
     "dark": "Dark",
     "automatic": "Automatic"
   },
+  "userMenu": {
+    "title": "Menu",
+    "statusVerified": "Verified",
+    "statusIncompleteProfile": "Incomplete profile",
+    "statusUnverified": "Not verified"
+  },
   "common": {
     "appName": "PulpoLive",
     "continue": "Continue",
@@ -14,13 +20,15 @@ export default {
     "ok": "OK",
     "or": "Or",
     "cancel": "Cancel",
+    "close": "Close",
     "back": "Back",
     "done": "Done",
     "loading": "Loading...",
     "email": "Email",
     "password": "Password",
     "emailPlaceholder": "example@email.com",
-    "invalidEmail": "Please enter a valid email address."
+    "invalidEmail": "Please enter a valid email address.",
+    "noResults": "No results"
   },
   "loading": {
     "message": "Loading..."
@@ -377,6 +385,7 @@ export default {
       "locationFailed": "We couldn't detect your address. Please fill it in manually.",
       "fullName": "Full name",
       "country": "Country",
+      "countrySearch": "Search country…",
       "address": "Address",
       "city": "City",
       "state": "State",
@@ -506,6 +515,10 @@ export default {
     "addProductNoCategory": "Set a category for this live before adding products",
     "addProductCameraBusy": "The camera can't open while you're live. Use the gallery to add product photos.",
     "addProductGalleryOnlyHint": "While live, you can only pick photos from your gallery.",
+    "addProductDiscardTitle": "Discard product?",
+    "addProductDiscardBody": "If you close now you will lose what you entered.",
+    "addProductDiscardConfirm": "Discard",
+    "addProductDiscardKeep": "Keep editing",
     "flipCamera": "Flip camera",
     "flipCameraWebRtcHint": "Cannot switch camera while WebRTC broadcast is active.",
     "auctionDurationHint": "Duration in seconds (5-300):",
@@ -607,6 +620,7 @@ export default {
       "mpWalletSubtitle": "Pay with your Mercado Pago account when you bid",
       "mpWalletSelected": "Mercado Pago selected as payment method.",
       "mpWalletLinked": "Your Mercado Pago account was linked successfully.",
+      "mpConnectTitle": "Link Mercado Pago",
       "mpConnectLoading": "Opening Mercado Pago…",
       "mpBrowserTitle": "Complete in Mercado Pago",
       "mpBrowserBody": "We opened Mercado Pago in your browser. When you're done, return to PulpoLive and the app will update automatically.",
@@ -775,6 +789,7 @@ export default {
     bankFormCta: 'Add',
     bankFormError: 'Could not save the account. Check the CBU and try again.',
     nextCta: 'Next',
+    saveCta: 'Save',
     readyTitle: 'Ready to go live',
     readyHeadline: 'All set for your show!',
     readyBody: 'You configured everything needed. When you tap Start you will enter live with your selected categories.',

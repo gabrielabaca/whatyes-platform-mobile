@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Modo oscuro. Solo se sobreescriben los colores de ventana y barra de navegación:
+  el resto (splash e ícono) es color de marca y no depende del tema.
+  El fondo coincide con themeColors.dark.background (#050f2f) para que no se vea
+  una franja clara detrás del área gestual.
+-->
+<resources>
+    <color name="app_window_background_color">#050F2F</color>
+    <color name="app_navigation_bar_color">#050F2F</color>
+</resources>

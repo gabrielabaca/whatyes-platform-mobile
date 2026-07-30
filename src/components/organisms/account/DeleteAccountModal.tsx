@@ -11,18 +11,15 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
-import { X } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   GlassFullScreenModal,
   type GlassFullScreenModalHandle,
 } from '../profile/GlassFullScreenModal';
+import { GlassModalHeader } from '../profile/GlassModalHeader';
 import { FONT_FAMILY } from '../../../theme/typography';
+import { themeColors } from '../../../theme/colors';
 import { deleteOwnAccount, ApiError } from '../../../api/authApi';
-
-const DANGER_RED = '#FB2C36';
-const CANCEL_GOLD = '#FDC700';
 
 export interface DeleteAccountModalProps {
   visible: boolean;
@@ -36,7 +33,6 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({
   onDeleted,
 }) => {
   const { t } = useTranslation();
-  const insets = useSafeAreaInsets();
   const modalRef = useRef<GlassFullScreenModalHandle>(null);
   const [confirmText, setConfirmText] = useState('');
   const [deleting, setDeleting] = useState(false);
@@ -87,16 +83,15 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({
       onClose={onClose}
       backdropDelayMs={400}
       backdropAccessibilityLabel={t('account.deleteAccountModal.cancel')}
-        dismissOnBackdropPress={false}
+      dismissOnBackdropPress={false}
       scrollable={false}
-      containerStyle={[styles.container, { paddingTop: insets.top + 16 }]}
+      contentContainerStyle={styles.content}
       header={
-        <View style={styles.header}>
-          <RNText style={styles.title}>{t('account.deleteAccountModal.title')}</RNText>
-          <TouchableOpacity onPress={handleClose} hitSlop={12} disabled={deleting}>
-            <X size={22} color="#FFFFFF" strokeWidth={2.2} />
-          </TouchableOpacity>
-        </View>
+        <GlassModalHeader
+          title={t('account.deleteAccountModal.title')}
+          onClose={handleClose}
+          closeDisabled={deleting}
+        />
       }
       footer={
         <View style={styles.footer}>
@@ -107,7 +102,7 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({
             activeOpacity={0.88}
           >
             {deleting ? (
-              <ActivityIndicator color="#FFFFFF" />
+              <ActivityIndicator color={themeColors.glass.text} />
             ) : (
               <RNText style={styles.deleteBtnText}>
                 {t('account.deleteAccountModal.delete')}
@@ -143,7 +138,7 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({
             value={confirmText}
             onChangeText={setConfirmText}
             placeholder={t('account.deleteAccountModal.confirmPlaceholder')}
-            placeholderTextColor="rgba(255,255,255,0.5)"
+            placeholderTextColor={themeColors.glass.placeholder}
             style={styles.input}
             autoCapitalize="none"
             autoCorrect={false}
@@ -156,23 +151,9 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
+  content: {
     paddingHorizontal: 24,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 24,
-  },
-  title: {
-    fontFamily: FONT_FAMILY.bold,
-    fontSize: 16,
-    lineHeight: 20,
-    color: '#FFFFFF',
-    flex: 1,
-    includeFontPadding: false,
+    paddingTop: 16,
   },
   body: {
     flex: 1,
@@ -185,30 +166,30 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.regular,
     fontSize: 14,
     lineHeight: 22,
-    color: 'rgba(255,255,255,0.9)',
+    color: themeColors.glass.textSoft,
     includeFontPadding: false,
   },
   fieldLabel: {
     fontFamily: FONT_FAMILY.semibold,
     fontSize: 10,
     lineHeight: 18,
-    color: '#FFFFFF',
+    color: themeColors.glass.text,
     letterSpacing: 0.05,
     includeFontPadding: false,
   },
   inputWrap: {
     borderWidth: 1,
-    borderColor: '#DDDDDD',
+    borderColor: themeColors.glass.border,
     borderRadius: 1000,
     paddingHorizontal: 16,
     paddingVertical: 16,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: themeColors.glass.inputBg,
   },
   input: {
     fontFamily: FONT_FAMILY.bold,
     fontSize: 12,
     lineHeight: 20,
-    color: '#FFFFFF',
+    color: themeColors.glass.text,
     padding: 0,
     margin: 0,
     includeFontPadding: false,
@@ -223,19 +204,19 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 40,
     borderRadius: 1000,
-    backgroundColor: DANGER_RED,
+    backgroundColor: themeColors.danger,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 12,
   },
   deleteBtnDisabled: {
-    opacity: 0.45,
+    opacity: themeColors.disabledOpacity,
   },
   deleteBtnText: {
     fontFamily: FONT_FAMILY.bold,
     fontSize: 14,
     lineHeight: 20,
-    color: '#FFFFFF',
+    color: themeColors.glass.text,
     includeFontPadding: false,
   },
   cancelWrap: {
@@ -245,7 +226,7 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.bold,
     fontSize: 14,
     lineHeight: 20,
-    color: CANCEL_GOLD,
+    color: themeColors.gold,
     includeFontPadding: false,
   },
 });

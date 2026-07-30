@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { IconShoppingBag, IconUser } from '../icons';
 import { FONT_FAMILY } from '../../theme/typography';
 import { themeColors } from '../../theme/colors';
+import { useTheme } from '../../context/ThemeContext';
 
 export interface BuyerPurchasesScreenProps {
   /** Abre la pantalla de Cuenta (ajustes / cerrar sesión). */
@@ -13,11 +14,17 @@ export interface BuyerPurchasesScreenProps {
 /** Tab "Compras" del bottom nav (Figma 652:34535). */
 export const BuyerPurchasesScreen: React.FC<BuyerPurchasesScreenProps> = ({ onOpenAccount }) => {
   const { t } = useTranslation();
+  const { isDark } = useTheme();
+  const d = themeColors.dark;
 
   return (
-    <View style={styles.screen}>
+    <View
+      style={[styles.screen, isDark ? { backgroundColor: d.background } : null]}
+    >
       <View style={styles.header}>
-        <RNText style={styles.title}>{t('home.tabPurchases')}</RNText>
+        <RNText style={[styles.title, isDark ? { color: d.text } : null]}>
+          {t('home.tabPurchases')}
+        </RNText>
         <TouchableOpacity
           style={styles.accountBtn}
           onPress={onOpenAccount}
@@ -34,8 +41,14 @@ export const BuyerPurchasesScreen: React.FC<BuyerPurchasesScreenProps> = ({ onOp
         <View style={styles.emptyIcon}>
           <IconShoppingBag size={28} color={themeColors.primary} strokeWidth={2} />
         </View>
-        <RNText style={styles.emptyTitle}>{t('purchases.emptyTitle')}</RNText>
-        <RNText style={styles.emptySubtitle}>{t('purchases.emptySubtitle')}</RNText>
+        <RNText style={[styles.emptyTitle, isDark ? { color: d.text } : null]}>
+          {t('purchases.emptyTitle')}
+        </RNText>
+        <RNText
+          style={[styles.emptySubtitle, isDark ? { color: d.textSecondary } : null]}
+        >
+          {t('purchases.emptySubtitle')}
+        </RNText>
       </View>
     </View>
   );

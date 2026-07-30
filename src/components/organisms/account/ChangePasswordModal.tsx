@@ -12,14 +12,15 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
-import { X, Eye, EyeOff } from 'lucide-react-native';
+import { Eye, EyeOff } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   GlassFullScreenModal,
   type GlassFullScreenModalHandle,
 } from '../profile/GlassFullScreenModal';
+import { GlassModalHeader } from '../profile/GlassModalHeader';
 import { FONT_FAMILY } from '../../../theme/typography';
+import { themeColors } from '../../../theme/colors';
 import { passwordMeetsPolicy } from '../../../utils/formValidation';
 import {
   changePasswordConfirm,
@@ -28,9 +29,6 @@ import {
   ApiError,
 } from '../../../api/authApi';
 
-const PRIMARY = '#685CF0';
-const CANCEL_GOLD = '#FDC700';
-const ERROR_RED = '#FB2C36';
 const OTP_LENGTH = 4;
 const RESEND_COOLDOWN_SEC = 60;
 
@@ -48,7 +46,6 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
   onClose,
 }) => {
   const { t } = useTranslation();
-  const insets = useSafeAreaInsets();
   const modalRef = useRef<GlassFullScreenModalHandle>(null);
   const otpInputRef = useRef<TextInput>(null);
 
@@ -236,7 +233,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
       activeOpacity={0.88}
     >
       {loading ? (
-        <ActivityIndicator color="#FFFFFF" />
+        <ActivityIndicator color={themeColors.glass.text} />
       ) : (
         <RNText style={styles.primaryBtnText}>{label}</RNText>
       )}
@@ -256,17 +253,11 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
       onClose={onClose}
       backdropDelayMs={400}
       backdropAccessibilityLabel={t('account.changePasswordModal.cancel')}
-        dismissOnBackdropPress={false}
-      containerStyle={[styles.container, { paddingTop: insets.top + 16 }]}
+      dismissOnBackdropPress={false}
       scrollStyle={styles.contentScroll}
       contentContainerStyle={styles.contentScrollInner}
       header={
-        <View style={styles.header}>
-          <RNText style={styles.title}>{t(titleKey)}</RNText>
-          <TouchableOpacity onPress={handleClose} hitSlop={12} disabled={loading}>
-            <X size={22} color="#FFFFFF" strokeWidth={2.2} />
-          </TouchableOpacity>
-        </View>
+        <GlassModalHeader title={t(titleKey)} onClose={handleClose} closeDisabled={loading} />
       }
       subHeader={
         <RNText style={styles.subtitle}>
@@ -418,7 +409,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
                         }
                       }}
                       placeholder={t('account.changePasswordModal.passwordPlaceholder')}
-                      placeholderTextColor="rgba(255,255,255,0.5)"
+                      placeholderTextColor={themeColors.glass.placeholder}
                       style={styles.input}
                       secureTextEntry={!showNewPassword}
                       autoCapitalize="none"
@@ -431,9 +422,9 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
                       style={styles.eyeBtn}
                     >
                       {showNewPassword ? (
-                        <EyeOff size={20} color="rgba(255,255,255,0.7)" />
+                        <EyeOff size={20} color={themeColors.glass.textSoft} />
                       ) : (
-                        <Eye size={20} color="rgba(255,255,255,0.7)" />
+                        <Eye size={20} color={themeColors.glass.textSoft} />
                       )}
                     </TouchableOpacity>
                   </View>
@@ -453,7 +444,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
                         }
                       }}
                       placeholder={t('account.changePasswordModal.passwordPlaceholder')}
-                      placeholderTextColor="rgba(255,255,255,0.5)"
+                      placeholderTextColor={themeColors.glass.placeholder}
                       style={styles.input}
                       secureTextEntry={!showConfirmPassword}
                       autoCapitalize="none"
@@ -466,9 +457,9 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
                       style={styles.eyeBtn}
                     >
                       {showConfirmPassword ? (
-                        <EyeOff size={20} color="rgba(255,255,255,0.7)" />
+                        <EyeOff size={20} color={themeColors.glass.textSoft} />
                       ) : (
-                        <Eye size={20} color="rgba(255,255,255,0.7)" />
+                        <Eye size={20} color={themeColors.glass.textSoft} />
                       )}
                     </TouchableOpacity>
                   </View>
@@ -482,22 +473,15 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    paddingHorizontal: 24,
-    gap: 24,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
   contentScroll: {
     flex: 1,
   },
   contentScrollInner: {
     flexGrow: 1,
     justifyContent: 'flex-start',
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 16,
   },
   fieldGroup: {
     gap: 8,
@@ -506,35 +490,29 @@ const styles = StyleSheet.create({
     gap: 24,
     alignItems: 'center',
     width: '100%',
-  },
-  title: {
-    fontFamily: FONT_FAMILY.bold,
-    fontSize: 16,
-    lineHeight: 20,
-    color: '#FFFFFF',
-    flex: 1,
-    includeFontPadding: false,
+    paddingHorizontal: 24,
   },
   subtitle: {
     fontFamily: FONT_FAMILY.bold,
     fontSize: 14,
     lineHeight: 20,
-    color: '#E4E1E1',
+    color: themeColors.glass.textMuted,
+    paddingHorizontal: 24,
     includeFontPadding: false,
   },
   fieldLabel: {
-    fontFamily: FONT_FAMILY.regular,
+    fontFamily: FONT_FAMILY.semibold,
     fontSize: 10,
     lineHeight: 18,
-    color: '#FFFFFF',
+    color: themeColors.glass.text,
     letterSpacing: 0.05,
     includeFontPadding: false,
   },
   inputWrap: {
     borderRadius: 1000,
     borderWidth: 1,
-    borderColor: '#DDDDDD',
-    backgroundColor: 'rgba(236, 235, 235, 0.3)',
+    borderColor: themeColors.glass.border,
+    backgroundColor: themeColors.glass.inputBg,
     paddingHorizontal: 16,
     paddingVertical: 16,
   },
@@ -545,7 +523,7 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.bold,
     fontSize: 12,
     lineHeight: 20,
-    color: '#FFFFFF',
+    color: themeColors.glass.text,
     letterSpacing: 0.06,
     includeFontPadding: false,
   },
@@ -553,7 +531,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontFamily: FONT_FAMILY.regular,
     fontSize: 14,
-    color: '#FFFFFF',
+    color: themeColors.glass.text,
     padding: 0,
     includeFontPadding: false,
   },
@@ -562,8 +540,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderRadius: 1000,
     borderWidth: 1,
-    borderColor: '#DDDDDD',
-    backgroundColor: 'rgba(236, 235, 235, 0.3)',
+    borderColor: themeColors.glass.border,
+    backgroundColor: themeColors.glass.inputBg,
     paddingHorizontal: 16,
     paddingVertical: 16,
   },
@@ -593,26 +571,26 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   otpSlotActive: {
-    borderColor: '#49A9E1',
+    borderColor: themeColors.dark.borderFocus,
   },
   otpSlotError: {
-    borderColor: ERROR_RED,
+    borderColor: themeColors.danger,
   },
   otpDigit: {
     fontFamily: FONT_FAMILY.bold,
     fontSize: 20,
-    color: '#FFFFFF',
+    color: themeColors.glass.text,
     includeFontPadding: false,
   },
   errorText: {
     fontFamily: FONT_FAMILY.regular,
     fontSize: 12,
     lineHeight: 18,
-    color: ERROR_RED,
+    color: themeColors.danger,
     textAlign: 'center',
   },
   primaryBtn: {
-    backgroundColor: PRIMARY,
+    backgroundColor: themeColors.primary,
     borderRadius: 1000,
     height: 40,
     width: '100%',
@@ -621,20 +599,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   primaryBtnDisabled: {
-    opacity: 0.5,
+    opacity: themeColors.disabledOpacity,
   },
   primaryBtnText: {
     fontFamily: FONT_FAMILY.bold,
     fontSize: 14,
     lineHeight: 20,
-    color: '#FFFFFF',
+    color: themeColors.glass.text,
     includeFontPadding: false,
   },
   secondaryActionText: {
     fontFamily: FONT_FAMILY.bold,
     fontSize: 14,
     lineHeight: 20,
-    color: CANCEL_GOLD,
+    color: themeColors.gold,
     textAlign: 'center',
     includeFontPadding: false,
   },
@@ -647,12 +625,12 @@ const styles = StyleSheet.create({
   resendHint: {
     fontFamily: FONT_FAMILY.regular,
     fontSize: 12,
-    color: 'rgba(255,255,255,0.75)',
+    color: themeColors.glass.textSoft,
   },
   resendLink: {
     fontFamily: FONT_FAMILY.bold,
     fontSize: 12,
-    color: PRIMARY,
+    color: themeColors.primary,
   },
   resendCooldown: {
     fontFamily: FONT_FAMILY.regular,

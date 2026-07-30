@@ -32,6 +32,15 @@ export interface GlassFullScreenModalProps {
   footer?: React.ReactNode;
   /** Contenido fijo entre header y scroll (p. ej. subtítulo). */
   subHeader?: React.ReactNode;
+  /**
+   * Capa por encima de todo el modal, DENTRO de su misma ventana nativa. Es el lugar para
+   * pickers y sheets que se abren desde este modal.
+   *
+   * En iOS un view controller no puede presentar un segundo Modal mientras ya está
+   * presentando este: un `<Modal>` hermano simplemente no aparece. Por eso el contenido
+   * del picker se monta acá (inline, sin Modal propio) en vez de al lado del modal padre.
+   */
+  overlay?: React.ReactNode;
   scrollable?: boolean;
   keyboardAvoiding?: boolean;
   /** Retraso antes de permitir cerrar tocando el backdrop. */
@@ -46,6 +55,11 @@ export interface GlassFullScreenModalProps {
    * un toque al costado de un campo no debe descartar lo que el usuario escribió.
    */
   dismissOnBackdropPress?: boolean;
+  /**
+   * Intercepta el botón atrás de Android. Sin esto el modal se cierra directo y saltea
+   * cualquier confirmación de descarte que tenga el formulario.
+   */
+  onRequestClose?: () => void;
 }
 
 export const GlassFullScreenModal = forwardRef<
@@ -59,6 +73,7 @@ export const GlassFullScreenModal = forwardRef<
     header,
     footer,
     subHeader,
+    overlay,
     scrollable = true,
     keyboardAvoiding = true,
     backdropDelayMs = 0,
@@ -67,6 +82,7 @@ export const GlassFullScreenModal = forwardRef<
     containerStyle,
     backdropAccessibilityLabel,
     dismissOnBackdropPress = true,
+    onRequestClose,
   },
   ref,
 ) {
@@ -145,7 +161,6 @@ export const GlassFullScreenModal = forwardRef<
       contentContainerStyle={[styles.scrollContent, contentContainerStyle]}
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
-      automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
       showsVerticalScrollIndicator={false}
       bounces={false}
     >
@@ -174,7 +189,7 @@ export const GlassFullScreenModal = forwardRef<
       transparent
       animationType="none"
       statusBarTranslucent
-      onRequestClose={dismiss}
+      onRequestClose={onRequestClose ?? dismiss}
     >
       <View style={styles.host} pointerEvents="box-none">
         <GlassBackdrop />
@@ -191,9 +206,17 @@ export const GlassFullScreenModal = forwardRef<
           pointerEvents="box-none"
         >
           {keyboardAvoiding ? (
+            /**
+             * El KeyboardAvoidingView achica todo el contenedor, así que el footer fijo
+             * queda por encima del teclado. Por eso el ScrollView NO usa
+             * `automaticallyAdjustKeyboardInsets`: sumaría una segunda compensación y el
+             * contenido saltaría el doble en iOS.
+             * Android necesita 'height' porque el Modal es una ventana aparte y no hereda
+             * el `adjustResize` de la activity.
+             */
             <KeyboardAvoidingView
               style={styles.flex}
-              behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+              behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
               pointerEvents="box-none"
             >
               {inner}
@@ -202,6 +225,11 @@ export const GlassFullScreenModal = forwardRef<
             inner
           )}
         </Animated.View>
+        {overlay ? (
+          <View style={styles.overlay} pointerEvents="box-none">
+            {overlay}
+          </View>
+        ) : null}
       </View>
     </Modal>
   );
@@ -218,6 +246,10 @@ const styles = StyleSheet.create({
   sheet: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 2,
+  },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 3,
   },
   flex: {
     flex: 1,

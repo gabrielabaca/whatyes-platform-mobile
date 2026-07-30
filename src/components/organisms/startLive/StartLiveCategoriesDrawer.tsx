@@ -12,6 +12,7 @@ import { StreamBottomSheet } from '../stream/StreamBottomSheet';
 import { useInterestCategories } from '../../../hooks/useInterestCategories';
 import { displayInterestCategoryIcon } from '../../../utils/interestCategoryEmoji';
 import type { InterestCategoryItem } from '../../../api/types';
+import { themeColors } from '../../../theme/colors';
 import { startLiveFullSheetProps, startLiveStyles } from './startLiveStyles';
 import { StartLivePrimaryButton } from './StartLivePrimitives';
 import { StartLiveCategoryTile } from './StartLiveCategoryTile';
@@ -97,6 +98,8 @@ export const StartLiveCategoriesDrawer: React.FC<StartLiveCategoriesDrawerProps>
       {...startLiveFullSheetProps}
       contentContainerStyle={startLiveStyles.categoriesSheetBody}
       scrollEnabled={false}
+      /** Multiselección = hay borrador que perder; el modo single es un picker de una opción. */
+      dismissOnBackdropPress={selectionMode === 'single'}
       footer={selectionMode === 'multiple' ? (
         <StartLivePrimaryButton
           label={t('startLive.categoriesCta')}
@@ -112,7 +115,7 @@ export const StartLiveCategoriesDrawer: React.FC<StartLiveCategoriesDrawerProps>
 
       {loading ? (
         <View style={styles.loader}>
-          <ActivityIndicator color="#685CF0" />
+          <ActivityIndicator color={themeColors.primary} />
         </View>
       ) : (
         <ScrollView

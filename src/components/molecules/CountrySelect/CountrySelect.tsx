@@ -4,16 +4,10 @@
  */
 
 import React, { useState } from 'react';
-import {
-  View,
-  TouchableOpacity,
-  Modal,
-  FlatList,
-  StyleSheet,
-  TextInput,
-} from 'react-native';
+import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { Text } from '../../atoms/Text';
 import { ChevronDown } from 'lucide-react-native';
+import { AppOptionPickerSheet } from '../AppOptionPickerSheet';
 
 export interface Country {
   code: string;
@@ -85,19 +79,15 @@ export const CountrySelect: React.FC<CountrySelectProps> = ({
   searchPlaceholder = 'Buscar país...',
 }) => {
   const [isModalVisible, setIsModalVisible] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
 
   const selectedCountry = COUNTRIES.find((country) => country.code === value || country.name === value);
 
-  const filteredCountries = COUNTRIES.filter((country) =>
-    country.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    country.code.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const handleSelectCountry = (country: Country) => {
-    onValueChange(country.name);
+  const handleSelectCountry = (code: string) => {
+    const picked = COUNTRIES.find((country) => country.code === code);
+    if (picked) {
+      onValueChange(picked.name);
+    }
     setIsModalVisible(false);
-    setSearchQuery('');
   };
 
   const isPillDark = variant === 'pillDark';
@@ -136,61 +126,25 @@ export const CountrySelect: React.FC<CountrySelectProps> = ({
         <ChevronDown size={20} color={isPillDark ? '#FFFFFF' : '#6b7280'} />
       </TouchableOpacity>
 
-      <Modal
+      {/**
+       * OJO al reusar este componente dentro de un modal: el picker se monta como Modal
+       * nativo y en iOS un view controller no presenta un segundo modal mientras ya está
+       * presentando uno — el desplegable no abriría, sin error. En ese caso hay que pasarle
+       * `nativeModal={false}` y montarlo en el slot `overlay` del modal padre, como hacen
+       * PreferencesModal y ShippingAddressModal.
+       */}
+      <AppOptionPickerSheet
         visible={isModalVisible}
-        animationType="slide"
-        transparent={true}
-        statusBarTranslucent
-        onRequestClose={() => setIsModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text variant="h3" className="text-gray-900 font-bold">
-                {modalTitle}
-              </Text>
-              <TouchableOpacity
-                onPress={() => {
-                  setIsModalVisible(false);
-                  setSearchQuery('');
-                }}
-                style={styles.closeButton}
-              >
-                <Text style={styles.closeButtonText}>✕</Text>
-              </TouchableOpacity>
-            </View>
-
-            <TextInput
-              style={styles.searchInput}
-              placeholder={searchPlaceholder}
-              placeholderTextColor="#9ca3af"
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              autoCapitalize="none"
-            />
-
-            <FlatList
-              data={filteredCountries}
-              keyExtractor={(item) => item.code}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={styles.countryItem}
-                  onPress={() => handleSelectCountry(item)}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.countryFlag}>{item.flag}</Text>
-                  <Text style={styles.countryName}>{item.name}</Text>
-                  {selectedCountry?.code === item.code && (
-                    <Text style={styles.checkmark}>✓</Text>
-                  )}
-                </TouchableOpacity>
-              )}
-              style={styles.countryList}
-              showsVerticalScrollIndicator={true}
-            />
-          </View>
-        </View>
-      </Modal>
+        title={modalTitle}
+        searchPlaceholder={searchPlaceholder}
+        options={COUNTRIES.map((country) => ({
+          key: country.code,
+          label: `${country.flag}  ${country.name}`,
+          selected: selectedCountry?.code === country.code,
+        }))}
+        onSelect={handleSelectCountry}
+        onClose={() => setIsModalVisible(false)}
+      />
     </View>
   );
 };
@@ -247,76 +201,5 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: '#BABABA',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: '#ffffff',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '80%',
-    paddingBottom: 20,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
-  },
-  closeButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#f3f4f6',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  closeButtonText: {
-    fontSize: 18,
-    color: '#6b7280',
-    fontWeight: '600',
-  },
-  searchInput: {
-    marginHorizontal: 20,
-    marginTop: 12,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 16,
-    backgroundColor: '#f9fafb',
-  },
-  countryList: {
-    maxHeight: 400,
-  },
-  countryItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
-  },
-  countryFlag: {
-    fontSize: 24,
-    marginRight: 12,
-  },
-  countryName: {
-    flex: 1,
-    fontSize: 16,
-    color: '#111827',
-  },
-  checkmark: {
-    fontSize: 18,
-    color: '#0284c7',
-    fontWeight: 'bold',
   },
 });

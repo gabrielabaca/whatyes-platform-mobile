@@ -9,6 +9,7 @@ import type { StreamConfig } from '../../pages/StreamConfigScreen';
 import { useStartLiveWizard } from '../../../hooks/useStartLiveWizard';
 import { StartLiveIntroDrawer } from './StartLiveIntroDrawer';
 import { StartLiveSetupDrawer } from './StartLiveSetupDrawer';
+import { LAYERS } from '../../../theme/layers';
 
 export interface StartLiveWizardHostProps {
   onStartLive: (config: StreamConfig) => void;
@@ -55,7 +56,7 @@ export const StartLiveWizardHost: React.FC<StartLiveWizardHostProps> = ({ onStar
 const styles = StyleSheet.create({
   host: {
     ...StyleSheet.absoluteFillObject,
-    zIndex: 300,
-    elevation: 300,
+    zIndex: LAYERS.host,
+    elevation: LAYERS.host,
   },
 });

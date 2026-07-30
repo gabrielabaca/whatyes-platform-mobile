@@ -17,6 +17,7 @@ import { Check } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StreamBottomSheet, streamSheetStyles } from '../stream/StreamBottomSheet';
 import { FONT_FAMILY } from '../../../theme/typography';
+import { themeColors } from '../../../theme/colors';
 import { createBuyerKycSession, getBuyerKycStatus, ApiError } from '../../../api';
 import {
   isBuyerKycReturnUrl,
@@ -143,7 +144,7 @@ export const BuyerKycModal: React.FC<BuyerKycModalProps> = ({
         }
       >
         <View style={styles.successIcon}>
-          <Check size={36} color="#00C566" strokeWidth={3} />
+          <Check size={36} color={themeColors.success} strokeWidth={3} />
         </View>
         <RNText style={streamSheetStyles.bodyText}>
           {t('buyerOnboarding.kycVerifiedSubtitle')}
@@ -158,19 +159,8 @@ export const BuyerKycModal: React.FC<BuyerKycModalProps> = ({
         visible={visible}
         title={t('buyerOnboarding.kycDeclinedTitle')}
         onClose={onClose}
-        footer={
-          <View style={styles.footer}>
-            <TouchableOpacity
-              style={streamSheetStyles.primaryBtn}
-              onPress={onClose}
-              activeOpacity={0.85}
-            >
-              <RNText style={streamSheetStyles.primaryBtnText}>
-                {t('common.cancel')}
-              </RNText>
-            </TouchableOpacity>
-          </View>
-        }
+        cancelLabel={t('common.cancel')}
+        onCancelPress={onClose}
       >
         <RNText style={streamSheetStyles.bodyText}>
           {t('buyerOnboarding.kycDeclinedSubtitle')}
@@ -186,7 +176,7 @@ export const BuyerKycModal: React.FC<BuyerKycModalProps> = ({
         title={t('buyerOnboarding.kycTitle')}
         onClose={onClose}
       >
-        <ActivityIndicator color="#685CF0" size="large" style={styles.loader} />
+        <ActivityIndicator color={themeColors.primary} size="large" style={styles.loader} />
         <RNText style={streamSheetStyles.bodyText}>{t('buyerOnboarding.kycPolling')}</RNText>
       </StreamBottomSheet>
     );
@@ -266,13 +256,13 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   btnDisabled: {
-    opacity: 0.6,
+    opacity: themeColors.disabledOpacity,
   },
   required: {
     fontFamily: FONT_FAMILY.semibold,
     fontSize: 12,
     lineHeight: 18,
-    color: '#FDC700',
+    color: themeColors.gold,
     includeFontPadding: false,
   },
   loader: {

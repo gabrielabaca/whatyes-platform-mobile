@@ -6,7 +6,7 @@
 import React, { useState, useRef, useEffect, useImperativeHandle, forwardRef } from 'react';
 import { View, TouchableOpacity, Animated, StyleSheet, Dimensions } from 'react-native';
 import { Text } from '../../atoms/Text';
-import { AlertCircle, X } from 'lucide-react-native';
+import { AlertCircle, Check, X } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../../context/ThemeContext';
 import { themeColors } from '../../../theme/colors';
@@ -58,8 +58,6 @@ export const UserMenu = forwardRef<UserMenuRef, UserMenuProps>(
     const c = isDark ? themeColors.dark : themeColors.light;
     const drawerBackground = isDark ? c.background : c.surface;
     const overlayBg = isDark ? themeColors.dark.overlay : themeColors.light.overlay;
-    const primary = themeColors.primary;
-    const iconMuted = isDark ? c.textMuted : '#9ca3af';
 
     useEffect(() => {
       if (isOpen) {
@@ -119,19 +117,19 @@ export const UserMenu = forwardRef<UserMenuRef, UserMenuProps>(
         return <Check size={16} color={themeColors.success} />;
       }
       if (isVerified && !profileComplete) {
-        return <AlertCircle size={16} color="#f59e0b" />;
+        return <AlertCircle size={16} color={themeColors.gold} />;
       }
       return null;
     };
 
     const getStatusText = () => {
       if (isVerified && profileComplete) {
-        return 'Verificado';
+        return t('userMenu.statusVerified');
       }
       if (isVerified && !profileComplete) {
-        return 'Perfil incompleto';
+        return t('userMenu.statusIncompleteProfile');
       }
-      return 'No verificado';
+      return t('userMenu.statusUnverified');
     };
 
     const getStatusColor = () => {
@@ -139,9 +137,9 @@ export const UserMenu = forwardRef<UserMenuRef, UserMenuProps>(
         return themeColors.success;
       }
       if (isVerified && !profileComplete) {
-        return '#fbbf24';
+        return themeColors.gold;
       }
-      return 'rgba(255,255,255,0.85)';
+      return themeColors.glass.textSoft;
     };
 
     return (
@@ -173,10 +171,17 @@ export const UserMenu = forwardRef<UserMenuRef, UserMenuProps>(
           <View className="bg-primary-600 pt-12 pb-6 px-6">
             <View className="flex-row items-center justify-between mb-4">
               <Text variant="h2" className="font-bold text-[#FEFEFE]">
-                Menú
+                {t('userMenu.title')}
               </Text>
-              <TouchableOpacity onPress={closeDrawer} activeOpacity={0.7}>
-                <X size={24} color="#FEFEFE" />
+              <TouchableOpacity
+                onPress={closeDrawer}
+                activeOpacity={0.7}
+                hitSlop={12}
+                style={styles.closeBtn}
+                accessibilityRole="button"
+                accessibilityLabel={t('common.close')}
+              >
+                <X size={22} color="#FEFEFE" strokeWidth={2.2} />
               </TouchableOpacity>
             </View>
 
@@ -253,6 +258,12 @@ const styles = StyleSheet.create({
   },
   overlayTouchable: {
     flex: 1,
+  },
+  closeBtn: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   drawer: {
     position: 'absolute',

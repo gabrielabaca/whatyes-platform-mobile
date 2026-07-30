@@ -256,7 +256,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
   if (!isBuyer && !isSeller) {
     return (
-      <View className="flex-1 bg-white p-6">
+      <View className="flex-1 bg-white dark:bg-night-950 p-6">
         <Text variant="h1" className="text-primary-600 mb-2">
           {t('home.welcome')}
         </Text>
@@ -472,7 +472,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           ) : null}
 
           {homePath.name === 'profile' ? (
-            <View className="flex-1 bg-white">
+            <View className="flex-1 bg-white dark:bg-night-950">
               <UserProfileScreen
                 userId={homePath.userId}
                 onBack={() =>

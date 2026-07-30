@@ -10,18 +10,18 @@ import {
   Text as RNText,
   ActivityIndicator,
   Alert,
-  Modal,
-  FlatList,
 } from 'react-native';
-import { X, ChevronDown } from 'lucide-react-native';
+import { ChevronDown } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   GlassFullScreenModal,
   type GlassFullScreenModalHandle,
 } from '../profile/GlassFullScreenModal';
+import { GlassModalHeader } from '../profile/GlassModalHeader';
+import { AppOptionPickerSheet } from '../../molecules/AppOptionPickerSheet';
 import { FONT_FAMILY } from '../../../theme/typography';
-import { COUNTRIES, type Country } from '../../molecules/CountrySelect/CountrySelect';
+import { themeColors } from '../../../theme/colors';
+import { COUNTRIES } from '../../molecules/CountrySelect/CountrySelect';
 import { useAuth } from '../../../hooks/useAuth';
 import {
   getShippingAddress,
@@ -31,10 +31,6 @@ import {
   detectCurrentAddress,
   LocationPermissionDeniedError,
 } from '../../../services/locationAddress';
-
-const PRIMARY = '#685CF0';
-const CANCEL_GOLD = '#FDC700';
-const LOCATION_LINK = '#FDC700';
 
 export interface ShippingAddressModalProps {
   visible: boolean;
@@ -50,7 +46,6 @@ export const ShippingAddressModal: React.FC<ShippingAddressModalProps> = ({
   onSaved,
 }) => {
   const { t } = useTranslation();
-  const insets = useSafeAreaInsets();
   const modalRef = useRef<GlassFullScreenModalHandle>(null);
   const { user } = useAuth();
 
@@ -69,7 +64,6 @@ export const ShippingAddressModal: React.FC<ShippingAddressModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [countryPickerVisible, setCountryPickerVisible] = useState(false);
-  const [countrySearch, setCountrySearch] = useState('');
   const [detectingLocation, setDetectingLocation] = useState(false);
 
   useEffect(() => {
@@ -192,33 +186,46 @@ export const ShippingAddressModal: React.FC<ShippingAddressModalProps> = ({
   };
 
   const selectedCountry = COUNTRIES.find((c) => c.name === country || c.code === country);
-  const filteredCountries = COUNTRIES.filter(
-    (c) =>
-      c.name.toLowerCase().includes(countrySearch.toLowerCase()) ||
-      c.code.toLowerCase().includes(countrySearch.toLowerCase())
-  );
 
   return (
-    <>
       <GlassFullScreenModal
         ref={modalRef}
         visible={visible}
         onClose={onClose}
         backdropAccessibilityLabel={t('account.shippingAddress.cancel')}
         dismissOnBackdropPress={false}
+        /**
+         * El picker va acá y no como hermano del modal: en iOS un Modal hermano no se
+         * presenta mientras este ya está presentado, y el desplegable no abriría.
+         */
+        overlay={
+          <AppOptionPickerSheet
+            visible={countryPickerVisible}
+            nativeModal={false}
+            title={t('account.shippingAddress.country')}
+            searchPlaceholder={t('account.shippingAddress.countrySearch')}
+            emptyLabel={t('common.noResults')}
+            options={COUNTRIES.map((c) => ({
+              key: c.code,
+              label: `${c.flag}  ${c.name}`,
+              selected: selectedCountry?.code === c.code,
+            }))}
+            onSelect={(key) => {
+              const picked = COUNTRIES.find((c) => c.code === key);
+              if (picked) {
+                setCountry(picked.name);
+              }
+              setCountryPickerVisible(false);
+            }}
+            onClose={() => setCountryPickerVisible(false)}
+          />
+        }
         header={
-          <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
-            <RNText style={styles.title}>{t('account.shippingAddress.title')}</RNText>
-            <TouchableOpacity
-              onPress={handleClose}
-              hitSlop={12}
-              style={styles.closeBtn}
-              accessibilityRole="button"
-              accessibilityLabel={t('account.shippingAddress.close')}
-            >
-              <X size={22} color="#FFFFFF" strokeWidth={2.2} />
-            </TouchableOpacity>
-          </View>
+          <GlassModalHeader
+            title={t('account.shippingAddress.title')}
+            onClose={handleClose}
+            closeDisabled={saving}
+          />
         }
         footer={
           !loading ? (
@@ -230,7 +237,7 @@ export const ShippingAddressModal: React.FC<ShippingAddressModalProps> = ({
                 activeOpacity={0.88}
               >
                 {saving ? (
-                  <ActivityIndicator color="#FFFFFF" />
+                  <ActivityIndicator color={themeColors.glass.text} />
                 ) : (
                   <RNText style={styles.saveBtnText}>{t('account.shippingAddress.save')}</RNText>
                 )}
@@ -255,12 +262,14 @@ export const ShippingAddressModal: React.FC<ShippingAddressModalProps> = ({
                 ? t('account.shippingAddress.locationDetecting')
                 : t('account.shippingAddress.useLocation')}
             </RNText>
-            {detectingLocation ? <ActivityIndicator size="small" color={LOCATION_LINK} /> : null}
+            {detectingLocation ? (
+              <ActivityIndicator size="small" color={themeColors.gold} />
+            ) : null}
           </View>
         </TouchableOpacity>
 
         {loading ? (
-          <ActivityIndicator color="#FFFFFF" style={styles.loader} />
+          <ActivityIndicator color={themeColors.glass.text} style={styles.loader} />
         ) : (
           <View style={styles.form}>
             <FormField
@@ -315,57 +324,6 @@ export const ShippingAddressModal: React.FC<ShippingAddressModalProps> = ({
           </View>
         )}
       </GlassFullScreenModal>
-
-      <Modal
-        visible={countryPickerVisible}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setCountryPickerVisible(false)}
-      >
-        <View style={styles.pickerOverlay}>
-          <View style={styles.pickerSheet}>
-            <View style={styles.pickerHeader}>
-              <RNText style={styles.pickerTitle}>{t('account.shippingAddress.country')}</RNText>
-              <TouchableOpacity
-                onPress={() => {
-                  setCountryPickerVisible(false);
-                  setCountrySearch('');
-                }}
-                hitSlop={12}
-              >
-                <X size={22} color="#18181B" strokeWidth={2.2} />
-              </TouchableOpacity>
-            </View>
-            <TextInput
-              style={styles.pickerSearch}
-              placeholder={t('register.selectCountry')}
-              placeholderTextColor="#9CA3AF"
-              value={countrySearch}
-              onChangeText={setCountrySearch}
-              autoCapitalize="none"
-            />
-            <FlatList
-              data={filteredCountries}
-              keyExtractor={(item: Country) => item.code}
-              keyboardShouldPersistTaps="handled"
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={styles.pickerItem}
-                  onPress={() => {
-                    setCountry(item.name);
-                    setCountryPickerVisible(false);
-                    setCountrySearch('');
-                  }}
-                >
-                  <RNText style={styles.pickerFlag}>{item.flag}</RNText>
-                  <RNText style={styles.pickerName}>{item.name}</RNText>
-                </TouchableOpacity>
-              )}
-            />
-          </View>
-        </View>
-      </Modal>
-    </>
   );
 };
 
@@ -384,7 +342,7 @@ const FormField: React.FC<{
         onChangeText={onChangeText}
         style={styles.fieldInput}
         placeholder={placeholder}
-        placeholderTextColor="rgba(255,255,255,0.5)"
+        placeholderTextColor={themeColors.glass.placeholder}
         keyboardType={keyboardType}
       />
     </View>
@@ -406,7 +364,7 @@ const SelectField: React.FC<{
       >
         {value || placeholder}
       </RNText>
-      <ChevronDown size={18} color="rgba(255,255,255,0.7)" />
+      <ChevronDown size={18} color={themeColors.glass.textSoft} />
     </TouchableOpacity>
   </View>
 );
@@ -415,27 +373,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     paddingBottom: 16,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 24,
-    paddingBottom: 8,
-  },
-  title: {
-    fontFamily: FONT_FAMILY.bold,
-    fontSize: 16,
-    lineHeight: 20,
-    color: '#FFFFFF',
-    flex: 1,
-    includeFontPadding: false,
-  },
-  closeBtn: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   locationLinkWrap: {
     paddingHorizontal: 24,
@@ -450,7 +387,7 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.bold,
     fontSize: 12,
     lineHeight: 16,
-    color: LOCATION_LINK,
+    color: themeColors.gold,
     includeFontPadding: false,
   },
   loader: {
@@ -468,7 +405,7 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.semibold,
     fontSize: 10,
     lineHeight: 18,
-    color: '#FFFFFF',
+    color: themeColors.glass.text,
     letterSpacing: 0.05,
     includeFontPadding: false,
   },
@@ -476,11 +413,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#DDDDDD',
+    borderColor: themeColors.glass.border,
     borderRadius: 1000,
     paddingHorizontal: 16,
     paddingVertical: 16,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: themeColors.glass.inputBg,
     gap: 8,
   },
   fieldInput: {
@@ -488,14 +425,14 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.bold,
     fontSize: 12,
     lineHeight: 20,
-    color: '#FFFFFF',
+    color: themeColors.glass.text,
     letterSpacing: 0.06,
     padding: 0,
     margin: 0,
     includeFontPadding: false,
   },
   fieldPlaceholder: {
-    color: 'rgba(255,255,255,0.5)',
+    color: themeColors.glass.placeholder,
   },
   checkboxRow: {
     flexDirection: 'row',
@@ -508,17 +445,17 @@ const styles = StyleSheet.create({
     height: 20,
     borderRadius: 4,
     borderWidth: 1.5,
-    borderColor: '#DDDDDD',
+    borderColor: themeColors.glass.border,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 2,
   },
   checkboxChecked: {
-    backgroundColor: PRIMARY,
-    borderColor: PRIMARY,
+    backgroundColor: themeColors.primary,
+    borderColor: themeColors.primary,
   },
   checkmark: {
-    color: '#FFFFFF',
+    color: themeColors.glass.text,
     fontSize: 12,
     fontWeight: '700',
   },
@@ -527,7 +464,7 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.semibold,
     fontSize: 11,
     lineHeight: 16,
-    color: 'rgba(255,255,255,0.9)',
+    color: themeColors.glass.textSoft,
     includeFontPadding: false,
   },
   actions: {
@@ -540,80 +477,26 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 40,
     borderRadius: 1000,
-    backgroundColor: PRIMARY,
+    backgroundColor: themeColors.primary,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 12,
   },
   saveBtnDisabled: {
-    opacity: 0.45,
+    opacity: themeColors.disabledOpacity,
   },
   saveBtnText: {
     fontFamily: FONT_FAMILY.bold,
     fontSize: 14,
     lineHeight: 20,
-    color: '#FFFFFF',
+    color: themeColors.glass.text,
     includeFontPadding: false,
   },
   cancelText: {
     fontFamily: FONT_FAMILY.bold,
     fontSize: 14,
     lineHeight: 20,
-    color: CANCEL_GOLD,
+    color: themeColors.gold,
     includeFontPadding: false,
-  },
-  pickerOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
-  },
-  pickerSheet: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '75%',
-    paddingBottom: 24,
-  },
-  pickerHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-  },
-  pickerTitle: {
-    fontFamily: FONT_FAMILY.bold,
-    fontSize: 16,
-    color: '#18181B',
-  },
-  pickerSearch: {
-    marginHorizontal: 20,
-    marginVertical: 12,
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 16,
-    color: '#111827',
-  },
-  pickerItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-  pickerFlag: {
-    fontSize: 22,
-    marginRight: 12,
-  },
-  pickerName: {
-    fontFamily: FONT_FAMILY.semibold,
-    fontSize: 16,
-    color: '#111827',
   },
 });

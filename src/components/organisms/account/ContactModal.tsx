@@ -12,19 +12,18 @@ import {
   Alert,
   Image,
 } from 'react-native';
-import { X, ImageUp } from 'lucide-react-native';
+import { ImageUp } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { launchPhotoLibraryNow } from '../../../utils/mediaPicker';
 import { deferMediaPicker } from '../../../utils/deferMediaPicker';
 import {
   GlassFullScreenModal,
   type GlassFullScreenModalHandle,
 } from '../profile/GlassFullScreenModal';
+import { GlassModalHeader } from '../profile/GlassModalHeader';
 import { FONT_FAMILY } from '../../../theme/typography';
+import { themeColors } from '../../../theme/colors';
 
-const PRIMARY = '#685CF0';
-const CANCEL_GOLD = '#FDC700';
 const MAX_EVIDENCE = 4;
 
 export interface ContactModalProps {
@@ -34,7 +33,6 @@ export interface ContactModalProps {
 
 export const ContactModal: React.FC<ContactModalProps> = ({ visible, onClose }) => {
   const { t } = useTranslation();
-  const insets = useSafeAreaInsets();
   const modalRef = useRef<GlassFullScreenModalHandle>(null);
 
   const [message, setMessage] = useState('');
@@ -98,17 +96,11 @@ export const ContactModal: React.FC<ContactModalProps> = ({ visible, onClose }) 
       onClose={onClose}
       backdropDelayMs={400}
       backdropAccessibilityLabel={t('account.contactModal.cancel')}
-        dismissOnBackdropPress={false}
-      containerStyle={[styles.container, { paddingTop: insets.top + 16 }]}
+      dismissOnBackdropPress={false}
       scrollStyle={styles.contentScroll}
       contentContainerStyle={styles.contentScrollInner}
       header={
-        <View style={styles.header}>
-          <RNText style={styles.title}>{t('account.contactModal.title')}</RNText>
-          <TouchableOpacity onPress={handleClose} hitSlop={12}>
-            <X size={22} color="#FFFFFF" strokeWidth={2.2} />
-          </TouchableOpacity>
-        </View>
+        <GlassModalHeader title={t('account.contactModal.title')} onClose={handleClose} />
       }
       footer={
         <View style={styles.footer}>
@@ -136,7 +128,7 @@ export const ContactModal: React.FC<ContactModalProps> = ({ visible, onClose }) 
                   value={message}
                   onChangeText={setMessage}
                   placeholder={t('account.contactModal.messagePlaceholder')}
-                  placeholderTextColor="#D8D8D8"
+                  placeholderTextColor={themeColors.glass.placeholder}
                   style={styles.messageInput}
                   multiline
                   textAlignVertical="top"
@@ -162,7 +154,7 @@ export const ContactModal: React.FC<ContactModalProps> = ({ visible, onClose }) 
                         accessibilityRole="button"
                         accessibilityLabel={t('account.contactModal.addEvidence')}
                       >
-                        <ImageUp size={24} color="#D8D8D8" strokeWidth={2} />
+                        <ImageUp size={24} color={themeColors.glass.textMuted} strokeWidth={2} />
                       </TouchableOpacity>
                     </>
                   ) : (
@@ -180,7 +172,7 @@ export const ContactModal: React.FC<ContactModalProps> = ({ visible, onClose }) 
                           accessibilityRole="button"
                           accessibilityLabel={t('account.contactModal.addEvidence')}
                         >
-                          <ImageUp size={20} color="#D8D8D8" strokeWidth={2} />
+                          <ImageUp size={20} color={themeColors.glass.textMuted} strokeWidth={2} />
                         </TouchableOpacity>
                       ) : null}
                     </View>
@@ -192,39 +184,24 @@ export const ContactModal: React.FC<ContactModalProps> = ({ visible, onClose }) 
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    paddingHorizontal: 24,
-    gap: 24,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  title: {
-    fontFamily: FONT_FAMILY.bold,
-    fontSize: 16,
-    lineHeight: 20,
-    color: '#FFFFFF',
-    flex: 1,
-    includeFontPadding: false,
-  },
   contentScroll: {
     flex: 1,
   },
   contentScrollInner: {
     gap: 12,
     flexGrow: 1,
+    paddingHorizontal: 24,
+    paddingTop: 16,
+    paddingBottom: 16,
   },
   fieldGroup: {
     gap: 8,
   },
   fieldLabel: {
-    fontFamily: FONT_FAMILY.regular,
+    fontFamily: FONT_FAMILY.semibold,
     fontSize: 10,
     lineHeight: 18,
-    color: '#FFFFFF',
+    color: themeColors.glass.text,
     letterSpacing: 0.05,
     includeFontPadding: false,
   },
@@ -232,14 +209,14 @@ const styles = StyleSheet.create({
     minHeight: 147,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#DDDDDD',
-    backgroundColor: 'rgba(236, 235, 235, 0.08)',
+    borderColor: themeColors.glass.border,
+    backgroundColor: themeColors.glass.inputBg,
     paddingHorizontal: 16,
     paddingVertical: 16,
     fontFamily: FONT_FAMILY.bold,
     fontSize: 12,
     lineHeight: 20,
-    color: '#FFFFFF',
+    color: themeColors.glass.text,
     letterSpacing: 0.06,
     includeFontPadding: false,
   },
@@ -247,8 +224,8 @@ const styles = StyleSheet.create({
     minHeight: 147,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#DDDDDD',
-    backgroundColor: 'rgba(236, 235, 235, 0.08)',
+    borderColor: themeColors.glass.border,
+    backgroundColor: themeColors.glass.inputBg,
     paddingHorizontal: 16,
     paddingVertical: 16,
     alignItems: 'center',
@@ -259,7 +236,7 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.bold,
     fontSize: 12,
     lineHeight: 20,
-    color: '#D8D8D8',
+    color: themeColors.glass.textMuted,
     textAlign: 'center',
     letterSpacing: 0.06,
     includeFontPadding: false,
@@ -281,7 +258,7 @@ const styles = StyleSheet.create({
     height: 72,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#DDDDDD',
+    borderColor: themeColors.glass.border,
     borderStyle: 'dashed',
     alignItems: 'center',
     justifyContent: 'center',
@@ -290,9 +267,10 @@ const styles = StyleSheet.create({
     gap: 24,
     alignItems: 'center',
     width: '100%',
+    paddingHorizontal: 24,
   },
   primaryBtn: {
-    backgroundColor: PRIMARY,
+    backgroundColor: themeColors.primary,
     borderRadius: 1000,
     height: 40,
     width: '100%',
@@ -301,20 +279,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   primaryBtnDisabled: {
-    opacity: 0.5,
+    opacity: themeColors.disabledOpacity,
   },
   primaryBtnText: {
     fontFamily: FONT_FAMILY.bold,
     fontSize: 14,
     lineHeight: 20,
-    color: '#FFFFFF',
+    color: themeColors.glass.text,
     includeFontPadding: false,
   },
   cancelText: {
     fontFamily: FONT_FAMILY.bold,
     fontSize: 14,
     lineHeight: 20,
-    color: CANCEL_GOLD,
+    color: themeColors.gold,
     includeFontPadding: false,
   },
 });

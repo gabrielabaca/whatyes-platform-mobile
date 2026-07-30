@@ -23,9 +23,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GlassBackdrop, DrawerPanelGlass } from '../profile/GlassBackdrop';
 import { drawerPanelGlassKey } from '../../../theme/glassTokens';
 import { FONT_FAMILY } from '../../../theme/typography';
+import { themeColors } from '../../../theme/colors';
+import { LAYERS } from '../../../theme/layers';
 
-const PRIMARY = '#685CF0';
-const CANCEL_GOLD = '#FDC700';
+const PRIMARY = themeColors.primary;
+const CANCEL_GOLD = themeColors.gold;
+/** Radio superior del panel (Figma 636-23638) cuando el caller no declara otro. */
+const PANEL_RADIUS = 24;
 
 function resolvePanelMaxHeightPx(
   maxHeight: ViewStyle['maxHeight'] | undefined,
@@ -50,6 +54,12 @@ export interface StreamBottomSheetProps {
   /** Panel desde safe area superior hasta abajo (wizard). */
   fullHeight?: boolean;
   panelStyle?: StyleProp<ViewStyle>;
+  /**
+   * El panel ocupa siempre su alto máximo en vez de ajustarse al contenido. Para listas
+   * con scroll propio (FlatList flex:1), que necesitan una altura acotada y estable.
+   * Sin esto, `panelStyle.maxHeight` es solo un tope: el panel se ajusta al contenido.
+   */
+  fillToMaxHeight?: boolean;
   contentContainerStyle?: StyleProp<ViewStyle>;
   footer?: React.ReactNode;
   cancelLabel?: string;
@@ -73,11 +83,6 @@ export interface StreamBottomSheetProps {
   showCloseButton?: boolean;
 }
 
-/** Props compartidas para drawers inferiores (fondo visible + anclado abajo). */
-export const streamBottomDrawerProps = {
-  bottomPanel: true as const,
-} as const;
-
 export const StreamBottomSheet: React.FC<StreamBottomSheetProps> = ({
   visible,
   title,
@@ -86,6 +91,7 @@ export const StreamBottomSheet: React.FC<StreamBottomSheetProps> = ({
   bottomPanel = true,
   fullHeight = false,
   panelStyle,
+  fillToMaxHeight = false,
   contentContainerStyle,
   footer,
   cancelLabel,
@@ -110,17 +116,32 @@ export const StreamBottomSheet: React.FC<StreamBottomSheetProps> = ({
   const [headerHeight, setHeaderHeight] = useState<number | undefined>(undefined);
   const [footerHeight, setFooterHeight] = useState<number | undefined>(undefined);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   useEffect(() => {
     const showEvt = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
     const hideEvt = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
-    const showSub = Keyboard.addListener(showEvt, () => setKeyboardVisible(true));
-    const hideSub = Keyboard.addListener(hideEvt, () => setKeyboardVisible(false));
+    const showSub = Keyboard.addListener(showEvt, (e) => {
+      setKeyboardVisible(true);
+      setKeyboardHeight(e?.endCoordinates?.height ?? 0);
+    });
+    const hideSub = Keyboard.addListener(hideEvt, () => {
+      setKeyboardVisible(false);
+      setKeyboardHeight(0);
+    });
     return () => {
       showSub.remove();
       hideSub.remove();
     };
   }, []);
+
+  /**
+   * El panel inferior está anclado a `bottom: 0`, así que el teclado lo tapa entero: en un
+   * bottom sheet no alcanza con insets de scroll (el contenido queda igual detrás del teclado),
+   * hay que levantar el panel. En Android no: `windowSoftInputMode=adjustResize` ya achica la
+   * ventana y aplicarlo de nuevo lo levantaría el doble.
+   */
+  const keyboardOffset = Platform.OS === 'ios' ? keyboardHeight : 0;
 
   useEffect(() => {
     if (!visible) return;
@@ -226,22 +247,28 @@ export const StreamBottomSheet: React.FC<StreamBottomSheetProps> = ({
     <View style={useFullPanel ? styles.scroll : styles.scrollBottom}>{bodyContent}</View>
   );
 
-  const panelBottomPadding = Math.max(insets.bottom, 16);
+  /** Con el panel levantado sobre el teclado no hay home indicator que despejar. */
+  const panelBottomPadding = keyboardOffset > 0 ? 16 : Math.max(insets.bottom, 16);
 
   const flatBottomPanel = StyleSheet.flatten(panelStyle) as ViewStyle | undefined;
   /**
-   * Si el drawer declara un maxHeight explícito (p. ej. listas al 88% con FlatList
-   * flex:1) el panel se fija a esa altura para dar espacio acotado al scroll interno.
-   * Si no, el panel se ajusta a su contenido (hug) con tope, para no extenderse de más.
+   * `panelStyle.maxHeight` es solo un TOPE: el panel se ajusta a su contenido (hug).
+   * Para fijarlo a ese tope hay que pedirlo con `fillToMaxHeight` (listas con scroll propio).
    */
-  const fillPanelHeight = flatBottomPanel?.maxHeight != null;
-  const bottomPanelMaxHeightPx = resolvePanelMaxHeightPx(flatBottomPanel?.maxHeight, windowHeight);
+  const fillPanelHeight = fillToMaxHeight;
   const {
+    // maxHeight se resuelve acá abajo en píxeles; no debe llegar al estilo del contenido.
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     maxHeight: _bottomMaxH,
-    borderTopLeftRadius: _bottomRtl,
-    borderTopRightRadius: _bottomRtr,
+    borderTopLeftRadius: bottomRadiusLeft,
+    borderTopRightRadius: bottomRadiusRight,
     ...bottomPanelContentStyle
   } = flatBottomPanel ?? {};
+  /** Con el teclado abierto el panel sube: el tope no puede pasar del espacio que queda. */
+  const bottomPanelMaxHeightPx = Math.min(
+    resolvePanelMaxHeightPx(flatBottomPanel?.maxHeight, windowHeight),
+    windowHeight - keyboardOffset - insets.top - 16,
+  );
 
   const bottomPanelContentMaxHeight = bottomPanelMaxHeightPx - panelBottomPadding;
 
@@ -293,7 +320,18 @@ export const StreamBottomSheet: React.FC<StreamBottomSheetProps> = ({
     <View
       style={[
         styles.panelAnchor,
-        { height: panelHeightPx, maxHeight: bottomPanelMaxHeightPx, paddingBottom: panelBottomPadding },
+        {
+          height: panelHeightPx,
+          maxHeight: bottomPanelMaxHeightPx,
+          paddingBottom: panelBottomPadding,
+          /**
+           * El radio se aplica acá y no en el contenido: `panelAnchor` ya recorta
+           * (`overflow: hidden`) en ambas plataformas, mientras que el clip de
+           * DrawerPanelGlass solo recorta en iOS y dejaba esquinas rectas en Android.
+           */
+          borderTopLeftRadius: bottomRadiusLeft ?? PANEL_RADIUS,
+          borderTopRightRadius: bottomRadiusRight ?? PANEL_RADIUS,
+        },
       ]}
       collapsable={false}
       {...(Platform.OS === 'ios' ? { needsOffscreenAlphaCompositing: true } : null)}
@@ -363,7 +401,7 @@ export const StreamBottomSheet: React.FC<StreamBottomSheetProps> = ({
       <TouchableOpacity
         style={[
           styles.backdropPress,
-          !useFullPanel ? { bottom: bottomPanelMaxHeightPx } : null,
+          !useFullPanel ? { bottom: keyboardOffset + bottomPanelMaxHeightPx } : null,
         ]}
         activeOpacity={1}
         onPress={handleBackdropPress}
@@ -378,7 +416,7 @@ export const StreamBottomSheet: React.FC<StreamBottomSheetProps> = ({
           {panelInner}
         </Animated.View>
       ) : (
-        <View style={styles.sheetBottom} pointerEvents="box-none">
+        <View style={[styles.sheetBottom, { bottom: keyboardOffset }]} pointerEvents="box-none">
           {bottomPanelBlock}
         </View>
       )}
@@ -457,8 +495,8 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'transparent',
     // Por encima de StreamSellerOverlay / StreamBuyerOverlay (zIndex 10) y overlays de subasta.
-    zIndex: 200,
-    elevation: 200,
+    zIndex: LAYERS.sheet,
+    elevation: LAYERS.sheet,
   },
   backdropPress: {
     ...StyleSheet.absoluteFillObject,
@@ -472,7 +510,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    bottom: 0,
     zIndex: 2,
     width: '100%',
   },

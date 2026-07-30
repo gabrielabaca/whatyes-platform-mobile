@@ -3,6 +3,8 @@ import { TextInput, TextInputProps, View, TouchableOpacity, StyleSheet } from 'r
 import { Eye, EyeOff } from 'lucide-react-native';
 import { Text } from '../Text';
 import { FONT_FAMILY } from '../../../theme/typography';
+import { useTheme } from '../../../context/ThemeContext';
+import { themeColors } from '../../../theme/colors';
 
 export interface InputProps extends TextInputProps {
   label?: string;
@@ -21,11 +23,22 @@ export const Input: React.FC<InputProps> = ({
 }) => {
   const [showPassword, setShowPassword] = useState(false);
   const isPasswordField = secureTextEntry;
+  const { isDark } = useTheme();
+
+  /**
+   * Placeholder e íconos son props JS, no clases: se resuelven por tema. En claro se
+   * conservan los literales actuales (`#9ca3af` / `#6b7280`) para no cambiar nada del
+   * tema claro; en oscuro van al token `textMuted` (#8e9aaf), igual que el resto de los
+   * inputs oscuros de la app.
+   */
+  const placeholderColor = isDark ? themeColors.dark.textMuted : '#9ca3af';
+  const iconColor = isDark ? themeColors.dark.textMuted : '#6b7280';
 
   const inputClasses = [
     'border rounded-lg px-4 py-3 text-base font-mulish',
     error ? 'border-red-500' : 'border-gray-300',
     'bg-white text-gray-900',
+    'dark:bg-night-800 dark:text-white',
     isPasswordField ? 'pr-12' : '',
     className,
   ]
@@ -43,7 +56,7 @@ export const Input: React.FC<InputProps> = ({
         <TextInput
           className={inputClasses}
           style={{ fontFamily: FONT_FAMILY.regular }}
-          placeholderTextColor="#9ca3af"
+          placeholderTextColor={placeholderColor}
           secureTextEntry={isPasswordField && !showPassword}
           {...props}
         />
@@ -56,9 +69,9 @@ export const Input: React.FC<InputProps> = ({
           >
             <View style={styles.iconContainer}>
               {showPassword ? (
-                <EyeOff size={22} color="#6b7280" strokeWidth={2.5} />
+                <EyeOff size={22} color={iconColor} strokeWidth={2.5} />
               ) : (
-                <Eye size={22} color="#6b7280" strokeWidth={2.5} />
+                <Eye size={22} color={iconColor} strokeWidth={2.5} />
               )}
             </View>
           </TouchableOpacity>

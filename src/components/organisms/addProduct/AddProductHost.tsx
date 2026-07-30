@@ -6,6 +6,7 @@ import { AddProductSaleFormatDrawer } from './AddProductSaleFormatDrawer';
 import { AddProductConditionDrawer } from './AddProductConditionDrawer';
 import { AddProductPhotoSourceDrawer } from './AddProductPhotoSourceDrawer';
 import { MAX_PRODUCT_PHOTOS } from '../../../hooks/useAddProductForm';
+import { LAYERS } from '../../../theme/layers';
 import type { AddProductDrawer } from '../../../hooks/useAddProductForm';
 import type {
   PackageTierId,
@@ -109,7 +110,7 @@ export const AddProductHost: React.FC<AddProductHostProps> = ({
 const styles = StyleSheet.create({
   host: {
     ...StyleSheet.absoluteFillObject,
-    zIndex: 300,
-    elevation: 300,
+    zIndex: LAYERS.host,
+    elevation: LAYERS.host,
   },
 });

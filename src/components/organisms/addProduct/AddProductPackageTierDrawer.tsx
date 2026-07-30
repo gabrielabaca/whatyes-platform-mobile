@@ -1,21 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import {
-  View,
-  Text as RNText,
-  TextInput,
-  TouchableOpacity,
-  type StyleProp,
-  type ViewStyle,
-} from 'react-native';
+import { View, Text as RNText, TextInput, TouchableOpacity } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { StreamBottomSheet } from '../stream/StreamBottomSheet';
 import {
   PACKAGE_TIER_OPTIONS,
   type PackageTierId,
 } from '../../../constants/productWeightPresets';
-import { addProductStyles } from './addProductStyles';
+import { addProductDrawerProps, addProductStyles } from './addProductStyles';
 import { StartLivePrimaryButton } from '../startLive/StartLivePrimitives';
-import { startLivePanelStyle } from '../startLive/startLiveStyles';
+import { themeColors } from '../../../theme/colors';
 
 export interface AddProductPackageTierDrawerProps {
   visible: boolean;
@@ -23,6 +16,11 @@ export interface AddProductPackageTierDrawerProps {
   initialManualKg?: string;
   onClose: () => void;
   onConfirm: (tier: PackageTierId, weightKg: number | null) => void;
+  /**
+   * Monta el sheet en un Modal propio. Necesario cuando el padre ya es un modal con
+   * KeyboardAvoidingView (form in-live): inline, el teclado lo levantaría dos veces.
+   */
+  nativeModal?: boolean;
 }
 
 /** Figma 567-3931 — formato de venta / tamaño de paquete */
@@ -32,11 +30,11 @@ export const AddProductPackageTierDrawer: React.FC<AddProductPackageTierDrawerPr
   initialManualKg,
   onClose,
   onConfirm,
+  nativeModal,
 }) => {
   const { t } = useTranslation();
   const [tier, setTier] = useState<PackageTierId | null>(initialTier ?? null);
   const [manualValue, setManualValue] = useState('');
-  const panelStyle: StyleProp<ViewStyle> = [startLivePanelStyle, { paddingTop: 28 }];
 
   useEffect(() => {
     if (visible) {
@@ -81,8 +79,8 @@ export const AddProductPackageTierDrawer: React.FC<AddProductPackageTierDrawerPr
       title={t('addProduct.weightTitle')}
       onClose={onClose}
       dismissOnBackdropPress={false}
-      bottomPanel
-      panelStyle={panelStyle}
+      nativeModal={nativeModal}
+      {...addProductDrawerProps}
       contentContainerStyle={addProductStyles.drawerBody}
       footer={
         <StartLivePrimaryButton
@@ -128,7 +126,7 @@ export const AddProductPackageTierDrawer: React.FC<AddProductPackageTierDrawerPr
             value={manualValue}
             onChangeText={setManualValue}
             placeholder={manualPlaceholder}
-            placeholderTextColor="#D9D9D9"
+            placeholderTextColor={themeColors.glass.placeholder}
             keyboardType="decimal-pad"
             editable={tier != null}
           />

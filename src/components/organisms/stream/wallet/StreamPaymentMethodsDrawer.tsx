@@ -8,8 +8,9 @@ import {
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Plus, Check, CreditCard, Wallet } from 'lucide-react-native';
-import { StreamBottomSheet, streamBottomPanelStyle } from '../StreamBottomSheet';
+import { StreamBottomSheet, streamBottomPanelStyle, streamSheetStyles } from '../StreamBottomSheet';
 import { FONT_FAMILY } from '../../../../theme/typography';
+import { themeColors } from '../../../../theme/colors';
 import type { SavedCard } from '../../../../api/paymentsApi';
 import type { PreferredPaymentOrigin } from '../../../../utils/storage';
 
@@ -53,11 +54,11 @@ export const StreamPaymentMethodsDrawer: React.FC<StreamPaymentMethodsDrawerProp
       contentContainerStyle={styles.content}
     >
       {loading ? (
-        <ActivityIndicator color="#FFFFFF" style={styles.loader} />
+        <ActivityIndicator color={themeColors.glass.text} style={styles.loader} />
       ) : (
         <View style={styles.configSection}>
           <MethodPillRow
-            icon={<Wallet size={24} color="#02050F" strokeWidth={2} />}
+            icon={<Wallet size={24} color={themeColors.glass.text} strokeWidth={2} />}
             title={t('stream.wallet.mpWalletTitle')}
             subtitle={t('stream.wallet.mpWalletSubtitle')}
             selected={preferredOrigin === 'MP_WALLET'}
@@ -85,7 +86,7 @@ export const StreamPaymentMethodsDrawer: React.FC<StreamPaymentMethodsDrawerProp
               return (
                 <MethodPillRow
                   key={card.uuid}
-                  icon={<CreditCard size={24} color="#02050F" strokeWidth={2} />}
+                  icon={<CreditCard size={24} color={themeColors.glass.text} strokeWidth={2} />}
                   title={title}
                   subtitle={subtitle}
                   selected={isSelected}
@@ -97,11 +98,16 @@ export const StreamPaymentMethodsDrawer: React.FC<StreamPaymentMethodsDrawerProp
 
           <View style={styles.pillRow}>
             <View style={styles.pillLeft}>
-              <Plus size={24} color="#02050F" strokeWidth={2} />
+              <Plus size={24} color={themeColors.glass.text} strokeWidth={2} />
               <RNText style={styles.pillTitle}>{t('stream.wallet.addCard')}</RNText>
             </View>
-            <TouchableOpacity style={styles.actionBtn} onPress={onAddCard} activeOpacity={0.85}>
-              <RNText style={styles.actionBtnText}>{t('stream.wallet.add')}</RNText>
+            <TouchableOpacity
+              style={[streamSheetStyles.primaryBtn, styles.actionBtn]}
+              onPress={onAddCard}
+              activeOpacity={0.85}
+              accessibilityRole="button"
+            >
+              <RNText style={streamSheetStyles.primaryBtnText}>{t('stream.wallet.add')}</RNText>
             </TouchableOpacity>
           </View>
         </View>
@@ -128,6 +134,7 @@ function MethodPillRow({
       style={[styles.pillRow, selected && styles.pillRowSelected]}
       onPress={onPress}
       activeOpacity={0.85}
+      accessibilityRole="button"
     >
       <View style={styles.pillLeft}>
         {icon}
@@ -142,7 +149,7 @@ function MethodPillRow({
           ) : null}
         </View>
       </View>
-      {selected ? <Check size={22} color="#685CF0" strokeWidth={2.5} /> : null}
+      {selected ? <Check size={22} color={themeColors.primary} strokeWidth={2.5} /> : null}
     </TouchableOpacity>
   );
 }
@@ -164,9 +171,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#C9C9C9',
+    backgroundColor: themeColors.glass.rowBg,
     borderWidth: 1,
-    borderColor: 'rgba(221, 221, 221, 0.87)',
+    borderColor: themeColors.glass.border,
     borderRadius: 1000,
     paddingHorizontal: 16,
     paddingVertical: 12,
@@ -174,7 +181,7 @@ const styles = StyleSheet.create({
     minHeight: 64,
   },
   pillRowSelected: {
-    borderColor: '#685CF0',
+    borderColor: themeColors.primary,
     borderWidth: 2,
   },
   pillLeft: {
@@ -192,7 +199,7 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.semibold,
     fontSize: 16,
     lineHeight: 22,
-    color: '#02050F',
+    color: themeColors.glass.text,
     letterSpacing: 0.08,
     includeFontPadding: false,
   },
@@ -200,31 +207,19 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.regular,
     fontSize: 12,
     lineHeight: 16,
-    color: 'rgba(2, 5, 15, 0.65)',
+    color: themeColors.glass.textSoft,
     includeFontPadding: false,
   },
+  /** Acción dentro de la píldora: mismo botón primario, ancho al contenido. */
   actionBtn: {
-    height: 40,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 1000,
-    backgroundColor: '#685CF0',
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 'auto',
     minWidth: 80,
-  },
-  actionBtnText: {
-    fontFamily: FONT_FAMILY.bold,
-    fontSize: 14,
-    lineHeight: 20,
-    color: '#FFFFFF',
-    includeFontPadding: false,
   },
   empty: {
     fontFamily: FONT_FAMILY.regular,
     fontSize: 13,
     lineHeight: 18,
-    color: 'rgba(255,255,255,0.75)',
+    color: themeColors.glass.textSoft,
     paddingHorizontal: 8,
     includeFontPadding: false,
   },

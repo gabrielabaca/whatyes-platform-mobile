@@ -1,11 +1,19 @@
 import React from 'react';
 import { TouchableOpacity, View, StyleSheet } from 'react-native';
 import { Text } from '../../atoms/Text';
+import { IconChevronRight } from '../../icons';
 import { FONT_FAMILY } from '../../../theme/typography';
+import { useTheme } from '../../../context/ThemeContext';
+import { themeColors } from '../../../theme/colors';
 import ArrowForwardIcon from '../../../../assets/icons/account/arrow-forward-ios.svg';
 
 /** Tokens Figma nodo 698:2693 */
 const BORDER = '#CBCEFF';
+/**
+ * El círculo se mantiene claro en ambos temas: los SVG de `assets/icons/account`
+ * traen el fill horneado (#71717B / #18181B) y no responden al prop `color`,
+ * así que oscurecer el círculo dejaría el glifo ilegible.
+ */
 const ICON_BG = '#DBDBDF';
 const LABEL_COLOR = '#18181B';
 const DANGER_COLOR = '#DC2626';
@@ -28,11 +36,13 @@ export const AccountMenuRow: React.FC<AccountMenuRowProps> = ({
   variant = 'default',
 }) => {
   const isDanger = variant === 'danger';
+  const { isDark } = useTheme();
+  const c = isDark ? themeColors.dark : themeColors.light;
   return (
     <TouchableOpacity
       onPress={onPress}
       activeOpacity={0.75}
-      style={styles.row}
+      style={[styles.row, isDark ? { borderColor: c.surfaceAlt } : null]}
       accessibilityRole="button"
     >
       <View style={styles.left}>
@@ -50,6 +60,7 @@ export const AccountMenuRow: React.FC<AccountMenuRowProps> = ({
           style={[
             styles.label,
             { fontFamily: FONT_FAMILY.semibold },
+            isDark ? { color: c.text } : null,
             isDanger ? { color: DANGER_COLOR } : null,
           ]}
         >
@@ -58,6 +69,10 @@ export const AccountMenuRow: React.FC<AccountMenuRowProps> = ({
       </View>
       {isDanger ? (
         <View style={styles.chevronSpacer} />
+      ) : isDark ? (
+        // El chevron exportado de Figma trae el fill #18181B horneado: en oscuro
+        // se usa el equivalente del proyecto, que sí acepta `color`.
+        <IconChevronRight size={16} color={c.text} />
       ) : (
         <ArrowForwardIcon width={16} height={16} />
       )}

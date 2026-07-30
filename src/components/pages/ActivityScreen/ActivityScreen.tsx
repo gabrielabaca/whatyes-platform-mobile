@@ -18,6 +18,8 @@ import { SlidersVertical, Truck, ShoppingBag } from 'lucide-react-native';
 import { formatStreamPrice } from '../../atoms/stream/StreamPriceText';
 import { useMyActivity, type ActivityRole } from '../../../hooks/useMyActivity';
 import { FONT_FAMILY } from '../../../theme/typography';
+import { themeColors } from '../../../theme/colors';
+import { useTheme } from '../../../context/ThemeContext';
 import type { PurchaseItem } from '../../../api/platformApi';
 
 const PRIMARY = '#685CF0';
@@ -43,6 +45,8 @@ export const ActivityScreen: React.FC<ActivityScreenProps> = ({
   onOpenPurchase,
 }) => {
   const { t } = useTranslation();
+  const { isDark } = useTheme();
+  const d = themeColors.dark;
   const [role, setRole] = useState<ActivityRole>('purchases');
   const [filter, setFilter] = useState<ActivityFilter>('all');
   const { items, loading, reload } = useMyActivity(role);
@@ -75,10 +79,20 @@ export const ActivityScreen: React.FC<ActivityScreenProps> = ({
           return (
             <TouchableOpacity
               key={key}
-              style={[styles.tab, active && styles.tabActive]}
+              style={[
+                styles.tab,
+                active && styles.tabActive,
+                active && isDark ? { borderBottomColor: d.text } : null,
+              ]}
               onPress={() => setRole(key)}
             >
-              <RNText style={[styles.tabLabel, active && styles.tabLabelActive]}>
+              <RNText
+                style={[
+                  styles.tabLabel,
+                  active && styles.tabLabelActive,
+                  isDark ? { color: active ? d.text : d.textSecondary } : null,
+                ]}
+              >
                 {key === 'purchases' ? t('activity.tabPurchases') : t('activity.tabSales')}
               </RNText>
             </TouchableOpacity>
@@ -96,10 +110,25 @@ export const ActivityScreen: React.FC<ActivityScreenProps> = ({
             return (
               <TouchableOpacity
                 key={f.key}
-                style={[styles.chip, active ? styles.chipActive : styles.chipInactive]}
+                style={[
+                  styles.chip,
+                  active ? styles.chipActive : styles.chipInactive,
+                  isDark
+                    ? {
+                        backgroundColor: active ? d.surfaceAlt : d.surface,
+                        ...(active ? { borderColor: d.borderSubtle } : null),
+                      }
+                    : null,
+                ]}
                 onPress={() => setFilter(f.key)}
               >
-                <RNText style={[styles.chipLabel, active && styles.chipLabelActive]}>
+                <RNText
+                  style={[
+                    styles.chipLabel,
+                    active && styles.chipLabelActive,
+                    isDark ? { color: active ? d.text : d.textSecondary } : null,
+                  ]}
+                >
                   {f.label}
                 </RNText>
               </TouchableOpacity>
@@ -112,8 +141,8 @@ export const ActivityScreen: React.FC<ActivityScreenProps> = ({
         <ActivityIndicator color={PRIMARY} style={styles.loader} />
       ) : filteredItems.length === 0 ? (
         <View style={styles.empty}>
-          <ShoppingBag size={44} color={MUTED} strokeWidth={1.5} />
-          <RNText style={styles.emptyTitle}>
+          <ShoppingBag size={44} color={isDark ? d.textSecondary : MUTED} strokeWidth={1.5} />
+          <RNText style={[styles.emptyTitle, isDark ? { color: d.textSecondary } : null]}>
             {role === 'purchases'
               ? t('activity.emptyPurchases')
               : t('activity.emptySales')}
@@ -153,19 +182,30 @@ const ActivityCard: React.FC<{
   onPress: () => void;
 }> = ({ item, role, onPress }) => {
   const { t } = useTranslation();
+  const { isDark } = useTheme();
+  const d = themeColors.dark;
   const counterpartName = item.counterpart.name?.trim() || t('activity.unknownUser');
+  const darkMuted = isDark ? { color: d.textSecondary } : null;
+  const darkSurfaceAlt = isDark ? { backgroundColor: d.surfaceAlt } : null;
 
   return (
-    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.85}>
+    <TouchableOpacity
+      style={[styles.card, isDark ? { borderBottomColor: d.borderSubtle } : null]}
+      onPress={onPress}
+      activeOpacity={0.85}
+    >
       {item.product_image_url ? (
-        <Image source={{ uri: item.product_image_url }} style={styles.cardImage} />
+        <Image source={{ uri: item.product_image_url }} style={[styles.cardImage, darkSurfaceAlt]} />
       ) : (
-        <View style={[styles.cardImage, styles.cardImagePlaceholder]}>
-          <ShoppingBag size={28} color={MUTED} strokeWidth={1.5} />
+        <View style={[styles.cardImage, styles.cardImagePlaceholder, darkSurfaceAlt]}>
+          <ShoppingBag size={28} color={isDark ? d.textSecondary : MUTED} strokeWidth={1.5} />
         </View>
       )}
       <View style={styles.cardBody}>
-        <RNText style={styles.cardTitle} numberOfLines={1}>
+        <RNText
+          style={[styles.cardTitle, isDark ? { color: d.text } : null]}
+          numberOfLines={1}
+        >
           {item.product_title}
         </RNText>
         <View style={styles.cardRow}>
@@ -176,15 +216,21 @@ const ActivityCard: React.FC<{
                 style={styles.counterpartAvatar}
               />
             ) : (
-              <View style={[styles.counterpartAvatar, styles.counterpartAvatarFallback]} />
+              <View
+                style={[
+                  styles.counterpartAvatar,
+                  styles.counterpartAvatarFallback,
+                  darkSurfaceAlt,
+                ]}
+              />
             )}
-            <RNText style={styles.counterpartText} numberOfLines={1}>
+            <RNText style={[styles.counterpartText, darkMuted]} numberOfLines={1}>
               {role === 'purchases'
                 ? t('activity.bySeller', { name: counterpartName })
                 : t('activity.toBuyer', { name: counterpartName })}
             </RNText>
           </View>
-          <RNText style={styles.orderNumber}>
+          <RNText style={[styles.orderNumber, darkMuted]}>
             {t('activity.orderShort', { number: item.order_number.slice(-4) })}
           </RNText>
         </View>
@@ -201,7 +247,7 @@ const ActivityCard: React.FC<{
           </View>
         </View>
         <View style={styles.cardRow}>
-          <RNText style={styles.costLabel}>{t('activity.totalCost')}</RNText>
+          <RNText style={[styles.costLabel, darkMuted]}>{t('activity.totalCost')}</RNText>
           <RNText style={styles.costValue}>
             {formatStreamPrice(Math.round(item.amount_cents / 100), item.currency)}
           </RNText>
