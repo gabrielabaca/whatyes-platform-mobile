@@ -13,6 +13,8 @@ export interface SellerOnboardingStatus {
   customer_uuid?: string | null;
   /** CUIT ya guardado en la tienda (para precargarlo y no volver a pedirlo). */
   customer_tax_id?: string | null;
+  /** Ya aceptó los términos de vendedor: no volver a mostrar el drawer de bienvenida. */
+  seller_terms_accepted?: boolean;
 }
 
 export interface UpgradeToSellerPayload {
@@ -67,10 +69,14 @@ export function upgradeToSeller(
 }
 
 export function submitLiveSetupSurvey(
-  isFirstLiveAuction: boolean
+  isFirstLiveAuction: boolean,
+  termsAccepted = false
 ): Promise<SellerOnboardingStatus> {
   return authFetch<SellerOnboardingStatus>('/auth/seller/live-setup-survey', {
     method: 'POST',
-    body: JSON.stringify({ is_first_live_auction: isFirstLiveAuction }),
+    body: JSON.stringify({
+      is_first_live_auction: isFirstLiveAuction,
+      terms_accepted: termsAccepted,
+    }),
   });
 }

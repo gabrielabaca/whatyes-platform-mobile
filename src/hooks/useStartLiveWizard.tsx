@@ -105,7 +105,15 @@ export const StartLiveWizardProvider: React.FC<{ children: ReactNode }> = ({ chi
         storage.getSellerLiveWelcomeTermsSeen(),
       ]);
       setCategoryUuids(lastCategories);
-      if (!step1Seen || !termsSeen) {
+      /**
+       * La BD manda: si el vendedor ya aceptó los términos / completó la encuesta,
+       * el intro no vuelve a aparecer aunque cambie de dispositivo o reinstale.
+       * El flag local solo sirve de respaldo (backend viejo o sin red).
+       */
+      const introDoneRemote =
+        !!status.seller_terms_accepted || !!status.live_setup_survey_completed;
+      const introDoneLocal = step1Seen && termsSeen;
+      if (!introDoneRemote && !introDoneLocal) {
         setStep('intro');
         return;
       }
@@ -127,7 +135,8 @@ export const StartLiveWizardProvider: React.FC<{ children: ReactNode }> = ({ chi
       try {
         await storage.setSellerLiveWelcomeStep1Seen(true);
         await storage.setSellerLiveWelcomeTermsSeen(true);
-        const status = await submitLiveSetupSurvey(isFirstAuction);
+        // terms_accepted: el CTA del intro solo se habilita con el checkbox tildado.
+        const status = await submitLiveSetupSurvey(isFirstAuction, true);
         setOnboarding(status);
         const payout = await getPayoutAccount();
         setHasPayoutAccount(!!payout);

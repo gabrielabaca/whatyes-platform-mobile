@@ -126,6 +126,10 @@ dependencies {
     implementation("com.facebook.react:react-android")
     implementation("androidx.documentfile:documentfile:1.0.1")
 
+    // Amazon IVS Broadcast SDK (Real-Time Stages): publisher del seller y
+    // subscriber de viewers cuando la sala usa video_transport=ivs.
+    implementation("com.amazonaws:ivs-broadcast:1.37.0:stages@aar") { transitive = true }
+
     if (hermesEnabled.toBoolean()) {
         implementation("com.facebook.react:hermes-android")
     } else {

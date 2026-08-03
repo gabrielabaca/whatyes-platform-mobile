@@ -40,8 +40,18 @@ export interface PlatformRoom {
   privacy?: string;
   cover_url?: string | null;
   intro_video_url?: string | null;
+  /** Último frame del vivo (thumbnail IVS, URL firmada). Preferir sobre cover_url en cards. */
+  live_thumbnail_url?: string | null;
   /** Espectadores conectados al WS de la sala (GET /rooms, GET /rooms/feed). */
   viewer_count?: number;
+}
+
+/** Credenciales de publicación IVS del seller (solo en la respuesta de go_live). */
+export interface RoomIvsPublish {
+  stage_arn: string;
+  token: string;
+  participant_id?: string;
+  region?: string;
 }
 
 export interface PlatformRoomResponse {
@@ -53,6 +63,10 @@ export interface PlatformRoomResponse {
   status: string;
   created_at: number;
   ended_at?: number | null;
+  /** Transporte de video de la sala: 'ivs' (IVS Real-Time) | 'kvs' (legacy P2P). */
+  video_transport?: string;
+  stage_arn?: string | null;
+  ivs_publish?: RoomIvsPublish | null;
   interest_category_uuids?: string[];
   scheduled_at?: number | null;
   recurrence?: string;
@@ -476,10 +490,19 @@ export async function getWebRTCCredentials(
   return res.json();
 }
 
-export type ViewerTransportDecision = 'webrtc' | 'hls';
+export type ViewerTransportDecision = 'ivs' | 'webrtc' | 'hls';
+
+/** Token de participante para un IVS Real-Time Stage (transporte 'ivs'). */
+export interface IvsStageCredentials {
+  stage_arn: string;
+  token: string;
+  participant_id?: string;
+  region: string;
+}
 
 export interface StreamWatchResponse {
   transport: ViewerTransportDecision;
+  ivs?: IvsStageCredentials | null;
   webrtc_credentials?: StreamWebRTCCredentialsResponse | null;
   webrtc_seats?: number | null;
 }

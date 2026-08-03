@@ -32,7 +32,12 @@ import { useBuyerLiveRoomPreviews } from '../../../hooks/useBuyerLiveRoomPreview
 import { previewToStreamData } from '../../../utils/streamPreviewToStreamData';
 import { getViewerTransport } from '../../../api/config';
 import type { StreamData } from '../../molecules/StreamCard';
-import type { StreamWebRTCCredentialsResponse } from '../../../api/platformApi';
+import type { StreamWatchResponse } from '../../../api/platformApi';
+import {
+  startIvsStagePreview,
+  stopIvsStagePreview,
+  IvsPreviewVideoView,
+} from '../../../native/IvsStageNative';
 
 /** Frecuencia de refresco de la lista de lives dentro del feed de swipe. */
 const FEED_POLL_MS = 8000;
@@ -47,8 +52,8 @@ export interface StreamSwipeScreenProps {
 
 interface SlideState {
   currentIndex: number;
-  /** Creds pre-fetacheadas listas para el stream activo. Null si no están disponibles aún. */
-  activeCreds: StreamWebRTCCredentialsResponse | null;
+  /** Decisión de transporte pre-fetcheada para el stream activo (ivs/webrtc/hls). */
+  activeWatch: StreamWatchResponse | null;
 }
 
 // ------------------------------------------------------------------
@@ -57,9 +62,12 @@ interface SlideState {
 interface CoverSlideProps {
   stream: StreamData;
   height: number;
+  /** El stage de este slide está precalentado: mostrar el video real (sin audio)
+   *  detrás de la info mientras el usuario arrastra hacia acá. */
+  livePreviewActive?: boolean;
 }
 
-const CoverSlide = React.memo<CoverSlideProps>(({ stream, height }) => (
+const CoverSlide = React.memo<CoverSlideProps>(({ stream, height, livePreviewActive }) => (
   <View style={[slideStyles.root, { height }]}>
     {stream.coverUrl ? (
       <Image
@@ -67,6 +75,9 @@ const CoverSlide = React.memo<CoverSlideProps>(({ stream, height }) => (
         style={StyleSheet.absoluteFill}
         resizeMode="cover"
       />
+    ) : null}
+    {livePreviewActive ? (
+      <IvsPreviewVideoView style={StyleSheet.absoluteFill} pointerEvents="none" />
     ) : null}
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
       <View style={slideStyles.dimOverlay} />
@@ -112,8 +123,9 @@ export const StreamSwipeScreen: React.FC<StreamSwipeScreenProps> = ({
 }) => {
   const { t } = useTranslation();
   const { height: windowHeight } = useWindowDimensions();
-  const isWebRTC = getViewerTransport() === 'webrtc';
-  const { prefetch, consume } = useStreamCredentialCache();
+  // Con HLS forzado por env no hay nada que pre-fetchear (sin creds ni tokens).
+  const canPrefetch = getViewerTransport() !== 'hls';
+  const { prefetch, consume, peek } = useStreamCredentialCache();
 
   // Lista de lives, refrescada con polling. Arranca con el snapshot recibido.
   const [liveStreams, setLiveStreams] = useState<StreamData[]>(streams);
@@ -125,7 +137,7 @@ export const StreamSwipeScreen: React.FC<StreamSwipeScreenProps> = ({
 
   const [slideState, setSlideState] = useState<SlideState>({
     currentIndex: initialIndex,
-    activeCreds: null,
+    activeWatch: null,
   });
   const flatListRef = useRef<FlatList<StreamData>>(null);
 
@@ -143,29 +155,70 @@ export const StreamSwipeScreen: React.FC<StreamSwipeScreenProps> = ({
     });
   }, [previews, t]);
 
-  // Pre-fetchea las creds de los streams adyacentes al índice dado.
+  // El stage precalentado del slide siguiente (video real durante el drag y
+  // promoción instantánea al swipear). Solo informativo para el CoverSlide.
+  const [previewRoomId, setPreviewRoomId] = useState<string | null>(null);
+  // Generación del warmup: invalida warmups en vuelo cuando el usuario ya
+  // volvió a swipear (un warmup viejo no debe pisar al preview vigente).
+  const warmupGenRef = useRef(0);
+
+  // Pre-fetchea las creds de los streams adyacentes al índice dado y precalienta
+  // el stage IVS del SIGUIENTE (audio en gain 0; joinAsViewer lo promueve al swipear).
   const schedulePrefetch = useCallback(
     (index: number, list: StreamData[]) => {
-      if (!isWebRTC) return;
+      if (!canPrefetch) return;
       [index - 1, index + 1].forEach((i) => {
         if (i >= 0 && i < list.length) {
           void prefetch(list[i].id);
         }
       });
+      const generation = ++warmupGenRef.current;
+      const next = list[index + 1];
+      if (!next) {
+        setPreviewRoomId(null);
+        void stopIvsStagePreview();
+        return;
+      }
+      void (async () => {
+        // Dar aire a la promoción del slide recién activado antes de tocar el
+        // slot de preview (joinAsViewer promueve en el commit del render).
+        await new Promise<void>((resolve) => setTimeout(() => resolve(), 600));
+        await prefetch(next.id);
+        if (warmupGenRef.current !== generation) return;
+        const watch = peek(next.id);
+        if (watch?.transport === 'ivs' && watch.ivs?.token) {
+          try {
+            await startIvsStagePreview(watch.ivs.token);
+            if (warmupGenRef.current === generation) setPreviewRoomId(next.id);
+          } catch {
+            if (warmupGenRef.current === generation) setPreviewRoomId(null);
+          }
+        } else {
+          setPreviewRoomId(null);
+          void stopIvsStagePreview();
+        }
+      })();
     },
-    [prefetch, isWebRTC],
+    [prefetch, peek, canPrefetch],
   );
+
+  // Soltar el stage precalentado al salir del feed.
+  useEffect(() => {
+    return () => {
+      void stopIvsStagePreview();
+    };
+  }, []);
 
   const handleNavigateToStream = useCallback(
     (index: number, streamId: string) => {
-      const creds = isWebRTC ? consume(streamId) : null;
-      setSlideState({ currentIndex: index, activeCreds: creds });
+      const watch = canPrefetch ? consume(streamId) : null;
+      setSlideState({ currentIndex: index, activeWatch: watch });
       schedulePrefetch(index, liveStreams);
       requestAnimationFrame(() => {
         flatListRef.current?.scrollToIndex({ index, animated: false });
       });
     },
-    [consume, isWebRTC, liveStreams, schedulePrefetch]
+    [consume, canPrefetch, liveStreams, schedulePrefetch]
   );
 
   const endedFeedContext = useMemo<StreamEndedFeedContext>(
@@ -191,13 +244,13 @@ export const StreamSwipeScreen: React.FC<StreamSwipeScreenProps> = ({
       if (newIndex === slideState.currentIndex) return;
       const target = liveStreams[newIndex];
       if (!target) return;
-      // Consumir creds en el mismo setState para que el nuevo StreamScreen las reciba
-      // en su primer render (evita un render intermedio sin creds).
-      const creds = isWebRTC ? consume(target.id) : null;
-      setSlideState({ currentIndex: newIndex, activeCreds: creds });
+      // Consumir la decisión en el mismo setState para que el nuevo StreamScreen la
+      // reciba en su primer render (evita un render intermedio sin transporte).
+      const watch = canPrefetch ? consume(target.id) : null;
+      setSlideState({ currentIndex: newIndex, activeWatch: watch });
       schedulePrefetch(newIndex, liveStreams);
     },
-    [windowHeight, slideState.currentIndex, isWebRTC, consume, liveStreams, schedulePrefetch],
+    [windowHeight, slideState.currentIndex, canPrefetch, consume, liveStreams, schedulePrefetch],
   );
 
   const getItemLayout = useCallback(
@@ -217,15 +270,21 @@ export const StreamSwipeScreen: React.FC<StreamSwipeScreenProps> = ({
             <StreamScreen
               stream={item}
               onClose={onClose}
-              initialCreds={slideState.activeCreds}
+              initialWatch={slideState.activeWatch}
               endedFeedContext={endedFeedContext}
             />
           </View>
         );
       }
-      return <CoverSlide stream={item} height={windowHeight} />;
+      return (
+        <CoverSlide
+          stream={item}
+          height={windowHeight}
+          livePreviewActive={previewRoomId === item.id}
+        />
+      );
     },
-    [slideState, windowHeight, onClose, endedFeedContext],
+    [slideState, windowHeight, onClose, endedFeedContext, previewRoomId],
   );
 
   return (

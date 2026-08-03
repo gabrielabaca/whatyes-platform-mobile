@@ -129,7 +129,8 @@ export const startLiveStyles = StyleSheet.create({
   termsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 24,
+    // gap 12: con 24 el checkbox quedaba desprendido de su etiqueta.
+    gap: 12,
     width: '100%',
   },
   checkbox: {

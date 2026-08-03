@@ -17,6 +17,10 @@ export interface BuyerLiveStreamsGridProps {
   previews: LiveStreamPreviewModel[];
   loading: boolean;
   onStreamPress: (item: LiveStreamPreviewModel) => void;
+  /** Mantener presionada una card: abre el peek del vivo (se cierra con la X). */
+  onStreamLongPress?: (item: LiveStreamPreviewModel) => void;
+  /** Hint animado del gesto en la primera card del listado. */
+  peekHintFirstCard?: boolean;
   /** @deprecated Ya no se muestra texto de carga: se renderizan skeletons. */
   loadingLabel?: string;
   /** Título cuando no hay salas. */
@@ -35,6 +39,8 @@ export const BuyerLiveStreamsGrid: React.FC<BuyerLiveStreamsGridProps> = ({
   previews,
   loading,
   onStreamPress,
+  onStreamLongPress,
+  peekHintFirstCard,
   emptyLabel,
   emptySubtitle,
   gap = DEFAULT_GAP,
@@ -93,12 +99,14 @@ export const BuyerLiveStreamsGrid: React.FC<BuyerLiveStreamsGridProps> = ({
     <>
       {sectionHeader}
       <View className="flex-row flex-wrap" style={{ gap }}>
-        {previews.map((item) => (
+        {previews.map((item, index) => (
           <View key={item.id} style={{ width: gridColW }}>
             <LiveStreamPreviewCard
               variant="grid"
               stream={mapItem(item)}
               onPress={() => onStreamPress(item)}
+              onLongPress={onStreamLongPress ? () => onStreamLongPress(item) : undefined}
+              showPeekHint={peekHintFirstCard && index === 0}
             />
           </View>
         ))}

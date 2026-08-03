@@ -3,7 +3,7 @@
  * Navegación interna: home | explore | category | sellerHub | account | profile.
  */
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View, ScrollView, RefreshControl, Alert, StyleSheet } from 'react-native';
 import { GeneralLayout } from '../../templates/GeneralLayout';
@@ -17,10 +17,17 @@ import { UserProfileScreen } from '../UserProfileScreen';
 import { BuyerKycModal } from '../../organisms/account/BuyerKycModal';
 import {
   getMySalesSummary,
+  getStreamWatch,
   getUserShows,
   type PurchaseItem,
   type UserShowItem,
 } from '../../../api/platformApi';
+import {
+  setIvsPreviewAudioMuted,
+  startIvsStagePreview,
+  stopIvsStagePreview,
+} from '../../../native/IvsStageNative';
+import { LivePeekOverlay } from '../../organisms/home/LivePeekOverlay';
 import { ActivityScreen } from '../ActivityScreen/ActivityScreen';
 import { PurchaseDetailScreen } from '../PurchaseDetailScreen/PurchaseDetailScreen';
 import { getUserPublicProfile } from '../../../api/profileApi';
@@ -62,6 +69,10 @@ interface HomeScreenProps {
 }
 
 const GRID_GAP = 12;
+
+// El hint de "mantener presionado" se muestra hasta el primer uso del gesto en
+// esta sesión de app (vive en el módulo: se resetea al reiniciar la app).
+let peekHintUsedThisSession = false;
 
 type HomePath =
   | { name: 'home' }
@@ -188,6 +199,50 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
   const toStreamData = (p: LiveStreamPreviewModel): StreamData =>
     previewToStreamData(p, t('home.liveBadge'));
+
+  // Peek del vivo (mantener presionada la card): overlay con la miniatura al
+  // instante y el video real del stage precalentado ~1 s después, con audio.
+  // Queda abierto; se cierra con la X, el fondo o el back de Android.
+  const [peekStream, setPeekStream] = useState<LiveStreamPreviewModel | null>(null);
+  const peekGenRef = useRef(0);
+  // El hint del gesto se muestra hasta que el usuario lo usa una vez; vuelve a
+  // aparecer al reiniciar la app (flag por sesión, no persistido).
+  const [peekHintUsed, setPeekHintUsed] = useState(peekHintUsedThisSession);
+
+  const handleStreamPeek = (p: LiveStreamPreviewModel) => {
+    if (!peekHintUsedThisSession) {
+      peekHintUsedThisSession = true;
+      setPeekHintUsed(true);
+    }
+    const generation = ++peekGenRef.current;
+    setPeekStream(p);
+    void (async () => {
+      try {
+        const token = await storage.getAccessToken();
+        if (!token || peekGenRef.current !== generation) return;
+        const watch = await getStreamWatch(token, p.id);
+        if (peekGenRef.current !== generation) return;
+        if (watch.transport === 'ivs' && watch.ivs?.token) {
+          await startIvsStagePreview(watch.ivs.token);
+          if (peekGenRef.current === generation) {
+            await setIvsPreviewAudioMuted(false);
+          } else {
+            await setIvsPreviewAudioMuted(true);
+            await stopIvsStagePreview();
+          }
+        }
+      } catch {
+        // Sin video: el peek muestra la miniatura viva igual.
+      }
+    })();
+  };
+
+  const handleClosePeek = () => {
+    peekGenRef.current += 1; // invalida cualquier arranque de peek en vuelo
+    setPeekStream(null);
+    void setIvsPreviewAudioMuted(true);
+    void stopIvsStagePreview();
+  };
 
   const handleStreamPress = (p: LiveStreamPreviewModel) => {
     if (onStreamsSwipePress) {
@@ -402,6 +457,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                 previews={filteredPreviews}
                 loading={loading}
                 onStreamPress={handleStreamPress}
+                onStreamLongPress={handleStreamPeek}
+                peekHintFirstCard={!peekHintUsed}
                 emptyLabel={t('home.noLiveStreams')}
                 emptySubtitle={t('home.noLiveStreamsSubtitle')}
                 gap={GRID_GAP}
@@ -493,6 +550,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               void reloadUser();
             }}
           />
+
+          <LivePeekOverlay stream={peekStream} onClose={handleClosePeek} />
         </View>
       </HomeNavBridge>
     </GeneralLayout>

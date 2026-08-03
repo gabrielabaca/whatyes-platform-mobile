@@ -21,14 +21,23 @@ import {
   getRoomCatalog,
   getRooms,
   SeatsFullError,
+  type IvsStageCredentials,
   type LiveCommerceResponse,
   type RoomCatalogProductItem,
+  type StreamWatchResponse,
   type StreamWebRTCCredentialsResponse,
   type ViewerTransportDecision,
 } from '../../../api/platformApi';
 import { startKinesisWebRTCViewer, stopKinesisWebRTCViewer } from '../../../native/KinesisWebRTCNative';
 import type { MediaStream } from 'react-native-webrtc';
 import { getViewerTransport } from '../../../api/config';
+import {
+  addIvsStageListeners,
+  joinIvsStageAsViewer,
+  leaveIvsStage,
+  setIvsRemoteAudioMuted,
+  IvsRemoteVideoView,
+} from '../../../native/IvsStageNative';
 import { HlsStreamPlayer } from '../../molecules/stream/HlsStreamPlayer';
 import { StreamViewerSplash } from '../../molecules/stream/StreamViewerSplash';
 import { fetchLiveRoomIds, pickNextLiveStreamIndex } from '../../../utils/streamLiveNavigation';
@@ -89,10 +98,10 @@ export interface StreamScreenProps {
   stream: StreamData;
   onClose: () => void;
   /**
-   * Credenciales WebRTC pre-fetacheadas por el contenedor de swipe.
-   * Cuando están presentes se omite el round-trip HTTP a /webrtc-credentials.
+   * Decisión de transporte pre-fetcheada por el contenedor de swipe
+   * (GET /stream/watch). Cuando está presente se omite el round-trip HTTP.
    */
-  initialCreds?: StreamWebRTCCredentialsResponse | null;
+  initialWatch?: StreamWatchResponse | null;
   /** Feed de swipe: permite ir al siguiente live o salir a inicio. */
   endedFeedContext?: StreamEndedFeedContext;
   /** Fallback cuando no hay feed de swipe (p. ej. stream abierto fuera del carrusel). */
@@ -102,22 +111,33 @@ export interface StreamScreenProps {
 export const StreamScreen: React.FC<StreamScreenProps> = ({
   stream,
   onClose,
-  initialCreds,
+  initialWatch,
   endedFeedContext,
   onLiveEndedAccept,
 }) => {
   const { t } = useTranslation();
   const [messageText, setMessageText] = useState('');
-  // Transporte híbrido: el backend decide por sala (asiento WebRTC si hay cupo,
-  // HLS si está llena) vía GET /stream/watch. VIEWER_TRANSPORT=hls fuerza HLS
-  // globalmente (debug/rollout); cualquier otro valor = automático.
+  // Transporte por sala: el backend decide vía GET /stream/watch — 'ivs' (stage
+  // administrado, sin cupos), 'webrtc' (KVS legacy con asientos) u 'hls' (cupo
+  // lleno). VIEWER_TRANSPORT=hls fuerza HLS globalmente (debug/rollout).
   const forcedHls = getViewerTransport() === 'hls';
-  const [transport, setTransport] = useState<ViewerTransportDecision | null>(
-    forcedHls ? 'hls' : initialCreds ? 'webrtc' : null
-  );
+  const initialTransport: ViewerTransportDecision | null = forcedHls
+    ? 'hls'
+    : initialWatch?.transport === 'ivs' && initialWatch.ivs
+      ? 'ivs'
+      : initialWatch?.transport === 'webrtc' && initialWatch.webrtc_credentials
+        ? 'webrtc'
+        : null;
+  const [transport, setTransport] = useState<ViewerTransportDecision | null>(initialTransport);
   const isHls = transport === 'hls';
+  const isIvs = transport === 'ivs';
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const [hlsReady, setHlsReady] = useState(false);
+  // Transporte IVS: token SUBSCRIBE del stage (viene de /stream/watch).
+  const [ivsCreds, setIvsCreds] = useState<IvsStageCredentials | null>(
+    initialTransport === 'ivs' ? (initialWatch?.ivs ?? null) : null
+  );
+  const [ivsReady, setIvsReady] = useState(false);
   const [streamError, setStreamError] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(true);
   const [chatToken, setChatToken] = useState<string | null>(null);
@@ -137,8 +157,10 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({
     stream.sellerUserId ?? null
   );
   const viewerCleanupRef = useRef<(() => void) | null>(null);
-  // Credenciales pre-fetacheadas: se usan una sola vez en el primer montaje.
-  const initialCredsRef = useRef<StreamWebRTCCredentialsResponse | null>(initialCreds ?? null);
+  // Credenciales pre-fetcheadas: se usan una sola vez en el primer montaje.
+  const initialCredsRef = useRef<StreamWebRTCCredentialsResponse | null>(
+    initialTransport === 'webrtc' ? (initialWatch?.webrtc_credentials ?? null) : null
+  );
   const { likeEvents, handleLikeDone, handleLikeEvent } = useFloatingHearts();
   const { isRecording, recordingTimeLabel, toggleRecording } = useLiveScreenRecording();
   const wallet = useStreamWalletFlow();
@@ -575,7 +597,10 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({
         }
         const watch = await getStreamWatch(token, roomId);
         if (cancelled) return;
-        if (watch.transport === 'webrtc' && watch.webrtc_credentials) {
+        if (watch.transport === 'ivs' && watch.ivs) {
+          setIvsCreds(watch.ivs);
+          setTransport('ivs');
+        } else if (watch.transport === 'webrtc' && watch.webrtc_credentials) {
           initialCredsRef.current = watch.webrtc_credentials;
           setTransport('webrtc');
         } else {
@@ -584,6 +609,8 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({
       } catch {
         // Backend sin /stream/watch (rollout) o error transitorio: comportamiento
         // previo — intentar WebRTC directo (el 409 SEATS_FULL derivará a HLS).
+        // Las salas IVS solo existen con backend nuevo, así que el fallback KVS
+        // sigue siendo el correcto acá.
         if (!cancelled) setTransport('webrtc');
       }
     })();
@@ -595,8 +622,10 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({
   useEffect(() => {
     // Esperando la decisión de transporte del backend.
     if (transport === null) return;
-    // En modo HLS el video lo maneja <HlsStreamPlayer/>; no abrir peer WebRTC.
-    if (isHls) {
+    // En HLS el video lo maneja <HlsStreamPlayer/>; en IVS, el efecto de
+    // conexión al stage (el SDK gestiona su propia sesión de audio, sin
+    // incall-manager) y <IvsRemoteVideoView/> como render.
+    if (isHls || isIvs) {
       setIsConnecting(false);
       return;
     }
@@ -697,7 +726,59 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({
       viewerCleanupRef.current = null;
       disableSpeakerphone();
     };
-  }, [roomId, onClose, transport, isHls, connectAttempt]);
+  }, [roomId, onClose, transport, isHls, isIvs, connectAttempt]);
+
+  // IVS: error/desconexión del stage → reintentar con token fresco (re-resuelve
+  // /stream/watch); agotados los intentos, error visible.
+  const handleIvsError = useCallback((err: Error) => {
+    if (connectAttemptRef.current < MAX_CONNECT_ATTEMPTS) {
+      connectAttemptRef.current += 1;
+      setIvsReady(false);
+      setIvsCreds(null);
+      setTransport(null); // vuelve a pedir /stream/watch → token nuevo
+    } else {
+      setStreamError(err.message || 'Error de conexión IVS');
+    }
+  }, []);
+  const handleIvsReady = useCallback(() => setIvsReady(true), []);
+
+  // IVS: la conexión al stage vive acá (no en el componente de video) para que
+  // avance aunque el splash de "conectando" esté en pantalla. Los listeners se
+  // registran ANTES del join: si el video del seller llega en el mismo instante,
+  // el evento no se pierde. La view nativa (IvsRemoteVideoView) es render puro y
+  // se attacha al stream vigente aunque se monte después.
+  useEffect(() => {
+    if (!isIvs || !ivsCreds) return;
+    let cancelled = false;
+    const unsubscribe = addIvsStageListeners({
+      onRemoteVideo: (hasVideo) => {
+        if (!cancelled && hasVideo) handleIvsReady();
+      },
+      onConnectionState: (state, error) => {
+        if (!cancelled && state === 'DISCONNECTED' && error) {
+          handleIvsError(new Error(error));
+        }
+      },
+      onError: (error) => {
+        if (!cancelled) handleIvsError(new Error(error));
+      },
+    });
+    joinIvsStageAsViewer(ivsCreds.token).catch((e) => {
+      if (!cancelled) handleIvsError(e instanceof Error ? e : new Error(String(e)));
+    });
+    return () => {
+      cancelled = true;
+      unsubscribe();
+      leaveIvsStage().catch(() => {});
+    };
+  }, [isIvs, ivsCreds, handleIvsReady, handleIvsError]);
+
+  // IVS: el mute del viewer y la pausa silencian el audio remoto vía gain nativo.
+  useEffect(() => {
+    if (!isIvs) return;
+    setIvsRemoteAudioMuted(isStreamPaused || isAudioMuted).catch(() => {});
+  }, [isIvs, isStreamPaused, isAudioMuted]);
+
 
   useEffect(() => {
     if (!remoteStream) {
@@ -831,7 +912,7 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({
     );
   }
 
-  const videoReady = isHls ? hlsReady : !!remoteStream;
+  const videoReady = isHls ? hlsReady : isIvs ? ivsReady : !!remoteStream;
   if ((isConnecting || !videoReady) && !isStreamPaused) {
     return (
       <StreamViewerSplash
@@ -851,7 +932,12 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({
     <View style={styles.container}>
       <StatusBar hidden />
 
-      {isHls ? (
+      {isIvs ? (
+        <IvsRemoteVideoView
+          style={[styles.video, isStreamPaused && styles.videoWhilePaused]}
+          pointerEvents="none"
+        />
+      ) : isHls ? (
         <HlsStreamPlayer
           roomId={roomId}
           paused={isStreamPaused}

@@ -19,6 +19,24 @@ class MainActivity : ReactActivity() {
       window.decorView.systemUiVisibility =
           window.decorView.systemUiVisibility or View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
     }
+
+    SystemNavigationBar.hide(window)
+  }
+
+  override fun onResume() {
+    super.onResume()
+    SystemNavigationBar.hide(window)
+  }
+
+  /**
+   * Al recuperar el foco (volver de background, cerrar el teclado, cerrar un diálogo nativo)
+   * el sistema puede restaurar la barra de navegación: la volvemos a ocultar.
+   */
+  override fun onWindowFocusChanged(hasFocus: Boolean) {
+    super.onWindowFocusChanged(hasFocus)
+    if (hasFocus) {
+      SystemNavigationBar.hide(window)
+    }
   }
 
   /**

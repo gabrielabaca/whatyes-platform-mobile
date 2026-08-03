@@ -16,7 +16,12 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import { Camera, useCameraDevice, useCameraPermission } from 'react-native-vision-camera';
+import {
+  Camera,
+  useCameraDevice,
+  useCameraPermission,
+  useMicrophonePermission,
+} from 'react-native-vision-camera';
 import { RTCView } from 'react-native-webrtc';
 import type { MediaStream } from 'react-native-webrtc';
 import { ArrowLeft } from 'lucide-react-native';
@@ -49,6 +54,14 @@ import {
   setKinesisWebRTCMasterVideoEnabled,
   setKinesisWebRTCMasterMicMuted,
 } from '../../../native/KinesisWebRTCNative';
+import {
+  joinIvsStageAsPublisher,
+  leaveIvsStage,
+  setIvsStageMicMuted,
+  setIvsStageVideoEnabled,
+  switchIvsStageCamera,
+  IvsLocalPreviewView,
+} from '../../../native/IvsStageNative';
 import { useStreamChat } from '../../../hooks/useStreamChat';
 import { useLiveAutoCoverSnapshot } from '../../../hooks/useLiveAutoCoverSnapshot';
 import { AuctionWinnerOverlay } from '../../molecules/AuctionWinnerOverlay/AuctionWinnerOverlay';
@@ -89,6 +102,8 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
   const [preLiveReady, setPreLiveReady] = useState(false);
   const [resolvedStreamConfig, setResolvedStreamConfig] = useState<StreamConfig>(streamConfig);
   const [localWebRTCStream, setLocalWebRTCStream] = useState<MediaStream | null>(null);
+  // Publicando al IVS Stage (transporte 'ivs'): el preview local es la view nativa.
+  const [ivsPublishing, setIvsPublishing] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
   const [sellerProfile, setSellerProfile] = useState<UserPublicProfile | null>(null);
   const [liveCommerce, setLiveCommerce] = useState<LiveCommerceResponse | null>(null);
@@ -148,7 +163,7 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
     enabled:
       !userProvidedCover &&
       isStreaming &&
-      Boolean(localWebRTCStream) &&
+      (Boolean(localWebRTCStream) || ivsPublishing) &&
       !isStreamPaused,
     onCoverUploaded: handleLiveCoverUploaded,
   });
@@ -188,26 +203,55 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
         if (cancelled) return;
         setRoomId(live.uuid);
         try {
-          const webrtcCreds = await getWebRTCCredentials(accessToken, live.uuid, 'master');
-          setIsStreaming(true);
-          await new Promise<void>((resolve) => setTimeout(resolve, 200));
-          await startKinesisWebRTCMaster(webrtcCreds, {
-            initialFacingMode: cameraPosition === 'front' ? 'user' : 'environment',
-            onLocalStream: (stream) => {
-              setLocalWebRTCStream(stream as unknown as MediaStream);
-            },
-          });
-          // Grabación (ingestión WebRTC → KVS) SOLO en modo HLS: al habilitar storage, AWS rompe el
-          // P2P master↔viewer, así que con viewers WebRTC en tiempo real NO debe activarse.
-          if (getViewerTransport() === 'hls') {
-            startRecording(accessToken, live.uuid).catch((recErr) => {
-              console.warn('[Seller] No se pudo iniciar la grabación:', recErr);
+          if (live.video_transport === 'ivs' && live.ivs_publish?.token) {
+            // IVS Real-Time: una sola publicación al stage (AWS hace el fan-out).
+            // La grabación la hace AWS (Individual Participant Recording): sin
+            // startRecording ni storage KVS. El preview local es la view nativa.
+            //
+            // Los permisos deben estar concedidos ANTES del join: el SDK captura
+            // cámara/mic nativo directo y en Android arrancar la captura sin
+            // RECORD_AUDIO mata el proceso (con KVS los pedía getUserMedia).
+            if (Camera.getCameraPermissionStatus() !== 'granted') {
+              const cam = await Camera.requestCameraPermission();
+              if (cam !== 'granted') {
+                throw new Error('Se necesita permiso de cámara para transmitir.');
+              }
+            }
+            if (Camera.getMicrophonePermissionStatus() !== 'granted') {
+              const mic = await Camera.requestMicrophonePermission();
+              if (mic !== 'granted') {
+                throw new Error('Se necesita permiso de micrófono para transmitir.');
+              }
+            }
+            if (cancelled) return;
+            setIsStreaming(true);
+            await joinIvsStageAsPublisher(live.ivs_publish.token, {
+              initialFacingMode: cameraPosition === 'front' ? 'user' : 'environment',
             });
+            if (!cancelled) setIvsPublishing(true);
+          } else {
+            const webrtcCreds = await getWebRTCCredentials(accessToken, live.uuid, 'master');
+            setIsStreaming(true);
+            await new Promise<void>((resolve) => setTimeout(resolve, 200));
+            await startKinesisWebRTCMaster(webrtcCreds, {
+              initialFacingMode: cameraPosition === 'front' ? 'user' : 'environment',
+              onLocalStream: (stream) => {
+                setLocalWebRTCStream(stream as unknown as MediaStream);
+              },
+            });
+            // Grabación (ingestión WebRTC → KVS) SOLO en modo HLS: al habilitar storage, AWS rompe el
+            // P2P master↔viewer, así que con viewers WebRTC en tiempo real NO debe activarse.
+            if (getViewerTransport() === 'hls') {
+              startRecording(accessToken, live.uuid).catch((recErr) => {
+                console.warn('[Seller] No se pudo iniciar la grabación:', recErr);
+              });
+            }
           }
         } catch (e: unknown) {
           if (!cancelled) {
             setIsStreaming(false);
-            const msg = e instanceof Error ? e.message : 'No se pudo iniciar el envío por WebRTC. Comprueba la conexión.';
+            setIvsPublishing(false);
+            const msg = e instanceof Error ? e.message : 'No se pudo iniciar la transmisión. Comprueba la conexión.';
             setStreamError(msg);
           }
         }
@@ -367,11 +411,16 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
   const confirmEndStream = useCallback(async () => {
     disconnectPermanently();
     try {
-      await stopKinesisWebRTCMaster();
+      if (ivsPublishing) {
+        await leaveIvsStage();
+      } else {
+        await stopKinesisWebRTCMaster();
+      }
     } catch {
       // ignore
     }
     setLocalWebRTCStream(null);
+    setIvsPublishing(false);
     setIsStreaming(false);
     if (token && roomId) {
       try {
@@ -384,6 +433,11 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
   }, [token, roomId, onEndStream, disconnectPermanently]);
 
   const { hasPermission, requestPermission } = useCameraPermission();
+  // El micrófono se pide explícito: el publisher IVS captura audio nativo directo
+  // (con KVS lo pedía implícitamente el getUserMedia de libwebrtc). Sin el permiso
+  // RECORD_AUDIO concedido, Android mata el proceso al arrancar la captura.
+  const { hasPermission: hasMicPermission, requestPermission: requestMicPermission } =
+    useMicrophonePermission();
   const frontDevice = useCameraDevice('front');
   const backDevice = useCameraDevice('back');
   const device = cameraPosition === 'front' ? frontDevice : backDevice;
@@ -391,6 +445,10 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
   useEffect(() => {
     if (!hasPermission) requestPermission();
   }, [hasPermission, requestPermission]);
+
+  useEffect(() => {
+    if (!hasMicPermission) requestMicPermission();
+  }, [hasMicPermission, requestMicPermission]);
 
   const handlePreLiveStart = useCallback((config: StreamConfig) => {
     setResolvedStreamConfig(config);
@@ -410,17 +468,25 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
   const handleToggleMic = useCallback(async () => {
     const nextMuted = !isMicMuted;
     try {
-      await setKinesisWebRTCMasterMicMuted(nextMuted);
+      if (ivsPublishing) {
+        await setIvsStageMicMuted(nextMuted);
+      } else {
+        await setKinesisWebRTCMasterMicMuted(nextMuted);
+      }
       setIsMicMuted(nextMuted);
     } catch {
       Alert.alert(t('common.appName'), t('stream.muteMicError'));
     }
-  }, [isMicMuted, t]);
+  }, [isMicMuted, ivsPublishing, t]);
 
   const handleTogglePause = useCallback(async () => {
     const nextPaused = !isStreamPaused;
     try {
-      await setKinesisWebRTCMasterVideoEnabled(!nextPaused);
+      if (ivsPublishing) {
+        await setIvsStageVideoEnabled(!nextPaused);
+      } else {
+        await setKinesisWebRTCMasterVideoEnabled(!nextPaused);
+      }
     } catch {
       Alert.alert(t('common.appName'), t('stream.pauseStreamError'));
       return;
@@ -430,11 +496,18 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
     } else {
       sendStreamResume();
     }
-  }, [isStreamPaused, sendStreamPause, sendStreamResume, t]);
+  }, [isStreamPaused, ivsPublishing, sendStreamPause, sendStreamResume, t]);
 
   const handleToggleCamera = useCallback(async () => {
     const nextPosition = cameraPosition === 'front' ? 'back' : 'front';
-    if (localWebRTCStream) {
+    if (ivsPublishing) {
+      try {
+        await switchIvsStageCamera(nextPosition === 'front' ? 'user' : 'environment');
+      } catch {
+        Alert.alert(t('common.appName'), t('stream.flipCameraWebRtcHint'));
+        return;
+      }
+    } else if (localWebRTCStream) {
       try {
         await switchKinesisWebRTCMasterCamera(nextPosition === 'front' ? 'user' : 'environment');
       } catch {
@@ -443,7 +516,7 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
       }
     }
     setCameraPosition(nextPosition);
-  }, [cameraPosition, localWebRTCStream, t]);
+  }, [cameraPosition, localWebRTCStream, ivsPublishing, t]);
 
   const productTitle =
     liveCommerce?.active_product?.title?.trim() ||
@@ -552,7 +625,11 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
     <View style={styles.container}>
       <StatusBar hidden />
 
-      {localWebRTCStream ? (
+      {ivsPublishing ? (
+        <View ref={streamViewRef} style={styles.camera} collapsable={false}>
+          <IvsLocalPreviewView style={StyleSheet.absoluteFill} />
+        </View>
+      ) : localWebRTCStream ? (
         <View ref={streamViewRef} style={styles.camera} collapsable={false}>
           <RTCView
             streamURL={localWebRTCStream.toURL()}

@@ -12,6 +12,7 @@ import { IconEye, IconStar } from '../../icons';
 import { Text } from '../../atoms/Text';
 import { FONT_FAMILY } from '../../../theme/typography';
 import { displayInterestCategoryIcon } from '../../../utils/interestCategoryEmoji';
+import { PeekHint } from './PeekHint';
 import type { LiveStreamPreviewModel } from './types';
 
 export type LiveStreamPreviewVariant = 'large' | 'compact' | 'grid';
@@ -20,6 +21,10 @@ interface LiveStreamPreviewCardProps {
   stream: LiveStreamPreviewModel;
   variant: LiveStreamPreviewVariant;
   onPress?: () => void;
+  /** Mantener presionada la card: abre el peek del vivo (se cierra con la X). */
+  onLongPress?: () => void;
+  /** Muestra el hint animado del gesto (solo la primera card del listado). */
+  showPeekHint?: boolean;
 }
 
 const GRID_H = 224;
@@ -34,6 +39,8 @@ export const LiveStreamPreviewCard: React.FC<LiveStreamPreviewCardProps> = ({
   stream,
   variant,
   onPress,
+  onLongPress,
+  showPeekHint,
 }) => {
   const { width: screenW } = useWindowDimensions();
   const compactW = Math.min(160, (screenW - 16 * 2 - 12) / 2.2);
@@ -75,6 +82,8 @@ export const LiveStreamPreviewCard: React.FC<LiveStreamPreviewCardProps> = ({
     <TouchableOpacity
       activeOpacity={0.88}
       onPress={onPress}
+      onLongPress={onLongPress}
+      delayLongPress={350}
       style={[styles.card, variant === 'grid' && styles.cardGrid, variant === 'compact' ? { width: compactW } : styles.cardFull]}
     >
       <View
@@ -209,6 +218,8 @@ export const LiveStreamPreviewCard: React.FC<LiveStreamPreviewCardProps> = ({
             </View>
           </View>
         </View>
+
+        {showPeekHint ? <PeekHint /> : null}
       </View>
     </TouchableOpacity>
   );

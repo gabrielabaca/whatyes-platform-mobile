@@ -37,13 +37,16 @@ export function mapPlatformRoomToPreview(r: PlatformRoom, t: TFunction): LiveStr
       : undefined;
 
   const coverThumb = r.cover_url?.trim() || undefined;
+  // Miniatura viva (thumbnail IVS del último frame): pisa al cover en las cards.
+  // coverUrl conserva el cover elegido por el seller (splash del StreamScreen).
+  const liveThumb = r.live_thumbnail_url?.trim() || undefined;
 
   return {
     id: r.uuid,
     sellerName,
     title,
     viewerCount: r.viewer_count ?? 0,
-    thumbnail: coverThumb,
+    thumbnail: liveThumb ?? coverThumb,
     coverUrl: coverThumb ?? null,
     rating: 4.2 + ((r.viewer_count ?? 0) % 8) / 10,
     categoryLabel: interestCategories?.[0]?.label ?? null,

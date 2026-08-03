@@ -1,4 +1,5 @@
 PODS:
+  - AmazonIVSBroadcast/Stages (1.38.0)
   - AppAuth (2.1.0):
     - AppAuth/Core (= 2.1.0)
     - AppAuth/ExternalUserAgent (= 2.1.0)
@@ -3106,6 +3107,7 @@ PODS:
   - Yoga (0.0.0)
 
 DEPENDENCIES:
+  - AmazonIVSBroadcast/Stages (~> 1.37)
   - AppCheckCore
   - boost (from `../node_modules/react-native/third-party-podspecs/boost.podspec`)
   - DoubleConversion (from `../node_modules/react-native/third-party-podspecs/DoubleConversion.podspec`)
@@ -3213,6 +3215,7 @@ DEPENDENCIES:
 
 SPEC REPOS:
   trunk:
+    - AmazonIVSBroadcast
     - AppAuth
     - AppCheckCore
     - GoogleSignIn
@@ -3427,6 +3430,7 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native/ReactCommon/yoga"
 
 SPEC CHECKSUMS:
+  AmazonIVSBroadcast: 9cc88f9ef1360e8fad354f9372df0aa6b820d564
   AppAuth: ef4da5a3fc2e10b90c09a0a94a9baeaedc0341d5
   AppCheckCore: 214137f5c378d1dec88a68425c467fe65aaff637
   boost: 7e761d76ca2ce687f7cc98e698152abd03a18f90
@@ -3538,6 +3542,6 @@ SPEC CHECKSUMS:
   VisionCamera: 3ea10c46a5c612f5f89fb46a54bef4a0de8b58a7
   Yoga: 5bd0956bf9cb16f75101e78b5e852c7577bc5a45
 
-PODFILE CHECKSUM: f60869d403cf3a8d7425e4459ab1ac0d6b8996d2
+PODFILE CHECKSUM: 3bdb31e2726c4388dd9557da38e8d4553d448243
 
 COCOAPODS: 1.15.2

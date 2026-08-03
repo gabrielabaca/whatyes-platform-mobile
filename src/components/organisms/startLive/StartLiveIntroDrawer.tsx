@@ -4,7 +4,7 @@
  * pantalla para reducir la fricción del primer live.
  */
 import React, { useState } from 'react';
-import { ScrollView, View, Text as RNText } from 'react-native';
+import { ScrollView, StyleSheet, View, Text as RNText } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { StreamBottomSheet } from '../stream/StreamBottomSheet';
 import { startLiveFullSheetProps, startLiveStyles } from './startLiveStyles';
@@ -84,12 +84,25 @@ export const StartLiveIntroDrawer: React.FC<StartLiveIntroDrawerProps> = ({
           />
         </View>
 
-        <StartLiveTermsCheckbox
-          checked={accepted}
-          label={t('startLive.termsCheckbox')}
-          onToggle={() => setAccepted((v) => !v)}
-        />
+        <View style={localStyles.termsBlock}>
+          <StartLiveTermsCheckbox
+            checked={accepted}
+            label={t('startLive.termsCheckbox')}
+            onToggle={() => setAccepted((v) => !v)}
+          />
+        </View>
       </ScrollView>
     </StreamBottomSheet>
   );
 };
+
+const localStyles = StyleSheet.create({
+  /** Separa los términos de los radios y los alinea con el resto del contenido. */
+  termsBlock: {
+    marginTop: 20,
+    paddingTop: 16,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(255,255,255,0.18)',
+    paddingBottom: 8,
+  },
+});

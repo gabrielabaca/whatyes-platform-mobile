@@ -299,6 +299,7 @@ export default {
     "defaultRoomName": "Live room",
     "defaultStreamTitle": "Live stream",
     "liveBadge": "Live",
+    "peekHint": "Press and hold to peek",
     "exploreCategories": "Explore categories",
     "forYou": "✨ For you",
     "categoriesAll": "All",

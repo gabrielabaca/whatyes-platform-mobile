@@ -29,6 +29,10 @@ target 'PulpoLive' do
   pod 'RecaptchaInterop', :modular_headers => true
   pod 'AppCheckCore', :modular_headers => true
 
+  # Amazon IVS Broadcast SDK (Real-Time Stages): publisher del seller y
+  # subscriber de viewers cuando la sala usa video_transport=ivs (IvsStage.m).
+  pod 'AmazonIVSBroadcast/Stages', '~> 1.37'
+
   use_react_native!(
     :path => config[:reactNativePath],
     # An absolute path to your application root.

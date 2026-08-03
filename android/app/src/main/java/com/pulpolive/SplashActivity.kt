@@ -16,6 +16,7 @@ class SplashActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_splash)
+        SystemNavigationBar.hide(window)
 
         val versionLabel = findViewById<TextView>(R.id.splash_version)
         versionLabel.text = "V${BuildConfig.VERSION_NAME}"
@@ -24,6 +25,13 @@ class SplashActivity : AppCompatActivity() {
             startActivity(Intent(this, MainActivity::class.java))
             finish()
         }, SPLASH_DELAY_MS)
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) {
+            SystemNavigationBar.hide(window)
+        }
     }
 
     companion object {
