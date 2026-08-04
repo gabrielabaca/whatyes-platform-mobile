@@ -4,6 +4,8 @@ import { PreferencesModal } from '../organisms/account/PreferencesModal';
 import { NotificationsModal } from '../organisms/account/NotificationsModal';
 import { ChangePasswordModal } from '../organisms/account/ChangePasswordModal';
 import { ContactModal } from '../organisms/account/ContactModal';
+import { WalletFlowDrawers } from '../organisms/stream/wallet';
+import { useStreamWalletFlow } from '../../hooks/useStreamWalletFlow';
 import {
   View,
   ScrollView,
@@ -78,6 +80,8 @@ export const BuyerAccountScreen: React.FC<BuyerAccountScreenProps> = ({
   const [notificationsModalVisible, setNotificationsModalVisible] = useState(false);
   const [changePasswordVisible, setChangePasswordVisible] = useState(false);
   const [contactModalVisible, setContactModalVisible] = useState(false);
+  /** Mismo flujo de drawers que el vivo; acá se entra directo al hub. */
+  const wallet = useStreamWalletFlow();
 
   const showPlaceholder = () => {
     Alert.alert(t('common.appName'), t('home.placeholderScreen'));
@@ -105,7 +109,9 @@ export const BuyerAccountScreen: React.FC<BuyerAccountScreenProps> = ({
           <AccountMenuRow
             label={t('account.paymentsShipping')}
             icon={AddCardIcon}
-            onPress={showPlaceholder}
+            onPress={() => {
+              void wallet.goToHub();
+            }}
           />
           <AccountMenuRow
             label={t('account.address')}
@@ -180,6 +186,8 @@ export const BuyerAccountScreen: React.FC<BuyerAccountScreenProps> = ({
       visible={contactModalVisible}
       onClose={() => setContactModalVisible(false)}
     />
+
+    <WalletFlowDrawers wallet={wallet} defaultFullName={displayName} />
     </View>
   );
 };
