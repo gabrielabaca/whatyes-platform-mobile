@@ -954,6 +954,253 @@ export async function getMySales(
   return res.json() as Promise<PurchasesListResponse>;
 }
 
+/** Tipos de evento del feed (NotificationType del backend; puede crecer). */
+export type UserNotificationType =
+  | 'seller_live_start'
+  | 'new_follower'
+  | 'new_message'
+  | 'auction_won'
+  | 'auction_second_chance'
+  | 'raffle_won'
+  | 'purchase_paid'
+  | 'purchase_payment_action_required'
+  | 'purchase_cancelled'
+  | 'purchase_shipment_created'
+  | 'purchase_delivered'
+  | 'product_sold'
+  | 'sale_paid'
+  | string;
+
+export interface UserNotificationItem {
+  uuid: string;
+  type: UserNotificationType;
+  actor_user_id?: string | null;
+  seller_user_id?: string | null;
+  room_id?: string | null;
+  resource_type?: 'sale' | 'auction' | 'raffle' | 'room' | 'conversation' | 'user' | 'product' | string | null;
+  resource_id?: string | null;
+  /** Título y cuerpo ya redactados por el backend. */
+  title?: string | null;
+  body?: string | null;
+  data?: Record<string, unknown> | null;
+  is_read: boolean;
+  read_at?: number | null;
+  created_at: number;
+}
+
+export interface NotificationsListResponse {
+  items: UserNotificationItem[];
+  total: number;
+  /** No leídas del usuario (ignora el filtro de la consulta). */
+  unread_count: number;
+}
+
+/** Feed de notificaciones del usuario autenticado (más recientes primero). */
+export async function getMyNotifications(
+  accessToken: string,
+  options?: { limit?: number; offset?: number }
+): Promise<NotificationsListResponse> {
+  const res = await fetch(`${PLATFORM_HTTP_URL}/me/notifications${pagingQuery(options)}`, {
+    headers: authHeaders(accessToken),
+  });
+  if (!res.ok) throw new Error(`getMyNotifications: ${res.status}`);
+  return res.json() as Promise<NotificationsListResponse>;
+}
+
+/** Contador del punto rojo de la campana. */
+export async function getNotificationsUnreadCount(
+  accessToken: string
+): Promise<{ unread_count: number }> {
+  const res = await fetch(`${PLATFORM_HTTP_URL}/me/notifications/unread-count`, {
+    headers: authHeaders(accessToken),
+  });
+  if (!res.ok) throw new Error(`getNotificationsUnreadCount: ${res.status}`);
+  return res.json() as Promise<{ unread_count: number }>;
+}
+
+/** Marca una notificación como leída. */
+export async function markNotificationRead(
+  accessToken: string,
+  notificationId: string
+): Promise<{ uuid: string; is_read: boolean }> {
+  const res = await fetch(
+    `${PLATFORM_HTTP_URL}/me/notifications/${encodeURIComponent(notificationId)}/read`,
+    { method: 'POST', headers: authHeaders(accessToken) }
+  );
+  if (!res.ok) throw new Error(`markNotificationRead: ${res.status}`);
+  return res.json() as Promise<{ uuid: string; is_read: boolean }>;
+}
+
+/** Marca todas las notificaciones como leídas. */
+export async function markAllNotificationsRead(
+  accessToken: string
+): Promise<{ updated: number; unread_count: number }> {
+  const res = await fetch(`${PLATFORM_HTTP_URL}/me/notifications/read-all`, {
+    method: 'POST',
+    headers: authHeaders(accessToken),
+  });
+  if (!res.ok) throw new Error(`markAllNotificationsRead: ${res.status}`);
+  return res.json() as Promise<{ updated: number; unread_count: number }>;
+}
+
+export interface ConversationPeer {
+  user_id: string;
+  name?: string | null;
+  profile_picture?: string | null;
+}
+
+export interface ConversationItem {
+  uuid: string;
+  peer?: ConversationPeer | null;
+  /** Preview del último mensaje ("📷 Foto" si fue solo imagen). */
+  last_message?: string | null;
+  last_message_at?: number | null;
+  last_message_sender_user_id?: string | null;
+  unread_count: number;
+  created_at: number;
+}
+
+export interface ConversationsListResponse {
+  items: ConversationItem[];
+  total: number;
+  unread_total: number;
+}
+
+export interface ConversationMessage {
+  uuid: string;
+  conversation_id: string;
+  sender_user_id: string;
+  body: string;
+  image_urls: string[];
+  is_mine: boolean;
+  is_read: boolean;
+  created_at: number;
+}
+
+export interface MessagesListResponse {
+  items: ConversationMessage[];
+  total: number;
+}
+
+/** Abre (o recupera) la conversación con otro usuario. Idempotente por par. */
+export async function createConversation(
+  accessToken: string,
+  peerUserId: string
+): Promise<ConversationItem> {
+  const res = await fetch(`${PLATFORM_HTTP_URL}/conversations`, {
+    method: 'POST',
+    headers: authHeaders(accessToken),
+    body: JSON.stringify({ peer_user_id: peerUserId }),
+  });
+  if (!res.ok) throw new Error(`createConversation: ${res.status}`);
+  return res.json() as Promise<ConversationItem>;
+}
+
+/** Conversaciones del usuario; `q` filtra por contenido de mensajes en el server. */
+export async function getConversations(
+  accessToken: string,
+  options?: { limit?: number; offset?: number; q?: string }
+): Promise<ConversationsListResponse> {
+  const parts: string[] = [];
+  if (options?.limit != null) parts.push(`limit=${options.limit}`);
+  if (options?.offset != null) parts.push(`offset=${options.offset}`);
+  if (options?.q) parts.push(`q=${encodeURIComponent(options.q)}`);
+  const query = parts.length ? `?${parts.join('&')}` : '';
+  const res = await fetch(`${PLATFORM_HTTP_URL}/conversations${query}`, {
+    headers: authHeaders(accessToken),
+  });
+  if (!res.ok) throw new Error(`getConversations: ${res.status}`);
+  return res.json() as Promise<ConversationsListResponse>;
+}
+
+/** Mensajes de una conversación, más recientes primero. */
+export async function getConversationMessages(
+  accessToken: string,
+  conversationId: string,
+  options?: { limit?: number; offset?: number }
+): Promise<MessagesListResponse> {
+  const res = await fetch(
+    `${PLATFORM_HTTP_URL}/conversations/${encodeURIComponent(conversationId)}/messages${pagingQuery(options)}`,
+    { headers: authHeaders(accessToken) }
+  );
+  if (!res.ok) throw new Error(`getConversationMessages: ${res.status}`);
+  return res.json() as Promise<MessagesListResponse>;
+}
+
+/** Envía texto y/o fotos (URLs de uploadConversationImages). */
+export async function sendConversationMessage(
+  accessToken: string,
+  conversationId: string,
+  body: string,
+  imageUrls?: string[]
+): Promise<ConversationMessage> {
+  const res = await fetch(
+    `${PLATFORM_HTTP_URL}/conversations/${encodeURIComponent(conversationId)}/messages`,
+    {
+      method: 'POST',
+      headers: authHeaders(accessToken),
+      body: JSON.stringify({ body, image_urls: imageUrls ?? [] }),
+    }
+  );
+  if (!res.ok) throw new Error(`sendConversationMessage: ${res.status}`);
+  return res.json() as Promise<ConversationMessage>;
+}
+
+/** Marca la conversación como leída hasta ahora. */
+export async function markConversationRead(
+  accessToken: string,
+  conversationId: string
+): Promise<{ conversation_id: string; unread_count: number }> {
+  const res = await fetch(
+    `${PLATFORM_HTTP_URL}/conversations/${encodeURIComponent(conversationId)}/read`,
+    { method: 'POST', headers: authHeaders(accessToken) }
+  );
+  if (!res.ok) throw new Error(`markConversationRead: ${res.status}`);
+  return res.json() as Promise<{ conversation_id: string; unread_count: number }>;
+}
+
+/** Sube fotos del chat (máx 6 × 5MB) y devuelve las URLs para el mensaje. */
+export async function uploadConversationImages(
+  accessToken: string,
+  photos: { uri: string; type?: string; name?: string }[]
+): Promise<string[]> {
+  const form = new FormData();
+  photos.forEach((photo, index) => {
+    form.append('images', {
+      uri: photo.uri,
+      type: photo.type || 'image/jpeg',
+      name: photo.name || `chat-${index}.jpg`,
+    } as unknown as Blob);
+  });
+  // Solo Authorization: con FormData el boundary del multipart lo pone fetch.
+  const res = await fetch(`${PLATFORM_HTTP_URL}/conversations/images`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${accessToken}` },
+    body: form,
+  });
+  if (!res.ok) throw new Error(`uploadConversationImages: ${res.status}`);
+  const data = (await res.json()) as { image_urls: string[] };
+  return data.image_urls ?? [];
+}
+
+export interface ConversationsUnreadCount {
+  /** Conversaciones con al menos un mensaje sin leer: el número del badge. */
+  conversations_with_unread: number;
+  /** Mensajes sin leer sumando todas las conversaciones. */
+  unread_total: number;
+}
+
+/** Contador del badge del ícono de mensajes (chat entre usuarios). */
+export async function getConversationsUnreadCount(
+  accessToken: string
+): Promise<ConversationsUnreadCount> {
+  const res = await fetch(`${PLATFORM_HTTP_URL}/conversations/unread-count`, {
+    headers: authHeaders(accessToken),
+  });
+  if (!res.ok) throw new Error(`getConversationsUnreadCount: ${res.status}`);
+  return res.json() as Promise<ConversationsUnreadCount>;
+}
+
 export interface SellerNotificationSubscription {
   seller_user_id: string;
   subscribed: boolean;

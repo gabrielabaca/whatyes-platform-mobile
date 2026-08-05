@@ -1,10 +1,10 @@
 import React from 'react';
 import { StyleSheet, View, useWindowDimensions } from 'react-native';
 import { Text } from '../../atoms/Text';
-import { IconVideo } from '../../icons';
+import { Button } from '../../atoms/Button';
+import { IconNotifications } from '../../icons';
 import { FONT_FAMILY } from '../../../theme/typography';
 import { useTheme } from '../../../context/ThemeContext';
-import { themeColors } from '../../../theme/colors';
 import { LiveStreamPreviewCard } from './LiveStreamPreviewCard';
 import { LiveStreamCardSkeleton } from './LiveStreamCardSkeleton';
 import type { LiveStreamPreviewModel } from './types';
@@ -27,6 +27,9 @@ export interface BuyerLiveStreamsGridProps {
   emptyLabel: string;
   /** Texto secundario opcional bajo el título del estado vacío. */
   emptySubtitle?: string;
+  /** CTA opcional del estado vacío (Figma nodo 821-1103). Requiere `onEmptyActionPress`. */
+  emptyActionLabel?: string;
+  onEmptyActionPress?: () => void;
   gap?: number;
   /** Ancho horizontal del contenido (padding del ScrollView padre). */
   horizontalPadding?: number;
@@ -43,6 +46,8 @@ export const BuyerLiveStreamsGrid: React.FC<BuyerLiveStreamsGridProps> = ({
   peekHintFirstCard,
   emptyLabel,
   emptySubtitle,
+  emptyActionLabel,
+  onEmptyActionPress,
   gap = DEFAULT_GAP,
   horizontalPadding = H_PADDING * 2,
   sectionHeader,
@@ -65,29 +70,39 @@ export const BuyerLiveStreamsGrid: React.FC<BuyerLiveStreamsGridProps> = ({
   }
 
   if (!loading && previews.length === 0) {
+    // Card del estado vacío — Figma nodo 821-1098 ("Inicio No Live").
     return (
-      <View style={styles.emptyWrap}>
-        <View
-          style={[
-            styles.emptyIconCircle,
-            { backgroundColor: isDark ? 'rgba(104,92,240,0.16)' : 'rgba(104,92,240,0.10)' },
-          ]}
-        >
-          <IconVideo size={28} color={themeColors.primary} strokeWidth={2} />
-        </View>
-        <Text
-          style={[styles.emptyTitle, { fontFamily: FONT_FAMILY.bold }]}
-          className="text-[#02050F] dark:text-white"
-        >
-          {emptyLabel}
-        </Text>
-        {emptySubtitle ? (
+      <View
+        style={[
+          styles.emptyCard,
+          { borderColor: isDark ? 'rgba(104,92,240,0.35)' : '#CBCEFF' },
+        ]}
+      >
+        <View style={styles.emptyTextBlock}>
           <Text
-            style={[styles.emptySubtitle, { fontFamily: FONT_FAMILY.regular }]}
-            className="text-[#4C4E55] dark:text-night-muted"
+            style={[styles.emptyTitle, { fontFamily: FONT_FAMILY.bold }]}
+            className="text-[#685CF0]"
           >
-            {emptySubtitle}
+            {emptyLabel}
           </Text>
+          {emptySubtitle ? (
+            <Text
+              style={[styles.emptySubtitle, { fontFamily: FONT_FAMILY.semibold }]}
+              className="text-[#3B3B40] dark:text-night-muted"
+            >
+              {emptySubtitle}
+            </Text>
+          ) : null}
+        </View>
+        {emptyActionLabel && onEmptyActionPress ? (
+          <Button
+            title={emptyActionLabel}
+            size="small"
+            titleClassName="font-bold"
+            style={styles.emptyCta}
+            leftIcon={<IconNotifications size={24} color="#FEFEFE" />}
+            onPress={onEmptyActionPress}
+          />
         ) : null}
       </View>
     );
@@ -116,30 +131,48 @@ export const BuyerLiveStreamsGrid: React.FC<BuyerLiveStreamsGridProps> = ({
 };
 
 const styles = StyleSheet.create({
-  emptyWrap: {
+  emptyCard: {
+    // En el diseño la card llena el alto libre; flexGrow lo logra cuando el
+    // contenedor lo permite (Home) y minHeight es el piso en el resto.
+    flexGrow: 1,
+    minHeight: 380,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 56,
-    paddingHorizontal: 24,
-    gap: 6,
+    gap: 32,
+    padding: 12,
+    borderWidth: 1,
+    borderRadius: 8,
+    // Figma: 5px 5px 5px -2px rgba(0,0,0,0.05). Sin elevation: en Android la
+    // sombra requiere fondo sólido y la card es transparente.
+    shadowColor: '#000',
+    shadowOffset: { width: 5, height: 5 },
+    shadowRadius: 5,
+    shadowOpacity: 0.05,
   },
-  emptyIconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+  emptyTextBlock: {
     alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 8,
+    gap: 24,
+    width: '100%',
   },
   emptyTitle: {
-    fontSize: 16,
-    lineHeight: 22,
+    fontSize: 20,
+    // Figma: 20/20; +4 de aire para que el emoji no se recorte en Android.
+    lineHeight: 24,
     textAlign: 'center',
   },
   emptySubtitle: {
-    fontSize: 13,
+    fontSize: 16,
     lineHeight: 20,
     textAlign: 'center',
-    maxWidth: 280,
+    width: '100%',
+  },
+  emptyCta: {
+    // Figma: px 12 y drop-shadow 0 4 2 rgba(104,92,240,0.15).
+    paddingHorizontal: 12,
+    shadowColor: '#685CF0',
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 2,
+    shadowOpacity: 0.15,
+    elevation: 3,
   },
 });

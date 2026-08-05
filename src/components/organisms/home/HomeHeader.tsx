@@ -1,14 +1,15 @@
 import React from 'react';
-import { View, TouchableOpacity, Image, StyleSheet } from 'react-native';
+import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Text } from '../../atoms/Text';
 import HeaderLogo from '../../../../assets/images/header_logo.svg';
-import { IconSearch, IconBell, IconUser } from '../../icons';
+import ForumIcon from '../../../../assets/icons/header/forum.svg';
+import { IconSearch, IconBell } from '../../icons';
 import { FONT_FAMILY } from '../../../theme/typography';
 import { themeColors } from '../../../theme/colors';
 import { useTheme } from '../../../context/ThemeContext';
 
-/** Medidas y colores del header de inicio (comprador). */
+/** Medidas y colores del header de inicio (comprador). Figma 698:1898. */
 const HEADER_METRICS = {
   logoText: '#685CF0',
   logoTextSize: 24,
@@ -17,40 +18,45 @@ const HEADER_METRICS = {
   logoIconH: 23,
   gapLogoToText: 8,
   iconGray: '#71717A',
-  profileCircle: '#685CF0',
-  profileIcon: '#02050F',
-  bellDot: '#FB2C36',
+  /** Rojo del punto de la campana y del contador de mensajes. */
+  badgeRed: '#FB2C36',
   hitSearchBell: 38,
   iconSearchBell: 22,
-  profileSize: 32,
-  profileIconInner: 18,
+  /** El ícono de chat va sin caja de 38 (Figma lo pone suelto): el área táctil la da hitSlop. */
+  iconChat: 24,
   paddingH: 16,
   paddingV: 12,
 } as const;
 
 interface HomeHeaderProps {
-  profileImageUri?: string | null;
-  profileInitials: string;
   onPressSearch?: () => void;
   onPressNotifications?: () => void;
-  onPressProfile?: () => void;
+  /** Chat entre usuarios: reemplaza al antiguo botón de perfil (Figma 961:742). */
+  onPressChat?: () => void;
+  /** Punto rojo de la campana: encendido solo si hay notificaciones sin leer. */
   hasNotificationDot?: boolean;
-  showProfile?: boolean;
+  showChat?: boolean;
+  /** Conversaciones con mensajes nuevos: pinta el contador rojo sobre el ícono. */
+  chatUnreadCount?: number;
 }
 
 export const HomeHeader: React.FC<HomeHeaderProps> = ({
-  profileImageUri,
-  profileInitials: _profileInitials,
   onPressSearch,
   onPressNotifications,
-  onPressProfile,
-  hasNotificationDot = true,
-  showProfile = true,
+  onPressChat,
+  hasNotificationDot = false,
+  showChat = true,
+  chatUnreadCount = 0,
 }) => {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const iconMuted = isDark ? themeColors.dark.textMuted : HEADER_METRICS.iconGray;
   const logoWordColor = isDark ? themeColors.primary : HEADER_METRICS.logoText;
+  const badgeBorderColor = isDark ? '#050f2f' : '#E7E7FF';
+
+  // A partir de 100 el número no entra en el círculo sin deformar el header.
+  const unreadCount = Math.max(0, Math.trunc(chatUnreadCount) || 0);
+  const unreadLabel = unreadCount > 99 ? '99+' : String(unreadCount);
 
   return (
     <View
@@ -97,10 +103,9 @@ export const HomeHeader: React.FC<HomeHeaderProps> = ({
               <View
                 style={[
                   styles.bellDot,
-                  // eslint-disable-next-line react-native/no-inline-styles
                   {
-                    backgroundColor: HEADER_METRICS.bellDot,
-                    borderColor: isDark ? '#050f2f' : '#E7E7FF',
+                    backgroundColor: HEADER_METRICS.badgeRed,
+                    borderColor: badgeBorderColor,
                   },
                 ]}
               />
@@ -108,47 +113,45 @@ export const HomeHeader: React.FC<HomeHeaderProps> = ({
           </View>
         </TouchableOpacity>
 
-        {showProfile ? (
+        {showChat ? (
           <TouchableOpacity
-            onPress={onPressProfile}
-            style={[
-              styles.profileOuter,
-              // eslint-disable-next-line react-native/no-inline-styles
-              {
-                width: HEADER_METRICS.profileSize,
-                height: HEADER_METRICS.profileSize,
-                borderRadius: HEADER_METRICS.profileSize / 2,
-                backgroundColor: profileImageUri ? 'transparent' : HEADER_METRICS.profileCircle,
-              },
-            ]}
-            activeOpacity={0.85}
+            onPress={onPressChat}
+            style={styles.chatHit}
+            activeOpacity={0.7}
+            hitSlop={10}
             accessibilityRole="button"
-            accessibilityLabel={t('home.tabProfile')}
+            accessibilityLabel={
+              unreadCount > 0
+                ? `${t('home.chat')}, ${t('home.chatUnread', { count: unreadCount })}`
+                : t('home.chat')
+            }
           >
-            {profileImageUri ? (
-              <Image
-                source={{ uri: profileImageUri }}
-                style={styles.profileImage}
-                resizeMode="cover"
-              />
-            ) : (
+            {/* El fill del SVG es currentColor: `color` lo tiñe según el tema. */}
+            <ForumIcon
+              width={HEADER_METRICS.iconChat}
+              height={HEADER_METRICS.iconChat}
+              color={iconMuted}
+            />
+            {unreadCount > 0 ? (
               <View
                 style={[
-                  styles.profileFallback,
+                  styles.chatBadge,
                   {
-                    width: HEADER_METRICS.profileSize,
-                    height: HEADER_METRICS.profileSize,
-                    borderRadius: HEADER_METRICS.profileSize / 2,
+                    backgroundColor: HEADER_METRICS.badgeRed,
+                    borderColor: badgeBorderColor,
                   },
                 ]}
               >
-                <IconUser
-                  size={HEADER_METRICS.profileIconInner}
-                  color={HEADER_METRICS.profileIcon}
-                  strokeWidth={2.2}
-                />
+                <Text
+                  className="text-white"
+                  style={styles.chatBadgeText}
+                  allowFontScaling={false}
+                  numberOfLines={1}
+                >
+                  {unreadLabel}
+                </Text>
               </View>
-            )}
+            ) : null}
           </TouchableOpacity>
         ) : null}
       </View>
@@ -165,7 +168,8 @@ const styles = StyleSheet.create({
     gap: HEADER_METRICS.gapLogoToText,
   },
   actions: {
-    gap: 10,
+    // Figma 698:1909
+    gap: 12,
   },
   hit: {
     width: HEADER_METRICS.hitSearchBell,
@@ -188,20 +192,29 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     borderWidth: 2,
   },
-  profileOuter: {
-    marginLeft: 2,
-    overflow: 'hidden',
+  chatHit: {
+    width: HEADER_METRICS.iconChat,
+    height: HEADER_METRICS.iconChat,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  profileImage: {
-    width: HEADER_METRICS.profileSize,
-    height: HEADER_METRICS.profileSize,
-    borderRadius: HEADER_METRICS.profileSize / 2,
-  },
-  profileFallback: {
-    backgroundColor: HEADER_METRICS.profileCircle,
+  /** Contador sobre la esquina del ícono; crece hacia la izquierda con 2-3 dígitos. */
+  chatBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    paddingHorizontal: 3,
+    borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  chatBadgeText: {
+    fontFamily: FONT_FAMILY.bold,
+    fontSize: 10,
+    lineHeight: 12,
+    color: '#FFFFFF',
   },
 });

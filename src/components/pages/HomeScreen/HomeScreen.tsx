@@ -37,6 +37,12 @@ import { useAuth } from '../../../hooks/useAuth';
 import { useBottomNavController } from '../../../context/BottomNavContext';
 import { useInterestCategories } from '../../../hooks/useInterestCategories';
 import { useBuyerLiveRoomPreviews } from '../../../hooks/useBuyerLiveRoomPreviews';
+import { useChatUnread } from '../../../hooks/useChatUnread';
+import { useStartChat } from '../../../hooks/useStartChat';
+import { ConversationModal } from '../../organisms/chat/ConversationModal';
+import { useNotificationsUnread } from '../../../hooks/useNotificationsUnread';
+import { NotificationsScreen } from '../NotificationsScreen/NotificationsScreen';
+import { ChatListScreen } from '../ChatListScreen/ChatListScreen';
 import { previewToStreamData } from '../../../utils/streamPreviewToStreamData';
 import { themeColors } from '../../../theme/colors';
 import type { UserMe } from '../../../api/types';
@@ -83,8 +89,12 @@ type HomePath =
   | { name: 'purchases' }
   | { name: 'activity' }
   | { name: 'purchaseDetail'; purchase: PurchaseItem }
-  | { name: 'profile'; userId?: string; returnTo?: 'account' | 'activity' }
-  | { name: 'addProduct'; returnTo?: 'home' | 'sellerHub' };
+  | { name: 'profile'; userId?: string; returnTo?: 'account' | 'activity' | 'notifications' }
+  | { name: 'addProduct'; returnTo?: 'home' | 'sellerHub' }
+  /** returnTo: la campana está en varias pantallas; volver regresa a la de origen. */
+  | { name: 'notifications'; returnTo: HomePath }
+  /** Lista de chats (el ícono de mensajes, visible en las mismas pantallas). */
+  | { name: 'chat'; returnTo: HomePath };
 
 /** Debe renderizarse dentro de GeneralLayout (BottomNavProvider). */
 const HomeNavBridge: React.FC<{
@@ -112,6 +122,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     pollIntervalMs: 15000,
     enabled: hasHomeTabs,
   });
+  const {
+    unreadConversations,
+    setUnreadConversations,
+    reload: reloadChatUnread,
+  } = useChatUnread(hasHomeTabs);
+  const { conversation: directChat, startChat, closeChat } = useStartChat();
+  const { unreadNotifications, setUnreadNotifications } = useNotificationsUnread(hasHomeTabs);
 
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>(ALL_CATEGORIES_ID);
   const [bottomTab, setBottomTab] = useState<HomeBottomTab>('home');
@@ -190,12 +207,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
   const profileImageUri =
     (user as UserMe | null)?.profile_picture ?? user?.profile?.picture ?? null;
-  const profileInitials = useMemo(() => {
-    const a = user?.name?.trim()?.[0] ?? '';
-    const b = user?.last_name?.trim()?.[0] ?? '';
-    const s = `${a}${b}`.toUpperCase();
-    return s || '?';
-  }, [user]);
 
   const toStreamData = (p: LiveStreamPreviewModel): StreamData =>
     previewToStreamData(p, t('home.liveBadge'));
@@ -289,9 +300,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         return;
       }
       if (tab === 'account') {
-        // Tab "Cuenta": directo al perfil del usuario; el menú de configuración
-        // queda accesible desde el back del perfil.
-        setHomePath({ name: 'profile' });
+        // Tab "Cuenta": abre el menú de cuenta (el que antes desplegaba el botón
+        // de perfil del header); el perfil del usuario se entra desde "Ver perfil".
+        setHomePath({ name: 'account' });
         return;
       }
       if (tab === 'create') {
@@ -302,7 +313,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         setHomePath({ name: 'activity' });
       }
     },
-    [t]
+    // Solo setters de estado (estables): la navegación por tab no depende de nada más.
+    []
   );
 
   if (!user) {
@@ -357,7 +369,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     homePath.name === 'sellerHub' ||
     homePath.name === 'activity' ||
     homePath.name === 'account' ||
-    homePath.name === 'addProduct';
+    homePath.name === 'addProduct' ||
+    homePath.name === 'chat';
 
   const paymentsAmount = t('sellerHome.paymentsAmount', {
     amount: new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 }).format(
@@ -371,17 +384,19 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         <View style={styles.homeRoot}>
           {showHomeHeader ? (
             <HomeHeader
-              profileImageUri={profileImageUri}
-              profileInitials={profileInitials}
               onPressSearch={() => Alert.alert(t('common.appName'), t('home.searchPlaceholder'))}
               onPressNotifications={() =>
-                Alert.alert(t('common.appName'), t('home.placeholderNotifications'))
+                setHomePath((prev) =>
+                  prev.name === 'notifications' ? prev : { name: 'notifications', returnTo: prev }
+                )
               }
-              showProfile={homePath.name === 'home'}
-              onPressProfile={() => {
-                setBottomTab('account');
-                setHomePath({ name: 'account' });
-              }}
+              onPressChat={() =>
+                setHomePath((prev) =>
+                  prev.name === 'chat' ? prev : { name: 'chat', returnTo: prev }
+                )
+              }
+              hasNotificationDot={unreadNotifications > 0}
+              chatUnreadCount={unreadConversations}
             />
           ) : null}
 
@@ -430,6 +445,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               className="flex-1"
               nestedScrollEnabled
               contentContainerStyle={{
+                // flexGrow permite que la card del estado vacío llene el alto libre.
+                flexGrow: 1,
                 paddingHorizontal: 16,
                 paddingTop: 8,
                 paddingBottom: 24,
@@ -461,6 +478,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                 peekHintFirstCard={!peekHintUsed}
                 emptyLabel={t('home.noLiveStreams')}
                 emptySubtitle={t('home.noLiveStreamsSubtitle')}
+                emptyActionLabel={t('home.notifyWhenLive')}
+                // TODO: cablear la suscripción a notificaciones de lives.
+                onEmptyActionPress={() =>
+                  Alert.alert(t('common.appName'), t('home.placeholderNotifyWhenLive'))
+                }
                 gap={GRID_GAP}
                 previewWithCategory={previewWithCategory}
                 sectionHeader={
@@ -512,6 +534,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               onOpenSellerProfile={(sellerUserId) =>
                 setHomePath({ name: 'profile', userId: sellerUserId, returnTo: 'activity' })
               }
+              onStartChat={(peerUserId) => {
+                void startChat(peerUserId);
+              }}
             />
           ) : null}
 
@@ -528,16 +553,45 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             />
           ) : null}
 
+          {homePath.name === 'chat' ? (
+            <ChatListScreen
+              onBack={() => setHomePath(homePath.returnTo)}
+              onUnreadConversationsChange={setUnreadConversations}
+            />
+          ) : null}
+
+          {homePath.name === 'notifications' ? (
+            <NotificationsScreen
+              onBack={() => setHomePath(homePath.returnTo)}
+              onUnreadCountChange={setUnreadNotifications}
+              onOpenProfile={(userId) =>
+                setHomePath({ name: 'profile', userId, returnTo: 'notifications' })
+              }
+              onOpenPurchase={(purchase) => setHomePath({ name: 'purchaseDetail', purchase })}
+              onOpenActivity={() => setHomePath({ name: 'activity' })}
+            />
+          ) : null}
+
           {homePath.name === 'profile' ? (
             <View className="flex-1 bg-white dark:bg-night-950">
               <UserProfileScreen
                 userId={homePath.userId}
                 onBack={() =>
                   setHomePath(
-                    homePath.returnTo === 'activity' ? { name: 'activity' } : { name: 'account' }
+                    homePath.returnTo === 'activity'
+                      ? { name: 'activity' }
+                      : homePath.returnTo === 'notifications'
+                        ? { name: 'notifications', returnTo: { name: 'home' } }
+                        : { name: 'account' }
                   )
                 }
                 onShowPress={handleProfileShowPress}
+                onStartChat={(peerUserId) => {
+                  void startChat(peerUserId);
+                }}
+                onOpenChats={() =>
+                  setHomePath((prev) => ({ name: 'chat', returnTo: prev }))
+                }
               />
             </View>
           ) : null}
@@ -550,6 +604,18 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               void reloadUser();
             }}
           />
+
+          {/* Chat abierto desde perfil o detalle de compra/venta. */}
+          {directChat ? (
+            <ConversationModal
+              conversation={directChat}
+              onClose={() => {
+                closeChat();
+                // Abrir el hilo pudo marcarlo leído: refresca el badge del header.
+                void reloadChatUnread();
+              }}
+            />
+          ) : null}
 
           <LivePeekOverlay stream={peekStream} onClose={handleClosePeek} />
         </View>

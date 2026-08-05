@@ -1,6 +1,7 @@
 export {
   IconSearch,
   IconBell,
+  IconNotifications,
   IconUser,
   IconShoppingBag,
   IconSun,

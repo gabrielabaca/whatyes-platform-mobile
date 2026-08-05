@@ -29,6 +29,7 @@ import {
 } from '../icons';
 import { ProfileShowCard } from '../organisms/profile/ProfileShowCard';
 import { EditProfileDrawer } from '../organisms/profile/EditProfileDrawer';
+import { useAuth } from '../../hooks/useAuth';
 import { useUserProfile } from '../../hooks/useUserProfile';
 import { useUserShows } from '../../hooks/useUserShows';
 import { useUserProfileProducts } from '../../hooks/useUserProfileProducts';
@@ -66,6 +67,10 @@ export interface UserProfileScreenProps {
    * false (default) cuando el padre ya aplica el safe area (Home).
    */
   underStatusBar?: boolean;
+  /** Botón de mensajes en perfil ajeno: inicia (o retoma) el chat con ese usuario. */
+  onStartChat?: (peerUserId: string) => void;
+  /** Botón de mensajes en el perfil propio: abre la lista de chats. */
+  onOpenChats?: () => void;
 }
 
 export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
@@ -74,6 +79,8 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   onShowPress,
   variant = 'default',
   underStatusBar = false,
+  onStartChat,
+  onOpenChats,
 }) => {
   const { t } = useTranslation();
   const { width } = useWindowDimensions();
@@ -99,6 +106,19 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   );
 
   const placeholder = () => Alert.alert(t('common.appName'), t('home.placeholderScreen'));
+
+  // El botón de mensajes existe en ambas variantes (Figma 698:10969): en un perfil
+  // ajeno inicia el chat con ese usuario; en el propio abre la lista de chats.
+  const { user: authUser } = useAuth();
+  const isOwnProfile = !!resolvedId && resolvedId === authUser?.uuid;
+  const handleChatPress = () => {
+    if (isOwnProfile) {
+      if (onOpenChats) return onOpenChats();
+    } else if (resolvedId && onStartChat) {
+      return onStartChat(resolvedId);
+    }
+    placeholder();
+  };
 
   const statSecondaryLabel =
     profile?.user_type === 'seller_user' ? t('profile.sold') : t('profile.purchases');
@@ -318,7 +338,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={styles.coverActionBtn}
-                    onPress={placeholder}
+                    onPress={handleChatPress}
                     accessibilityRole="button"
                     accessibilityLabel={t('profile.messageSeller')}
                   >
@@ -329,7 +349,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                 // Figma 698:10969 — el botón de mensajes también aparece en el perfil propio.
                 <TouchableOpacity
                   style={styles.coverActionBtn}
-                  onPress={placeholder}
+                  onPress={handleChatPress}
                   accessibilityRole="button"
                   accessibilityLabel={t('profile.messageSeller')}
                 >

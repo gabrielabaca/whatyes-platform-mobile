@@ -75,12 +75,15 @@ export interface PurchaseDetailScreenProps {
   purchase: PurchaseItem;
   onBack: () => void;
   onOpenSellerProfile?: (sellerUserId: string) => void;
+  /** Inicia (o retoma) el chat con la contraparte: vendedor en compras, comprador en ventas. */
+  onStartChat?: (peerUserId: string) => void;
 }
 
 export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
   purchase,
   onBack,
   onOpenSellerProfile,
+  onStartChat,
 }) => {
   const { t, i18n } = useTranslation();
   const insets = useSafeAreaInsets();
@@ -454,7 +457,13 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.sellerActionBtn, darkRow]}
-                onPress={() => Alert.alert(t('common.appName'), t('home.placeholderScreen'))}
+                onPress={() =>
+                  onStartChat
+                    ? onStartChat(sellerId)
+                    : Alert.alert(t('common.appName'), t('home.placeholderScreen'))
+                }
+                accessibilityRole="button"
+                accessibilityLabel={t('profile.messageSeller')}
               >
                 <IconChat size={20} color={PRIMARY} strokeWidth={1.75} />
               </TouchableOpacity>

@@ -27,7 +27,11 @@ import { getShippingAddress } from '../api/shippingAddressApi';
 import type { StreamConfig } from '../components/pages/StreamConfigScreen';
 import type { StartLiveSetupPayload } from '../components/organisms/startLive/StartLiveSetupDrawer';
 import { storage } from '../utils/storage';
+import { withTimeout } from '../utils/withTimeout';
 import { useAuth } from './useAuth';
+
+/** Tope de espera del estado remoto al abrir el wizard (ver `open`). */
+const OPEN_TIMEOUT_MS = 15000;
 
 export type StartLiveWizardStep = 'closed' | 'intro' | 'setup' | 'launch';
 
@@ -98,12 +102,21 @@ export const StartLiveWizardProvider: React.FC<{ children: ReactNode }> = ({ chi
   const open = useCallback(async () => {
     setBusy(true);
     try {
-      const [{ status, hasPayout }, lastCategories, step1Seen, termsSeen] = await Promise.all([
-        refreshRemoteState(),
-        storage.getLastLiveCategoryUuids(),
-        storage.getSellerLiveWelcomeStep1Seen(),
-        storage.getSellerLiveWelcomeTermsSeen(),
-      ]);
+      /**
+       * Con timeout: el tile "Hacer un live" no muestra el `busy`, así que una promesa
+       * que nunca vuelve (backend sin responder, AsyncStorage trabado) se ve como un
+       * botón muerto. Al vencer, cae en el catch de abajo y el wizard igual abre.
+       */
+      const [{ status, hasPayout }, lastCategories, step1Seen, termsSeen] = await withTimeout(
+        Promise.all([
+          refreshRemoteState(),
+          storage.getLastLiveCategoryUuids(),
+          storage.getSellerLiveWelcomeStep1Seen(),
+          storage.getSellerLiveWelcomeTermsSeen(),
+        ]),
+        OPEN_TIMEOUT_MS,
+        'startLiveWizard.open'
+      );
       setCategoryUuids(lastCategories);
       /**
        * La BD manda: si el vendedor ya aceptó los términos / completó la encuesta,

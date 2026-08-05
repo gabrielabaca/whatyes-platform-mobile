@@ -17,6 +17,7 @@ import { StartLiveWizardHost } from './src/components/organisms/startLive/StartL
 import { storage } from './src/utils/storage';
 import { isBuyerKycReturnUrl, notifyBuyerKycReturn } from './src/utils/buyerKycDeepLink';
 import { isMpWalletReturnUrl, notifyMpWalletReturn } from './src/utils/mpWalletDeepLink';
+import { withTimeout } from './src/utils/withTimeout';
 import { getBuyerKycStatus, ApiError } from './src/api';
 import i18n from './src/i18n';
 import { BuyerKycOnboardingScreen } from './src/components/pages/BuyerKycOnboardingScreen';
@@ -36,6 +37,13 @@ import type { StreamConfig } from './src/components/pages/StreamConfigScreen';
 
 type AuthScreen = 'onboarding' | 'login' | 'register' | 'forgot-password';
 type AppScreen = AuthScreen | 'home' | 'stream' | 'stream-swipe' | 'stream-config' | 'seller-stream';
+
+/**
+ * Tope de espera del gate de KYC. Es la puerta de entrada a "Hacer un live" y a entrar
+ * a un vivo: si la consulta no vuelve, el usuario tiene que enterarse, no quedarse
+ * tocando un botón que no responde.
+ */
+const KYC_GATE_TIMEOUT_MS = 15000;
 
 const homeShellStyles = StyleSheet.create({
   root: {
@@ -98,15 +106,24 @@ function AuthenticatedAppShell({
     void (async () => {
       try {
         // El KYC aprobado no revierte: el flag local evita la espera de red en cada tap.
-        if (await storage.getKycVerified()) {
+        // Con timeout: si AsyncStorage o el backend no responden, la promesa igual termina
+        // y se libera `kycCheckingRef`. Sin esto, un tap dejaba el guard trabado y todos
+        // los taps siguientes eran silenciosos (botón muerto, sin error ni pantalla).
+        if (await withTimeout(storage.getKycVerified(), KYC_GATE_TIMEOUT_MS, 'storage.getKycVerified')) {
           kycVerifiedRef.current = true;
           proceed();
           return;
         }
-        const status = await getBuyerKycStatus();
+        const status = await withTimeout(
+          getBuyerKycStatus(),
+          KYC_GATE_TIMEOUT_MS,
+          'getBuyerKycStatus'
+        );
         if (status.verified) {
           kycVerifiedRef.current = true;
-          await storage.setKycVerified();
+          // Cachear el flag no debe bloquear la acción: si AsyncStorage tarda o falla,
+          // el usuario igual entra (en el próximo arranque se vuelve a consultar).
+          void storage.setKycVerified().catch(() => {});
           proceed();
           return;
         }

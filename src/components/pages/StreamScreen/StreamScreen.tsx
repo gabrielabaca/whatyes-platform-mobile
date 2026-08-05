@@ -59,6 +59,8 @@ import { StreamFollowSellerDrawer } from '../../organisms/stream/StreamFollowSel
 import { StreamShippingRateDrawer } from '../../organisms/stream/StreamShippingRateDrawer';
 import { StreamPausedMedia } from '../../organisms/stream/StreamPausedMedia';
 import { UserProfileScreen } from '../UserProfileScreen';
+import { ConversationModal } from '../../organisms/chat/ConversationModal';
+import { useStartChat } from '../../../hooks/useStartChat';
 import { useSellerFollow } from '../../../hooks/useSellerFollow';
 import { FollowSuccessCelebration } from '../../molecules/profile';
 import { getUserPublicProfile } from '../../../api/profileApi';
@@ -522,6 +524,8 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({
     roomId,
     t,
   ]);
+
+  const { conversation: directChat, startChat, closeChat } = useStartChat();
 
   const closeSellerProfile = useCallback(() => {
     setSellerProfileUserId(null);
@@ -1021,9 +1025,15 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({
             variant="sellerPublic"
             underStatusBar
             onBack={closeSellerProfile}
+            onStartChat={(peerUserId) => {
+              void startChat(peerUserId);
+            }}
           />
         </View>
       ) : null}
+
+      {/* Chat con el vendedor abierto desde su perfil durante el vivo. */}
+      {directChat ? <ConversationModal conversation={directChat} onClose={closeChat} /> : null}
 
       <StreamRoomProductsDrawer
         visible={productCatalogVisible}

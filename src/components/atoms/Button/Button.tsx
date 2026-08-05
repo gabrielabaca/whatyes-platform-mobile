@@ -1,5 +1,5 @@
 import React from 'react';
-import { TouchableOpacity, TouchableOpacityProps, ActivityIndicator } from 'react-native';
+import { TouchableOpacity, TouchableOpacityProps, ActivityIndicator, View } from 'react-native';
 import { Text } from '../Text';
 import { themeColors } from '../../../theme/colors';
 
@@ -46,6 +46,8 @@ export interface ButtonProps extends Omit<TouchableOpacityProps, 'children'> {
   className?: string;
   /** Clases extra solo para el texto del título (p. ej. enlaces “Omitir” en onboarding). */
   titleClassName?: string;
+  /** Icono opcional a la izquierda del título; se oculta mientras `loading`. */
+  leftIcon?: React.ReactNode;
 }
 
 export const Button: React.FC<ButtonProps> = ({
@@ -55,6 +57,7 @@ export const Button: React.FC<ButtonProps> = ({
   loading = false,
   className = '',
   titleClassName = '',
+  leftIcon,
   disabled,
   ...props
 }) => {
@@ -108,6 +111,11 @@ export const Button: React.FC<ButtonProps> = ({
     <TouchableOpacity className={buttonClasses} disabled={isDisabled} {...props}>
       {loading ? (
         <ActivityIndicator color={spinnerColor} />
+      ) : leftIcon ? (
+        <View className="flex-row items-center justify-center" style={{ gap: 12 }}>
+          {leftIcon}
+          <Text className={textClasses}>{title}</Text>
+        </View>
       ) : (
         <Text className={textClasses}>{title}</Text>
       )}
