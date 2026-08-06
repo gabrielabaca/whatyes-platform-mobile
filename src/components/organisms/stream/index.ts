@@ -11,5 +11,10 @@ export type { StreamBuyerOverlayProps } from './StreamBuyerOverlay';
 export { StreamVideoScrim } from './StreamVideoScrim';
 export { StreamEndLiveDrawer } from './StreamEndLiveDrawer';
 export type { StreamEndLiveDrawerProps } from './StreamEndLiveDrawer';
+export { StreamLiveNoteDrawer } from './StreamLiveNoteDrawer';
+export type {
+  StreamLiveNoteDrawerProps,
+  StreamLiveNoteDrawerMode,
+} from './StreamLiveNoteDrawer';
 export { StreamSellerOverlay } from './StreamSellerOverlay';
 export type { StreamSellerOverlayProps } from './StreamSellerOverlay';

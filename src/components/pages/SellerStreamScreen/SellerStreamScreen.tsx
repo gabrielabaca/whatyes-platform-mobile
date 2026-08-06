@@ -38,9 +38,9 @@ import {
   startRecording,
   getRoomLiveCommerce,
   getRoomCatalog,
-  setActiveRoomProduct,
   pinRoomProduct,
   startRoomProductAuction,
+  startRoomProductBuyNow,
   startRoomProductRaffle,
   type LiveCommerceResponse,
   type RoomCatalogProductItem,
@@ -76,6 +76,8 @@ import {
   type LiveProductCardVM,
   type LiveProductSaleMode,
 } from '../../organisms/stream/StreamRoomProductsDrawer';
+import { StreamLiveNoteDrawer } from '../../organisms/stream/StreamLiveNoteDrawer';
+import { useLiveRoomNote } from '../../../hooks/useLiveRoomNote';
 import { SellerAddProductDrawer } from '../../organisms/stream/SellerAddProductDrawer';
 import { SellerAddProductTypeDrawer, type ProductListType } from '../../organisms/stream/SellerAddProductTypeDrawer';
 import type { ProductListScope } from '../../../api/types';
@@ -116,7 +118,13 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
   const [catalogError, setCatalogError] = useState<string | null>(null);
   const [saleMode, setSaleMode] = useState<LiveProductSaleMode>('auction');
   const [isMicMuted, setIsMicMuted] = useState(false);
+  // Figma 698-12228: al crear la sala el vivo ya queda listado, pero arranca en
+  // pausa ("por comenzar") hasta que el vendedor toca "Comenzar Live".
+  const [hasStartedLive, setHasStartedLive] = useState(false);
+  const [startLivePending, setStartLivePending] = useState(false);
+  const initialPauseSentRef = useRef(false);
   const [liveCoverUrl, setLiveCoverUrl] = useState<string | null>(null);
+  const [noteDrawerVisible, setNoteDrawerVisible] = useState(false);
   const userProvidedCover = Boolean(resolvedStreamConfig.coverUrl?.trim());
   const cameraRef = useRef<Camera>(null);
   const streamViewRef = useRef<View>(null);
@@ -135,11 +143,17 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
     sendStreamPause,
     sendStreamResume,
     disconnectPermanently,
+    isConnected,
     isStreamPaused,
+    auction,
     isAuctionActive,
+    hasLiveOffer,
+    offerSaleMode,
     auctionSecondsRemaining,
     auctionBids,
     auctionWinner,
+    lastAuctionExtension,
+    roomNote,
   } = useStreamChat({
     roomId,
     accessToken: token,
@@ -151,7 +165,44 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
 
   const { bidEvents, handleBidDone } = useFloatingBids(auctionBids);
 
+  // Nota del vivo: el vendedor es el dueño de la sala, así que puede editarla.
+  const liveNote = useLiveRoomNote({
+    roomId,
+    accessToken: token,
+    initialNote: liveCommerce?.note ?? null,
+    liveNote: roomNote,
+    canEdit: true,
+  });
+
   useLiveKeepAwake();
+
+  const isPublishing = ivsPublishing || Boolean(localWebRTCStream);
+
+  // Estado "por comenzar": en cuanto hay publicación cortamos el video para que
+  // los viewers vean la pantalla de espera en lugar de la cámara del vendedor.
+  useEffect(() => {
+    if (!isPublishing || hasStartedLive) return;
+    (async () => {
+      try {
+        if (ivsPublishing) {
+          await setIvsStageVideoEnabled(false);
+        } else {
+          await setKinesisWebRTCMasterVideoEnabled(false);
+        }
+      } catch {
+        // Si el transporte no soporta apagar el video, el vivo igual queda en
+        // pausa para los viewers vía WebSocket.
+      }
+    })();
+  }, [isPublishing, ivsPublishing, hasStartedLive]);
+
+  // El pause hacia los viewers necesita el WS conectado; se manda una sola vez.
+  useEffect(() => {
+    if (!isPublishing || hasStartedLive || !isConnected) return;
+    if (initialPauseSentRef.current) return;
+    initialPauseSentRef.current = true;
+    sendStreamPause();
+  }, [isPublishing, hasStartedLive, isConnected, sendStreamPause]);
 
   const handleLiveCoverUploaded = useCallback((url: string) => {
     setLiveCoverUrl(url);
@@ -335,7 +386,7 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
 
   const productCards = useMemo<LiveProductCardVM[]>(
     () =>
-      catalogItems.map((it) => ({
+      catalogItems.map((it, index) => ({
         uuid: it.uuid,
         title: it.title,
         imageUrl: it.image_url,
@@ -345,21 +396,28 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
         startsSoon: it.starts_soon,
         auctionSecondsRemaining: it.auction_seconds_remaining,
         status: it.is_active ? 'live' : it.starts_soon ? 'scheduled' : undefined,
+        isPinned: it.is_pinned,
+        // El primero del catálogo es el que la vista del vendedor muestra y el
+        // que pone en juego el deslizamiento de "Siguiente Subasta".
+        isNext: index === 0,
       })),
     [catalogItems],
   );
 
-  const handleStartProduct = useCallback(
-    async (item: LiveProductCardVM) => {
+  /** Pone un producto en juego según el modo de venta elegido en el drawer. */
+  const startProductById = useCallback(
+    async (productId: string) => {
       if (!token || !roomId) return;
       try {
         if (saleMode === 'auction') {
           // Sin duración: el backend usa la config guardada al crear el producto.
-          await startRoomProductAuction(token, roomId, item.uuid);
+          await startRoomProductAuction(token, roomId, productId);
         } else if (saleMode === 'buy_now') {
-          await setActiveRoomProduct(token, roomId, item.uuid);
+          // Compra directa: mismo temporizador que la subasta, precio fijo del
+          // producto. Gana el primero que compra (se resuelve en el backend).
+          await startRoomProductBuyNow(token, roomId, productId);
         } else {
-          await startRoomProductRaffle(token, roomId, item.uuid, {
+          await startRoomProductRaffle(token, roomId, productId, {
             participationMode: 'everyone',
           });
         }
@@ -372,6 +430,41 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
       }
     },
     [saleMode, token, roomId, refreshCatalog, refreshLiveCommerce, t],
+  );
+
+  const handleStartProduct = useCallback(
+    (item: LiveProductCardVM) => startProductById(item.uuid),
+    [startProductById],
+  );
+
+  /**
+   * Tocar una card lo deja primero en la lista (sin arrancarlo): el catálogo se
+   * ordena por `pinned_at` desc, así que re-fijarlo lo lleva al tope y pasa a
+   * ser el producto que muestra la pantalla y que arranca el slider.
+   */
+  const handleSelectProduct = useCallback(
+    async (item: LiveProductCardVM) => {
+      if (!token || !roomId) return;
+      if (item.isNext) {
+        setProductCatalogVisible(false);
+        return;
+      }
+      try {
+        // `pin` es un toggle en el backend: si ya estaba fijado hay que soltarlo
+        // para volver a fijarlo con timestamp nuevo y que quede primero.
+        if (item.isPinned) {
+          await pinRoomProduct(token, roomId, item.uuid);
+        }
+        await pinRoomProduct(token, roomId, item.uuid);
+        await refreshCatalog();
+        refreshLiveCommerce();
+        setProductCatalogVisible(false);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : t('common.error');
+        Alert.alert(t('common.appName'), msg);
+      }
+    },
+    [token, roomId, refreshCatalog, refreshLiveCommerce, t],
   );
 
   const handlePinProduct = useCallback(
@@ -498,6 +591,33 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
     }
   }, [isStreamPaused, ivsPublishing, sendStreamPause, sendStreamResume, t]);
 
+  /** "Comenzar Live" / "Reanudar Live": saca el vivo de pausa (Figma 698-12307). */
+  const handleStartLive = useCallback(async () => {
+    setStartLivePending(true);
+    try {
+      if (ivsPublishing) {
+        await setIvsStageVideoEnabled(true);
+      } else {
+        await setKinesisWebRTCMasterVideoEnabled(true);
+      }
+    } catch {
+      Alert.alert(t('common.appName'), t('stream.pauseStreamError'));
+      setStartLivePending(false);
+      return;
+    }
+    sendStreamResume();
+    setHasStartedLive(true);
+    setStartLivePending(false);
+  }, [ivsPublishing, sendStreamResume, t]);
+
+  /** Deslizar "Siguiente Subasta": pone en juego el primer producto del catálogo. */
+  const handleNextProduct = useCallback(() => {
+    const productId = liveCommerce?.active_product?.uuid;
+    if (!productId) return;
+    // startProductById ya reporta sus propios errores con un Alert.
+    startProductById(productId);
+  }, [liveCommerce?.active_product?.uuid, startProductById]);
+
   const handleToggleCamera = useCallback(async () => {
     const nextPosition = cameraPosition === 'front' ? 'back' : 'front';
     if (ivsPublishing) {
@@ -530,6 +650,14 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
   const catalogTotal = liveCommerce?.catalog_preview?.total_products_in_room ?? productImageUrls.length;
   const productExtraCount = Math.max(0, catalogTotal - Math.min(productImageUrls.length, 3));
   const productBasePriceCents = Math.max(liveCommerce?.active_product?.base_price_cents ?? 100, 100);
+  // El backend ya resuelve `active_product` al primer producto del catálogo
+  // cuando no hay nada corriendo, así que la vista del vendedor siempre muestra
+  // el que está por salir y el slider arranca ese mismo.
+  const nextProductId = liveCommerce?.active_product?.uuid ?? null;
+  // `hasLiveOffer` en vez de `isAuctionActive`: durante la ventana de gracia la
+  // oferta todavía puede reabrirse por una puja tardía, así que no habilitamos el
+  // siguiente producto hasta que baje de pantalla.
+  const nextProductDisabled = !nextProductId || hasLiveOffer;
   const sellerName =
     sellerProfile?.display_name?.trim() || user?.name?.trim() || t('home.defaultRoomName');
   const sellerRating = sellerProfile?.reviews_avg ?? null;
@@ -683,14 +811,47 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
         auctionSecondsRemaining={auctionSecondsRemaining}
         auctionBids={auctionBids}
         auctionWinnerUsername={auctionWinner?.username}
+        auctionExtension={lastAuctionExtension}
+        saleMode={offerSaleMode}
+        buyNowPriceCents={auction?.priceCents ?? null}
         onEndStream={confirmEndStream}
         isStreamPaused={isStreamPaused}
         onTogglePause={handleTogglePause}
+        hasStartedLive={hasStartedLive}
+        onStartLive={handleStartLive}
+        startLiveDisabled={startLivePending || !isPublishing}
         isMicMuted={isMicMuted}
         onToggleMic={handleToggleMic}
         onFlipCamera={handleToggleCamera}
         onOpenProductCatalog={openProductCatalog}
+        onNextProduct={handleNextProduct}
+        nextProductDisabled={nextProductDisabled}
+        nextProductLabel={t(
+          saleMode === 'buy_now'
+            ? 'stream.nextBuyNowCta'
+            : saleMode === 'raffle'
+              ? 'stream.nextRaffleCta'
+              : 'stream.nextAuctionCta'
+        )}
         onAddPress={openAddProduct}
+        onOpenNote={() => setNoteDrawerVisible(true)}
+      />
+
+      <StreamLiveNoteDrawer
+        visible={noteDrawerVisible}
+        onClose={() => {
+          liveNote.clearError();
+          setNoteDrawerVisible(false);
+        }}
+        mode="edit"
+        note={liveNote.note}
+        publishing={liveNote.publishing}
+        error={liveNote.error}
+        onPublish={async (text) => {
+          const ok = await liveNote.publish(text);
+          // Con error el drawer queda abierto mostrándolo, para no perder el borrador.
+          if (ok) setNoteDrawerVisible(false);
+        }}
       />
 
       <SellerAddProductTypeDrawer
@@ -722,6 +883,7 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
         interactive
         saleMode={saleMode}
         onSaleModeChange={setSaleMode}
+        onSelectProduct={handleSelectProduct}
         onStartProduct={handleStartProduct}
         onPinProduct={handlePinProduct}
         onAddProduct={() => {

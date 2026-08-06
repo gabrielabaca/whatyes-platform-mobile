@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -6,7 +6,10 @@ import {
   Keyboard,
   Platform,
   Pressable,
+  Alert,
 } from 'react-native';
+import { CreditCard, Gavel, Mic, MicOff, Pause } from 'lucide-react-native';
+import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   StreamSellerHeader,
@@ -14,10 +17,20 @@ import {
   StreamActionRail,
   StreamChatComposer,
   StreamAuctionPanel,
+  SellerLiveActionBar,
 } from '../../molecules/stream';
-import { LiveControlBar } from '../../molecules/LiveControlBar';
 import { StreamEndLiveDrawer } from './StreamEndLiveDrawer';
-import type { ChatMessage, AuctionBid } from '../../../hooks/useStreamChat';
+import {
+  StreamSellerMoreModal,
+  type StreamSellerMoreAction,
+} from './StreamSellerMoreModal';
+import { STREAM_COLORS } from '../../molecules/stream/streamTokens';
+import type {
+  ChatMessage,
+  AuctionBid,
+  AuctionExtension,
+  LiveOfferSaleMode,
+} from '../../../hooks/useStreamChat';
 
 export interface StreamSellerOverlayProps {
   sellerName: string;
@@ -37,15 +50,32 @@ export interface StreamSellerOverlayProps {
   auctionSecondsRemaining: number | null;
   auctionBids: AuctionBid[];
   auctionWinnerUsername?: string | null;
+  /** Segundos que la última puja le sumó al reloj (anti-sniping). */
+  auctionExtension?: AuctionExtension | null;
+  /** Modo de la oferta en curso (subasta o compra directa a precio fijo). */
+  saleMode?: LiveOfferSaleMode;
+  /** Precio fijo de la compra directa (centavos). Cae al precio base si falta. */
+  buyNowPriceCents?: number | null;
   onEndStream: () => void;
   isStreamPaused: boolean;
   onTogglePause: () => void;
+  /** El vendedor ya tocó "Comenzar Live" al menos una vez en esta sala. */
+  hasStartedLive: boolean;
+  /** Saca el vivo de pausa: arranca (o reanuda) la transmisión. */
+  onStartLive: () => void;
+  startLiveDisabled?: boolean;
   onFlipCamera: () => void;
   flipCameraDisabled?: boolean;
   onAddPress?: () => void;
   onOpenProductCatalog?: () => void;
+  /** Texto del slider: refleja el modo elegido (subasta / venta directa / sorteo). */
+  nextProductLabel?: string;
+  /** Deslizar "Siguiente Subasta": pone en juego el primer producto del catálogo. */
+  onNextProduct?: () => void;
+  nextProductDisabled?: boolean;
   onAddPaymentMethod?: () => void;
-  onOpenClips?: () => void;
+  /** Botón comment_bank: abre el drawer de la nota del vivo (edición). */
+  onOpenNote?: () => void;
   onShare?: () => void;
   onMore?: () => void;
   onStartAuction?: () => void;
@@ -71,24 +101,35 @@ export const StreamSellerOverlay: React.FC<StreamSellerOverlayProps> = ({
   auctionSecondsRemaining,
   auctionBids,
   auctionWinnerUsername,
+  auctionExtension,
+  saleMode = 'auction',
+  buyNowPriceCents,
   onEndStream,
   isStreamPaused,
   onTogglePause,
+  hasStartedLive,
+  onStartLive,
+  startLiveDisabled,
   onFlipCamera,
   flipCameraDisabled,
   onAddPress,
   onOpenProductCatalog,
+  onNextProduct,
+  nextProductDisabled,
+  nextProductLabel,
   onAddPaymentMethod,
-  onOpenClips,
+  onOpenNote,
   onShare,
   onMore,
   onStartAuction,
   isMicMuted,
   onToggleMic,
 }) => {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const [endDrawerVisible, setEndDrawerVisible] = useState(false);
+  const [moreVisible, setMoreVisible] = useState(false);
 
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
@@ -105,11 +146,75 @@ export const StreamSellerOverlay: React.FC<StreamSellerOverlayProps> = ({
 
   const contentPaddingBottom = isKeyboardVisible ? 5 : insets.bottom + 32;
 
+  const isBuyNow = saleMode === 'buy_now';
   const lastBid = auctionBids.length > 0 ? auctionBids[auctionBids.length - 1] : null;
   const floorMajor = Math.round((productBasePriceCents ?? 0) / 100);
-  const currentPrice = Math.max(lastBid?.amount ?? 0, floorMajor);
-  const winningUsername =
-    auctionWinnerUsername ?? (lastBid ? lastBid.username : null);
+  // Compra directa: el precio no se mueve; en subasta sube con las pujas.
+  const currentPrice = isBuyNow
+    ? Math.round((buyNowPriceCents ?? productBasePriceCents ?? 0) / 100)
+    : Math.max(lastBid?.amount ?? 0, floorMajor);
+  const winningUsername = isBuyNow
+    ? null
+    : (auctionWinnerUsername ?? (lastBid ? lastBid.username : null));
+
+  /**
+   * Acciones del menú "más". Figma 890-1336 deja un único icono para las acciones
+   * secundarias, así que micrófono, pausa, métodos de cobro e inicio de subasta
+   * —que antes tenían botón propio en el rail— se agrupan acá.
+   * Finalizar el vivo NO vive en este menú: está en la X del header y en
+   * "Terminar vivo", que confirman con el drawer.
+   */
+  const moreActions = useMemo<StreamSellerMoreAction[]>(() => {
+    const comingSoon = () => Alert.alert(t('common.appName'), t('stream.comingSoon'));
+    const actions: StreamSellerMoreAction[] = [];
+
+    if (onStartAuction) {
+      actions.push({
+        key: 'start-auction',
+        label: t('stream.sellerStartAuction'),
+        icon: <Gavel size={24} color={STREAM_COLORS.white} />,
+        onPress: onStartAuction,
+      });
+    }
+
+    actions.push({
+      key: 'mic',
+      label: isMicMuted ? t('stream.unmuteMic') : t('stream.muteMic'),
+      icon: isMicMuted ? (
+        <MicOff size={24} color={STREAM_COLORS.liveStop} />
+      ) : (
+        <Mic size={24} color={STREAM_COLORS.white} />
+      ),
+      onPress: onToggleMic ?? comingSoon,
+    });
+
+    // Estando pausado, quien reanuda es la CTA "Reanudar Live" de la barra inferior.
+    if (!isStreamPaused) {
+      actions.push({
+        key: 'pause',
+        label: t('stream.pauseStream'),
+        icon: <Pause size={24} color={STREAM_COLORS.white} />,
+        onPress: onTogglePause,
+      });
+    }
+
+    actions.push({
+      key: 'payment',
+      label: t('stream.payment'),
+      icon: <CreditCard size={24} color={STREAM_COLORS.white} />,
+      onPress: onAddPaymentMethod ?? comingSoon,
+    });
+
+    return actions;
+  }, [
+    t,
+    onStartAuction,
+    isMicMuted,
+    onToggleMic,
+    isStreamPaused,
+    onTogglePause,
+    onAddPaymentMethod,
+  ]);
 
   const stackUrls = productImageUrlsProp?.filter(Boolean) ?? [];
   const stackExtra = productExtraCount ?? (stackUrls.length > 3 ? stackUrls.length - 3 : 0);
@@ -145,6 +250,8 @@ export const StreamSellerOverlay: React.FC<StreamSellerOverlayProps> = ({
         />
       ) : null}
 
+      {/* El diseño (698-12229 / 890-1303) no dibuja la X, pero la mantenemos como
+          salida rápida del vivo además de la barra inferior y el menú "más". */}
       <StreamSellerHeader
         variant="seller"
         sellerName={sellerName}
@@ -163,15 +270,12 @@ export const StreamSellerOverlay: React.FC<StreamSellerOverlayProps> = ({
             <StreamChatOverlay messages={visibleMessages} />
             <StreamActionRail
               variant="seller"
-              onExit={() => setEndDrawerVisible(true)}
-              onAddPaymentMethod={onAddPaymentMethod}
-              onOpenClips={onOpenClips}
+              onOpenNote={onOpenNote}
               onShare={onShare}
-              onMore={onMore}
-              onStartAuction={onStartAuction}
-              isStreamPaused={isStreamPaused}
-              isMicMuted={isMicMuted}
-              onToggleMic={onToggleMic}
+              onMore={onMore ?? (() => setMoreVisible(true))}
+              onAddProduct={onAddPress}
+              onFlipCamera={onFlipCamera}
+              flipCameraDisabled={flipCameraDisabled}
             />
           </View>
 
@@ -188,25 +292,42 @@ export const StreamSellerOverlay: React.FC<StreamSellerOverlayProps> = ({
           />
         </View>
 
-        {isAuctionActive ? (
-          <StreamAuctionPanel
-            variant="seller"
-            productTitle={productTitle}
-            winningUsername={winningUsername}
-            currentPrice={currentPrice}
-            secondsRemaining={auctionSecondsRemaining}
-            isAuctionActive={isAuctionActive}
-          />
-        ) : null}
+        <View style={styles.commerceBlock}>
+          {/* El primer producto del catálogo se muestra siempre, haya o no una
+              subasta corriendo: es el que pone en juego el slider. */}
+          {productTitle ? (
+            <StreamAuctionPanel
+              variant="seller"
+              productTitle={productTitle}
+              productImageUrl={stackUrls[0] ?? null}
+              winningUsername={winningUsername}
+              currentPrice={currentPrice}
+              bidCount={auctionBids.length}
+              secondsRemaining={auctionSecondsRemaining}
+              isAuctionActive={isAuctionActive}
+              saleMode={saleMode}
+              timeExtension={auctionExtension}
+            />
+          ) : null}
 
-        <LiveControlBar
-          onAddPress={onAddPress}
-          isStreamPaused={isStreamPaused}
-          onTogglePause={onTogglePause}
-          onFlipCamera={onFlipCamera}
-          flipDisabled={flipCameraDisabled}
-        />
+          <SellerLiveActionBar
+            isStreamPaused={isStreamPaused}
+            hasStartedLive={hasStartedLive}
+            onStartLive={onStartLive}
+            startDisabled={startLiveDisabled}
+            onEndLive={() => setEndDrawerVisible(true)}
+            onNextProduct={onNextProduct}
+            nextProductDisabled={nextProductDisabled}
+            nextProductLabel={nextProductLabel}
+          />
+        </View>
       </View>
+
+      <StreamSellerMoreModal
+        visible={moreVisible}
+        onClose={() => setMoreVisible(false)}
+        actions={moreActions}
+      />
 
       <StreamEndLiveDrawer
         visible={endDrawerVisible}
@@ -236,7 +357,13 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   chatBlock: {
-    gap: 16,
+    // Figma 890-1324: chat y composer van pegados (8), no a 16.
+    gap: 8,
+    width: '100%',
+  },
+  /** Figma 890-1361: panel de subasta y acciones separados por 12. */
+  commerceBlock: {
+    gap: 12,
     width: '100%',
   },
   chatRailRow: {

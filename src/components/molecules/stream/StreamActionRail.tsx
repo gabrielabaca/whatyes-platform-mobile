@@ -2,9 +2,6 @@ import React from 'react';
 import { View, StyleSheet, Alert, Text as RNText } from 'react-native';
 import {
   CreditCard,
-  Mic,
-  MicOff,
-  Plus,
   Video,
   Volume2,
   VolumeX,
@@ -12,52 +9,47 @@ import {
   MoreVertical,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
+import MoreVertIcon from '../../../../assets/icons/stream/moreVert.svg';
+import CommentBankIcon from '../../../../assets/icons/stream/commentBank.svg';
+import ShareIcon from '../../../../assets/icons/stream/share.svg';
+import ArrowShapeUpStackIcon from '../../../../assets/icons/stream/arrowShapeUpStack2.svg';
+import CameraSwitchIcon from '../../../../assets/icons/stream/cameraSwitch.svg';
 import { StreamIconButton } from '../../atoms/stream/StreamIconButton';
 import { STREAM_COLORS } from './streamTokens';
 import { FONT_FAMILY } from '../../../theme/typography';
 
-const SellerPaymentIcon = () => (
-  <View style={styles.iconHost}>
-    <CreditCard size={24} color={STREAM_COLORS.white} />
-    <View style={styles.iconPlus}>
-      <Plus size={9} color={STREAM_COLORS.white} strokeWidth={3} />
-    </View>
-  </View>
-);
-
-const SellerVideoLibraryIcon = () => (
-  <View style={styles.videoLibraryIcon}>
-    <View style={styles.playTriangle} />
-  </View>
-);
+/** Figma 890-1335: los iconos del rail del vendedor son de 32px. */
+const SELLER_ICON = 32;
 
 export type StreamActionRailVariant = 'buyer' | 'seller';
 
 export interface StreamActionRailProps {
   variant?: StreamActionRailVariant;
+  /** Viewer: salir del live desde el menú "más". */
   onExit?: () => void;
   onOpenWallet?: () => void;
   isRecording?: boolean;
   recordingTimeLabel?: string;
   onToggleRecording?: () => void;
-  /** Seller: gestión métodos de cobro (stub → comingSoon). */
-  onAddPaymentMethod?: () => void;
-  /** Seller: biblioteca de clips post-venta (stub). */
-  onOpenClips?: () => void;
+  /**
+   * Nota del vivo → icono comment_bank. En el vendedor abre el drawer de edición;
+   * en el viewer, la nota publicada en solo lectura.
+   */
+  onOpenNote?: () => void;
   /** Seller: compartir deep link del live (stub). */
   onShare?: () => void;
-  /** Seller: menú opciones (moderación, finalizar, etc.). */
+  /** Seller: abre el menú de opciones (lo monta el overlay). */
   onMore?: () => void;
-  /** Seller: iniciar subasta desde menú más. */
-  onStartAuction?: () => void;
-  /** Seller: vivo pausado (oculta botón de mic). */
-  isStreamPaused?: boolean;
-  /** Seller: micrófono silenciado manualmente. */
-  isMicMuted?: boolean;
-  onToggleMic?: () => void;
+  /** Seller: subir producto al vivo → icono arrow_shape_up_stack_2. */
+  onAddProduct?: () => void;
+  /** Seller: cambiar cámara → icono cameraswitch. */
+  onFlipCamera?: () => void;
+  flipCameraDisabled?: boolean;
   /** Viewer: audio del dispositivo silenciado. */
   isAudioMuted?: boolean;
   onToggleAudio?: () => void;
+  /** Muestra un aviso con el look del vivo; sin esto se cae al Alert nativo. */
+  onNotify?: (text: string) => void;
 }
 
 export const StreamActionRail: React.FC<StreamActionRailProps> = ({
@@ -67,21 +59,27 @@ export const StreamActionRail: React.FC<StreamActionRailProps> = ({
   isRecording = false,
   recordingTimeLabel = '0:00',
   onToggleRecording,
-  onAddPaymentMethod,
-  onOpenClips,
+  onOpenNote,
   onShare,
   onMore,
-  onStartAuction,
-  isStreamPaused = false,
-  isMicMuted = false,
-  onToggleMic,
+  onAddProduct,
+  onFlipCamera,
+  flipCameraDisabled,
   isAudioMuted = false,
   onToggleAudio,
+  onNotify,
 }) => {
   const { t } = useTranslation();
 
+  // Con `onNotify` el aviso sale como píldora del vivo; sin él, cae al diálogo
+  // nativo (pantallas que todavía no montan el toast).
   const comingSoon = () => {
-    Alert.alert(t('common.appName'), t('stream.comingSoon'));
+    const text = t('stream.comingSoon');
+    if (onNotify) {
+      onNotify(text);
+      return;
+    }
+    Alert.alert(t('common.appName'), text);
   };
 
   const handleBuyerMore = () => {
@@ -89,21 +87,6 @@ export const StreamActionRail: React.FC<StreamActionRailProps> = ({
       { text: t('stream.exit'), style: 'destructive', onPress: onExit },
       { text: t('common.cancel'), style: 'cancel' },
     ]);
-  };
-
-  /** Seller: menú con finalizar + iniciar subasta temporal hasta que + tenga acción. */
-  const handleSellerMore = () => {
-    if (onMore) {
-      onMore();
-      return;
-    }
-    const buttons: { text: string; style?: 'destructive' | 'cancel'; onPress?: () => void }[] = [];
-    if (onStartAuction) {
-      buttons.push({ text: t('stream.sellerStartAuction'), onPress: onStartAuction });
-    }
-    buttons.push({ text: t('stream.endStream'), style: 'destructive', onPress: onExit });
-    buttons.push({ text: t('common.cancel'), style: 'cancel' });
-    Alert.alert(t('stream.sellerMoreTitle'), undefined, buttons);
   };
 
   const handleRecordingPress = () => {
@@ -115,40 +98,44 @@ export const StreamActionRail: React.FC<StreamActionRailProps> = ({
   };
 
   if (variant === 'seller') {
+    // Figma 890-1335: más / comment_bank / share / subir producto / cambiar cámara.
     return (
       <View style={styles.rail}>
         <StreamIconButton
-          onPress={onAddPaymentMethod ?? comingSoon}
-          accessibilityLabel={t('stream.payment')}
+          size="md"
+          onPress={onMore ?? comingSoon}
+          accessibilityLabel={t('stream.more')}
         >
-          <SellerPaymentIcon />
-        </StreamIconButton>
-        {!isStreamPaused ? (
-          <StreamIconButton
-            onPress={onToggleMic ?? comingSoon}
-            accessibilityLabel={isMicMuted ? t('stream.unmuteMic') : t('stream.muteMic')}
-          >
-            {isMicMuted ? (
-              <MicOff size={24} color={STREAM_COLORS.liveStop} />
-            ) : (
-              <Mic size={24} color={STREAM_COLORS.white} />
-            )}
-          </StreamIconButton>
-        ) : null}
-        <StreamIconButton
-          onPress={onOpenClips ?? comingSoon}
-          accessibilityLabel={t('stream.videoLibrary')}
-        >
-          <SellerVideoLibraryIcon />
+          <MoreVertIcon width={SELLER_ICON} height={SELLER_ICON} />
         </StreamIconButton>
         <StreamIconButton
+          size="md"
+          onPress={onOpenNote ?? comingSoon}
+          accessibilityLabel={t('stream.noteDrawer.title')}
+        >
+          <CommentBankIcon width={SELLER_ICON} height={SELLER_ICON} />
+        </StreamIconButton>
+        <StreamIconButton
+          size="md"
           onPress={onShare ?? comingSoon}
           accessibilityLabel={t('stream.share')}
         >
-          <Share2 size={24} color={STREAM_COLORS.white} />
+          <ShareIcon width={SELLER_ICON} height={SELLER_ICON} />
         </StreamIconButton>
-        <StreamIconButton onPress={handleSellerMore} accessibilityLabel={t('stream.more')}>
-          <MoreVertical size={24} color={STREAM_COLORS.white} />
+        <StreamIconButton
+          size="md"
+          onPress={onAddProduct ?? comingSoon}
+          accessibilityLabel={t('stream.sellerAddProduct')}
+        >
+          <ArrowShapeUpStackIcon width={SELLER_ICON} height={SELLER_ICON} />
+        </StreamIconButton>
+        <StreamIconButton
+          size="md"
+          onPress={onFlipCamera ?? comingSoon}
+          disabled={flipCameraDisabled}
+          accessibilityLabel={t('stream.flipCamera')}
+        >
+          <CameraSwitchIcon width={SELLER_ICON} height={SELLER_ICON} />
         </StreamIconButton>
       </View>
     );
@@ -195,6 +182,14 @@ export const StreamActionRail: React.FC<StreamActionRailProps> = ({
       <StreamIconButton onPress={comingSoon} accessibilityLabel={t('stream.share')}>
         <Share2 size={24} color={STREAM_COLORS.white} />
       </StreamIconButton>
+      {/* Nota del vivo en solo lectura. Mismo glifo que el vendedor (comment_bank),
+          a 24 como el resto del rail del comprador. */}
+      <StreamIconButton
+        onPress={onOpenNote ?? comingSoon}
+        accessibilityLabel={t('stream.noteDrawer.title')}
+      >
+        <CommentBankIcon width={24} height={24} />
+      </StreamIconButton>
       <StreamIconButton onPress={handleBuyerMore} accessibilityLabel={t('stream.more')}>
         <MoreVertical size={24} color={STREAM_COLORS.white} />
       </StreamIconButton>
@@ -220,40 +215,5 @@ const styles = StyleSheet.create({
     lineHeight: 14,
     color: STREAM_COLORS.liveStop,
     includeFontPadding: false,
-  },
-  iconHost: {
-    width: 24,
-    height: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  iconPlus: {
-    position: 'absolute',
-    right: -1,
-    top: -1,
-    width: 11,
-    height: 11,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  videoLibraryIcon: {
-    width: 24,
-    height: 24,
-    borderWidth: 2,
-    borderColor: STREAM_COLORS.white,
-    borderRadius: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  playTriangle: {
-    width: 0,
-    height: 0,
-    borderTopWidth: 5,
-    borderBottomWidth: 5,
-    borderLeftWidth: 8,
-    borderTopColor: 'transparent',
-    borderBottomColor: 'transparent',
-    borderLeftColor: STREAM_COLORS.white,
-    marginLeft: 2,
   },
 });

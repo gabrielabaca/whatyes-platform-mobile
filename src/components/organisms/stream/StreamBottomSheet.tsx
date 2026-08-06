@@ -25,11 +25,18 @@ import { drawerPanelGlassKey } from '../../../theme/glassTokens';
 import { FONT_FAMILY } from '../../../theme/typography';
 import { themeColors } from '../../../theme/colors';
 import { LAYERS } from '../../../theme/layers';
+import { ModalWindowBoundary, OverlayPortal } from '../../../context/OverlayPortalContext';
 
 const PRIMARY = themeColors.primary;
 const CANCEL_GOLD = themeColors.gold;
 /** Radio superior del panel (Figma 636-23638) cuando el caller no declara otro. */
 const PANEL_RADIUS = 24;
+/**
+ * Scrim del bottom sheet. Suave a propósito: el panel es glass y el fondo tiene que
+ * seguir leyéndose, pero lo suficiente para que la barra de navegación tapada no
+ * parezca activa.
+ */
+const SHEET_SCRIM = 'rgba(0,0,0,0.45)';
 
 function resolvePanelMaxHeightPx(
   maxHeight: ViewStyle['maxHeight'] | undefined,
@@ -69,8 +76,15 @@ export interface StreamBottomSheetProps {
   /**
    * Modal RN separado. Por defecto false en bottomPanel: BlurView necesita la misma
    * jerarquía nativa que la pantalla de fondo (en Modal no hay nada que difuminar).
+   * Sin Modal el sheet no queda encerrado en la pantalla: se monta en el portal raíz
+   * (`OverlayPortalProvider`), por encima de la barra de navegación.
    */
   nativeModal?: boolean;
+  /**
+   * Oscurece el fondo detrás del panel. Por defecto true: con el drawer abierto la barra
+   * de navegación queda tapada y tiene que leerse como inactiva.
+   */
+  dimBackdrop?: boolean;
   /**
    * Tocar el fondo cierra el drawer. Ponerlo en false en drawers con formulario:
    * un toque al costado de un campo no debe descartar lo que el usuario escribió.
@@ -98,6 +112,7 @@ export const StreamBottomSheet: React.FC<StreamBottomSheetProps> = ({
   onCancelPress,
   scrollEnabled = true,
   nativeModal,
+  dimBackdrop = true,
   dismissOnBackdropPress = true,
   showCloseButton = true,
 }) => {
@@ -181,6 +196,12 @@ export const StreamBottomSheet: React.FC<StreamBottomSheetProps> = ({
   const translateY = slideAnim.interpolate({
     inputRange: [0, 1],
     outputRange: [0, 800],
+  });
+
+  /** El scrim entra y sale con el panel (mismo `slideAnim`, sin animación aparte). */
+  const backdropOpacity = slideAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 0],
   });
 
   const header = (
@@ -398,10 +419,20 @@ export const StreamBottomSheet: React.FC<StreamBottomSheetProps> = ({
       pointerEvents="box-none"
     >
       {useFullPanel ? <GlassBackdrop /> : null}
+      {!useFullPanel && dimBackdrop ? (
+        <Animated.View
+          style={[styles.scrim, { opacity: backdropOpacity }]}
+          pointerEvents="none"
+        />
+      ) : null}
       <TouchableOpacity
         style={[
           styles.backdropPress,
-          !useFullPanel ? { bottom: keyboardOffset + bottomPanelMaxHeightPx } : null,
+          /**
+           * Se corta en el alto REAL del panel (no en el tope): así todo lo que se ve
+           * fuera del panel cierra al tocarlo, sin franja muerta encima del sheet.
+           */
+          !useFullPanel ? { bottom: keyboardOffset + panelHeightPx } : null,
         ]}
         activeOpacity={1}
         onPress={handleBackdropPress}
@@ -428,7 +459,12 @@ export const StreamBottomSheet: React.FC<StreamBottomSheetProps> = ({
   }
 
   if (!resolvedNativeModal) {
-    return sheetContent;
+    /**
+     * Al portal raíz: montado inline quedaba dentro del `View` de contenido de
+     * `GeneralLayout`, que es hermano ANTERIOR a la barra de navegación, y la barra
+     * seguía visible y tocable con el drawer abierto.
+     */
+    return <OverlayPortal>{sheetContent}</OverlayPortal>;
   }
 
   return (
@@ -439,7 +475,7 @@ export const StreamBottomSheet: React.FC<StreamBottomSheetProps> = ({
       statusBarTranslucent
       onRequestClose={handleClose}
     >
-      {sheetContent}
+      <ModalWindowBoundary>{sheetContent}</ModalWindowBoundary>
     </Modal>
   );
 };
@@ -497,6 +533,11 @@ const styles = StyleSheet.create({
     // Por encima de StreamSellerOverlay / StreamBuyerOverlay (zIndex 10) y overlays de subasta.
     zIndex: LAYERS.sheet,
     elevation: LAYERS.sheet,
+  },
+  scrim: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: SHEET_SCRIM,
+    zIndex: 0,
   },
   backdropPress: {
     ...StyleSheet.absoluteFillObject,

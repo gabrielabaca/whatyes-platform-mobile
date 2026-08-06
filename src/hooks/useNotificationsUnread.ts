@@ -1,7 +1,8 @@
 /**
  * Punto rojo de la campana del header: notificaciones sin leer del usuario
  * (`GET /me/notifications/unread-count`). Mismo ciclo de vida que el badge de
- * mensajes (useChatUnread): consulta al montar y al volver del background.
+ * mensajes (useChatUnread): consulta al montar, al volver del background y ante
+ * cada evento del WebSocket de usuario (`useUserRealtime`).
  *
  * Expone el setter porque NotificationsScreen conoce el contador real en cada
  * respuesta (listar, leer una, leer todas) y así el punto se apaga al instante,

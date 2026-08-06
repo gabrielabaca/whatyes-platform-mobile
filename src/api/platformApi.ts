@@ -593,6 +593,9 @@ export interface LiveCommerceActiveProductPayload {
   scope: string;
 }
 
+/** Cómo se resuelve la oferta en pantalla: puja más alta o primero que compra. */
+export type LiveOfferSaleMode = 'auction' | 'buy_now';
+
 export interface LiveCommerceActiveAuctionPayload {
   uuid: string;
   room_id: string;
@@ -601,6 +604,10 @@ export interface LiveCommerceActiveAuctionPayload {
   status: string;
   started_at: number;
   ends_at: number;
+  /** Ausente en backends previos a "Comprar ahora": se asume subasta. */
+  sale_mode?: LiveOfferSaleMode;
+  /** Precio fijo de la compra directa (centavos). null en subastas. */
+  price_cents?: number | null;
 }
 
 export interface LiveCommerceCatalogPreview {
@@ -612,6 +619,9 @@ export interface LiveCommerceResponse {
   active_product: LiveCommerceActiveProductPayload | null;
   active_auction: LiveCommerceActiveAuctionPayload | null;
   catalog_preview: LiveCommerceCatalogPreview | null;
+  /** Nota del vivo publicada por el vendedor. `null` = el vivo no tiene nota. */
+  note?: string | null;
+  note_updated_at?: number | null;
 }
 
 /**
@@ -632,6 +642,63 @@ export async function getRoomLiveCommerce(
     throw new Error(msg);
   }
   return res.json() as Promise<LiveCommerceResponse>;
+}
+
+/** Nota del vivo (botón comment_bank). `note` en null = el vivo no tiene nota. */
+export interface RoomNoteResponse {
+  room_id: string;
+  note: string | null;
+  note_updated_at: number | null;
+}
+
+/** Tope del backend (`NOTE_MAX_LENGTH` en room_schema.py). */
+export const ROOM_NOTE_MAX_LENGTH = 4000;
+
+/**
+ * Nota publicada del vivo. Cualquier usuario autenticado puede leerla; normalmente
+ * no hace falta porque `getRoomLiveCommerce` ya la trae.
+ */
+export async function getRoomNote(
+  accessToken: string,
+  roomId: string
+): Promise<RoomNoteResponse> {
+  const res = await fetch(
+    `${PLATFORM_HTTP_URL}/rooms/${encodeURIComponent(roomId)}/note`,
+    { headers: authHeaders(accessToken) }
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    const raw = (err as { detail?: unknown }).detail;
+    const msg = formatPlatformErrorDetail(raw) || `getRoomNote: ${res.status}`;
+    throw new Error(msg);
+  }
+  return res.json() as Promise<RoomNoteResponse>;
+}
+
+/**
+ * Publica la nota del vivo. Solo el vendedor (creador de la sala): el backend
+ * responde 403 a cualquier otro. Publicar vacío borra la nota.
+ */
+export async function publishRoomNote(
+  accessToken: string,
+  roomId: string,
+  note: string
+): Promise<RoomNoteResponse> {
+  const res = await fetch(
+    `${PLATFORM_HTTP_URL}/rooms/${encodeURIComponent(roomId)}/note`,
+    {
+      method: 'PUT',
+      headers: { ...authHeaders(accessToken), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ note }),
+    }
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    const raw = (err as { detail?: unknown }).detail;
+    const msg = formatPlatformErrorDetail(raw) || `publishRoomNote: ${res.status}`;
+    throw new Error(msg);
+  }
+  return res.json() as Promise<RoomNoteResponse>;
 }
 
 export type ProductShippingQuoteStatus =
@@ -784,6 +851,18 @@ export function startCatalogProductAuction(
   });
 }
 
+export function startCatalogProductBuyNow(
+  accessToken: string,
+  roomId: string,
+  productId: string,
+  body: { durationSeconds?: number; priceCents?: number } = {},
+): Promise<RoomCatalogActionResponse> {
+  return postRoomCatalogAction(accessToken, roomId, productId, 'start-buy-now', {
+    ...(body.durationSeconds != null ? { duration_seconds: body.durationSeconds } : {}),
+    ...(body.priceCents != null ? { price_cents: body.priceCents } : {}),
+  });
+}
+
 export function startCatalogProductRaffle(
   accessToken: string,
   roomId: string,
@@ -811,7 +890,49 @@ export const setActiveRoomProduct = setActiveCatalogProduct;
 export const pinRoomProduct = pinCatalogProduct;
 export const scheduleRoomProduct = scheduleCatalogProduct;
 export const startRoomProductAuction = startCatalogProductAuction;
+export const startRoomProductBuyNow = startCatalogProductBuyNow;
 export const startRoomProductRaffle = startCatalogProductRaffle;
+
+/** Error de compra directa: `tooLate` distingue "llegó segundo" de un fallo real. */
+export class BuyNowUnavailableError extends Error {
+  readonly tooLate = true;
+}
+
+export interface BuyNowResponse {
+  sale_uuid: string;
+  auction_id: string;
+  product_id: string | null;
+  amount_cents: number;
+  currency: string;
+  sold_at: number;
+}
+
+/**
+ * Compra directa del producto en pantalla. El backend resuelve de forma atómica:
+ * solo el primero recibe 200, el resto 409 (`BuyNowUnavailableError`).
+ */
+export async function buyNowActiveOffer(
+  accessToken: string,
+  roomId: string,
+  auctionId?: string | null,
+): Promise<BuyNowResponse> {
+  const res = await fetch(
+    `${PLATFORM_HTTP_URL}/rooms/${encodeURIComponent(roomId)}/buy-now`,
+    {
+      method: 'POST',
+      headers: authHeaders(accessToken),
+      body: JSON.stringify(auctionId ? { auction_id: auctionId } : {}),
+    },
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    const raw = (err as { detail?: unknown }).detail;
+    const msg = formatPlatformErrorDetail(raw) || `buy-now: ${res.status}`;
+    if (res.status === 409) throw new BuyNowUnavailableError(msg);
+    throw new Error(msg);
+  }
+  return res.json() as Promise<BuyNowResponse>;
+}
 
 export interface UserShowItem {
   room_uuid: string;
@@ -961,6 +1082,7 @@ export type UserNotificationType =
   | 'new_message'
   | 'auction_won'
   | 'auction_second_chance'
+  | 'buy_now_won'
   | 'raffle_won'
   | 'purchase_paid'
   | 'purchase_payment_action_required'

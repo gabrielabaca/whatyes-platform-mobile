@@ -240,22 +240,31 @@ export const PreferencesModal: React.FC<PreferencesModalProps> = ({
             <RNText style={styles.sectionTitle}>
               {t('account.preferencesModal.recordings')}
             </RNText>
-            <FieldLabel text={t('account.preferencesModal.recordingSavePath')} />
-            <RNText style={styles.pathPreview} numberOfLines={2}>
-              {recordingFolderPath || t('account.preferencesModal.recordingDefaultPath')}
-            </RNText>
-            <ActionRow
-              label={t('account.preferencesModal.chooseRecordingFolder')}
-              onPress={handlePickRecordingFolder}
-            />
-            <ActionRow
-              label={t('account.preferencesModal.openRecordingFolder')}
-              onPress={handleOpenRecordingFolder}
-            />
-            <ActionRow
-              label={t('account.preferencesModal.resetRecordingFolder')}
-              onPress={handleResetRecordingFolder}
-            />
+            {Platform.OS === 'ios' ? (
+              // En iOS no hay carpeta elegible: los clips van siempre a Fotos.
+              <RNText style={styles.pathPreview}>
+                {t('account.preferencesModal.recordingFolderIosHint')}
+              </RNText>
+            ) : (
+              <>
+                <FieldLabel text={t('account.preferencesModal.recordingSavePath')} />
+                <RNText style={styles.pathPreview} numberOfLines={2}>
+                  {recordingFolderPath || t('account.preferencesModal.recordingDefaultPath')}
+                </RNText>
+                <ActionRow
+                  label={t('account.preferencesModal.chooseRecordingFolder')}
+                  onPress={handlePickRecordingFolder}
+                />
+                <ActionRow
+                  label={t('account.preferencesModal.openRecordingFolder')}
+                  onPress={handleOpenRecordingFolder}
+                />
+                <ActionRow
+                  label={t('account.preferencesModal.resetRecordingFolder')}
+                  onPress={handleResetRecordingFolder}
+                />
+              </>
+            )}
           </View>
 
           <View style={[styles.section, styles.sectionBorder]}>

@@ -62,6 +62,8 @@
     <string>Necesitamos acceso a tu micrófono para transmitir audio en vivo</string>
     <key>NSPhotoLibraryUsageDescription</key>
     <string>Necesitamos acceso a tus fotos para elegir una imagen de perfil</string>
+    <key>NSPhotoLibraryAddUsageDescription</key>
+    <string>Necesitamos acceso para guardar en tus Fotos los clips que grabás de los vivos</string>
     <key>RCTNewArchEnabled</key>
     <true/>
     <key>UILaunchStoryboardName</key>

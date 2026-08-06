@@ -400,3 +400,59 @@ oscuro-sobre-oscuro; con Claro, sin regresiones (comparar contra build actual).
 - Unificar el modelo de confirmación auto-close vs Confirmar entre drawers equivalentes
   (decisión de producto/Figma, no de implementación).
 - Migración masiva StyleSheet → NativeWind (explícitamente descartada).
+
+---
+
+# Addendum — ago 2026: los drawers tapan la barra de navegación
+
+## Problema
+
+Los bottom sheets montados inline (`StreamBottomSheet` sin `nativeModal`) quedaban dentro
+del subárbol de la pantalla. En las pantallas con `GeneralLayout` eso los encierra en el
+`View` de contenido, que es hermano **anterior** a la barra de tabs: el sheet se anclaba al
+borde superior de la barra y la barra seguía visible y tocable con el drawer abierto.
+
+No era un problema de z-index. `zIndex`/`elevation` solo ordenan hermanos dentro del mismo
+padre; el sheet y la barra viven en subárboles distintos, así que no hay valor de z-index
+que lo arregle.
+
+## Solución — portal raíz
+
+`src/context/OverlayPortalContext.tsx`: `OverlayPortalProvider` se monta en `App.tsx`
+envolviendo a `AppNavigator` y renderiza un host absoluto como **último hermano** del
+árbol (`LAYERS.portal`). `StreamBottomSheet` en modo inline se teletransporta ahí con
+`<OverlayPortal>`.
+
+Se usa portal y **no** `Modal` de RN a propósito: el glass necesita la misma ventana
+nativa que la pantalla de fondo; dentro de un `Modal` el `BlurView` no tiene nada que
+difuminar.
+
+## `ModalWindowBoundary` — la excepción obligatoria
+
+Un sheet que se abre **dentro de un `Modal`** no debe portarse a la raíz: el host raíz
+vive en la ventana principal, que queda por debajo del modal, y el sheet sería invisible.
+Por eso todo `Modal` que pueda contener sheets envuelve su contenido en
+`<ModalWindowBoundary>`, que hace que `OverlayPortal` renderice en el lugar:
+
+- `GlassFullScreenModal` (slot `overlay`: pickers y sub-drawers)
+- `PreLiveSetupOverlay`
+- el propio `StreamBottomSheet` en su rama `nativeModal`
+
+**Al agregar un `Modal` nuevo que pueda contener un drawer, envolverlo.** Sin eso el
+drawer de adentro no aparece.
+
+## Otros ajustes del mismo pase
+
+- Scrim animado en los bottom panels (`dimBackdrop`, on por defecto): con el drawer
+  abierto la barra tapada tiene que leerse como inactiva. Se apaga por prop.
+- El área de cierre por toque se corta en el alto **real** del panel y no en
+  `maxHeight`: antes quedaba una franja muerta encima del sheet.
+- `SellerAddProductDrawer`: sus tres sub-drawers pasaron de `children` al slot `overlay`;
+  como children se anclaban arriba del footer del modal, no a la base de la pantalla.
+
+## Fuera de alcance (decidido, no ejecutado)
+
+- Convertir los `GlassFullScreenModal` (formularios de cuenta/perfil) en bottom sheets
+  parciales: ya entran deslizando desde abajo y ya cubren la barra; sería un rediseño.
+- `UserMenu` (drawer lateral): hoy es código muerto — `HomeScreen` usa `hideChrome`, así
+  que nunca se renderiza.

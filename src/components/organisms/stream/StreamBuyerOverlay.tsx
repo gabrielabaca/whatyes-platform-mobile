@@ -16,7 +16,12 @@ import {
   StreamAuctionPanel,
   StreamBidBar,
 } from '../../molecules/stream';
-import type { ChatMessage, AuctionBid } from '../../../hooks/useStreamChat';
+import type {
+  ChatMessage,
+  AuctionBid,
+  AuctionExtension,
+  LiveOfferSaleMode,
+} from '../../../hooks/useStreamChat';
 import type { ShippingQuoteState } from '../../../hooks/useProductShippingQuote';
 
 const BID_INCREMENT = 1000;
@@ -40,17 +45,27 @@ export interface StreamBuyerOverlayProps {
   onSendMessage: () => void;
   onLike: () => void;
   onBid: (amount: number) => void;
+  /** Compra directa: el primero que confirma se lleva el producto. */
+  onBuyNow?: () => void;
   onExit: () => void;
   onOpenWallet?: () => void;
   isRecording?: boolean;
   recordingTimeLabel?: string;
   onToggleRecording?: () => void;
-  /** Muestra panel de subasta y bid bar (solo subasta en curso). */
+  /** Muestra panel + barra de acción (solo con una oferta en curso). */
   showAuctionUi?: boolean;
   isAuctionActive: boolean;
   auctionSecondsRemaining: number | null;
   auctionBids: AuctionBid[];
   auctionWinnerUsername?: string | null;
+  /** Segundos que la última puja le sumó al reloj (anti-sniping). */
+  auctionExtension?: AuctionExtension | null;
+  /** Modo de la oferta en curso: define si se puja o se compra a precio fijo. */
+  saleMode?: LiveOfferSaleMode;
+  /** Precio fijo de la compra directa (centavos). Cae al precio base si falta. */
+  buyNowPriceCents?: number | null;
+  /** Compra en vuelo: bloquea la barra hasta que el backend resuelve. */
+  isBuyNowPending?: boolean;
   /** Abre el listado de productos del vivo (stack de fotos / "N artículos"). */
   onOpenProductCatalog?: () => void;
   /** Tocar avatar o nombre del vendedor en el header. */
@@ -59,10 +74,14 @@ export interface StreamBuyerOverlayProps {
   onFollowSeller?: () => void;
   isAudioMuted?: boolean;
   onToggleAudio?: () => void;
+  /** Botón comment_bank: abre la nota del vivo en solo lectura. */
+  onOpenNote?: () => void;
   /** Cotización de envío del producto activo hacia el domicilio del comprador. */
   shippingQuote?: ShippingQuoteState;
   /** Tocar la fila de envío cuando falta domicilio (abre wallet → shipping). */
   onPressShipping?: () => void;
+  /** Avisos del vivo (píldora con el look de la app en vez del Alert nativo). */
+  onNotify?: (text: string) => void;
 }
 
 export const StreamBuyerOverlay: React.FC<StreamBuyerOverlayProps> = ({
@@ -80,6 +99,7 @@ export const StreamBuyerOverlay: React.FC<StreamBuyerOverlayProps> = ({
   onSendMessage,
   onLike,
   onBid,
+  onBuyNow,
   onExit,
   onOpenWallet,
   isRecording,
@@ -90,14 +110,20 @@ export const StreamBuyerOverlay: React.FC<StreamBuyerOverlayProps> = ({
   auctionSecondsRemaining,
   auctionBids,
   auctionWinnerUsername,
+  auctionExtension,
+  saleMode = 'auction',
+  buyNowPriceCents,
+  isBuyNowPending = false,
   onOpenProductCatalog,
   onSellerPress,
   isFollowingSeller,
   onFollowSeller,
   isAudioMuted,
   onToggleAudio,
+  onOpenNote,
   shippingQuote,
   onPressShipping,
+  onNotify,
 }) => {
   const insets = useSafeAreaInsets();
   const [keyboardHeight, setKeyboardHeight] = useState(0);
@@ -123,13 +149,17 @@ export const StreamBuyerOverlay: React.FC<StreamBuyerOverlayProps> = ({
   const isKeyboardVisible = keyboardHeight > 0;
   const contentPaddingBottom = isKeyboardVisible ? 5 : insets.bottom + 32;
 
+  const isBuyNow = saleMode === 'buy_now';
   const lastBid = auctionBids.length > 0 ? auctionBids[auctionBids.length - 1] : null;
   const bidAmount = lastBid?.amount ?? 0;
   /** API en centavos; pujas WS en pesos enteros (misma unidad que DEFAULT_BID). */
   const floorMajor = Math.round((productBasePriceCents ?? 0) / 100);
-  const currentPrice = Math.max(bidAmount, floorMajor);
-  const winningUsername =
-    auctionWinnerUsername ?? (lastBid ? lastBid.username : null);
+  /** Compra directa: precio fijo de la oferta (o el base del producto). Nunca sube. */
+  const buyNowPrice = Math.round((buyNowPriceCents ?? productBasePriceCents ?? 0) / 100);
+  const currentPrice = isBuyNow ? buyNowPrice : Math.max(bidAmount, floorMajor);
+  const winningUsername = isBuyNow
+    ? null
+    : (auctionWinnerUsername ?? (lastBid ? lastBid.username : null));
 
   const suggestedBid = useMemo(() => {
     if (lastBid) {
@@ -190,6 +220,8 @@ export const StreamBuyerOverlay: React.FC<StreamBuyerOverlayProps> = ({
             onToggleRecording={onToggleRecording}
             isAudioMuted={isAudioMuted}
             onToggleAudio={onToggleAudio}
+            onOpenNote={onOpenNote}
+            onNotify={onNotify}
           />
         </View>
 
@@ -211,18 +243,33 @@ export const StreamBuyerOverlay: React.FC<StreamBuyerOverlayProps> = ({
             currentPrice={currentPrice}
             secondsRemaining={auctionSecondsRemaining}
             isAuctionActive={isAuctionActive}
+            saleMode={saleMode}
+            timeExtension={auctionExtension}
             onPressItemsRow={onOpenProductCatalog}
             shippingQuote={shippingQuote}
             onPressShipping={onPressShipping}
           />
         ) : null}
 
+        {/* Misma barra deslizable en los dos modos: solo cambia qué confirma. */}
         {showAuctionUi ? (
-          <StreamBidBar
-            bidAmount={suggestedBid}
-            onBid={() => onBid(suggestedBid)}
-            isAuctionActive={isAuctionActive}
-          />
+          isBuyNow ? (
+            <StreamBidBar
+              mode="buy_now"
+              bidAmount={buyNowPrice}
+              onBid={() => onBuyNow?.()}
+              isAuctionActive={isAuctionActive}
+              disabled={isBuyNowPending || !onBuyNow}
+              onNotify={onNotify}
+            />
+          ) : (
+            <StreamBidBar
+              bidAmount={suggestedBid}
+              onBid={() => onBid(suggestedBid)}
+              isAuctionActive={isAuctionActive}
+              onNotify={onNotify}
+            />
+          )
         ) : null}
       </View>
     </View>

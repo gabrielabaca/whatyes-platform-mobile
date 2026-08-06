@@ -13,4 +13,10 @@ export const LAYERS = {
   overlay: 350,
   /** Cuenta regresiva antes de salir al aire — tapa todo */
   countdown: 500,
+  /**
+   * Host del portal raíz (`OverlayPortalProvider`). Es el último hermano del árbol, así
+   * que ya gana por orden de render; el zIndex/elevation es el refuerzo para Android.
+   * Va por encima de la barra de navegación y de cualquier host de pantalla.
+   */
+  portal: 600,
 } as const;

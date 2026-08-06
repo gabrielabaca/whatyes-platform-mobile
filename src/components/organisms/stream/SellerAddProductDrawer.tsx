@@ -189,6 +189,48 @@ export const SellerAddProductDrawer: React.FC<SellerAddProductDrawerProps> = ({
       backdropAccessibilityLabel={t('common.close')}
       /** Scroll propio: los sub-drawers van fuera de él, sin sumar gaps al contenido. */
       scrollable={false}
+      /**
+       * Los sub-drawers van en el slot `overlay`, que es absoluto a la raíz del modal:
+       * como children quedaban dentro del cuerpo y se anclaban arriba del footer en vez
+       * de a la base de la pantalla.
+       */
+      overlay={
+        <>
+          <StartLiveCategoriesDrawer
+            visible={form.activeDrawer === 'category'}
+            selectionMode="single"
+            titleKey="addProduct.categoryTitle"
+            subtitleKey="addProduct.categorySubtitle"
+            initialSelected={form.categoryUuid ? [form.categoryUuid] : []}
+            onClose={() => form.setActiveDrawer('none')}
+            onContinue={(uuids) => {
+              if (uuids[0]) form.setCategoryUuid(uuids[0]);
+              form.setActiveDrawer('none');
+            }}
+          />
+          <AddProductPackageTierDrawer
+            visible={form.activeDrawer === 'weight'}
+            nativeModal
+            initialTier={form.packageTier}
+            initialManualKg={String(form.weightKg)}
+            onClose={() => form.setActiveDrawer('none')}
+            onConfirm={(tier, kg) => {
+              form.setPackageTier(tier, kg);
+              form.setActiveDrawer('none');
+            }}
+          />
+          <AddProductPhotoSourceDrawer
+            visible={form.activeDrawer === 'photos'}
+            presentation="modal"
+            showCameraOption={false}
+            photoCount={form.photos.length}
+            maxPhotos={MAX_PRODUCT_PHOTOS}
+            onClose={() => form.setActiveDrawer('none')}
+            onTakePhoto={form.openCamera}
+            onChooseGallery={form.openGallery}
+          />
+        </>
+      }
       header={
         <GlassModalHeader
           title={t('stream.addProductDrawerTitle')}
@@ -470,39 +512,6 @@ export const SellerAddProductDrawer: React.FC<SellerAddProductDrawerProps> = ({
         </View>
       </ScrollView>
 
-      <StartLiveCategoriesDrawer
-        visible={form.activeDrawer === 'category'}
-        selectionMode="single"
-        titleKey="addProduct.categoryTitle"
-        subtitleKey="addProduct.categorySubtitle"
-        initialSelected={form.categoryUuid ? [form.categoryUuid] : []}
-        onClose={() => form.setActiveDrawer('none')}
-        onContinue={(uuids) => {
-          if (uuids[0]) form.setCategoryUuid(uuids[0]);
-          form.setActiveDrawer('none');
-        }}
-      />
-      <AddProductPackageTierDrawer
-        visible={form.activeDrawer === 'weight'}
-        nativeModal
-        initialTier={form.packageTier}
-        initialManualKg={String(form.weightKg)}
-        onClose={() => form.setActiveDrawer('none')}
-        onConfirm={(tier, kg) => {
-          form.setPackageTier(tier, kg);
-          form.setActiveDrawer('none');
-        }}
-      />
-      <AddProductPhotoSourceDrawer
-        visible={form.activeDrawer === 'photos'}
-        presentation="modal"
-        showCameraOption={false}
-        photoCount={form.photos.length}
-        maxPhotos={MAX_PRODUCT_PHOTOS}
-        onClose={() => form.setActiveDrawer('none')}
-        onTakePhoto={form.openCamera}
-        onChooseGallery={form.openGallery}
-      />
     </GlassFullScreenModal>
   );
 };

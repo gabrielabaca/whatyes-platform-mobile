@@ -3,11 +3,11 @@
  * nuevos (no cuántos mensajes). El número lo calcula el backend en
  * `GET /conversations/unread-count`, así el badge no depende de traer la lista.
  *
- * Se refresca al montar y cada vez que la app vuelve del background, que es
- * cuando pudieron llegar mensajes sin que la pantalla estuviera viva. Mientras
- * la app está en primer plano el número queda fijo: para que baje solo hace
- * falta el WebSocket de usuario (`/ws/notifications`, eventos `chat_message` y
- * `chat_read`), todavía sin cliente en mobile.
+ * Se refresca al montar y cada vez que la app vuelve del background. Con la app
+ * en primer plano lo mantiene al día `useUserRealtime` (WebSocket de usuario,
+ * eventos `chat_message` / `chat_read`), que llama a `reload` en cada evento: el
+ * contador siempre lo calcula el backend, así una conversación con varios
+ * mensajes sin leer sigue contando una sola vez.
  */
 import { useCallback, useEffect, useState } from 'react';
 import { AppState } from 'react-native';

@@ -7,10 +7,16 @@ export interface AuctionStatusRowProps {
   label: string;
   /** Identidad del que va ganando; al cambiar dispara la animación de relevo. */
   winningKey?: string | null;
+  /** Emoji de la izquierda. Compra directa usa ⚡ en lugar del trofeo. */
+  icon?: string;
 }
 
-/** Fila 🏆 + estado de subasta (ganando / sin ofertas). Anima el cambio de líder. */
-export const AuctionStatusRow: React.FC<AuctionStatusRowProps> = ({ label, winningKey }) => {
+/** Fila 🏆 + estado de la oferta (ganando / sin ofertas / venta directa). Anima el cambio de líder. */
+export const AuctionStatusRow: React.FC<AuctionStatusRowProps> = ({
+  label,
+  winningKey,
+  icon = '🏆',
+}) => {
   const pulse = useRef(new Animated.Value(0)).current;
   const prevKeyRef = useRef<string | null | undefined>(winningKey);
 
@@ -38,7 +44,7 @@ export const AuctionStatusRow: React.FC<AuctionStatusRowProps> = ({ label, winni
 
   return (
     <Animated.View style={[styles.row, { transform: [{ scale }] }]}>
-      <RNText style={styles.trophy}>🏆</RNText>
+      <RNText style={styles.trophy}>{icon}</RNText>
       <Animated.Text style={[styles.label, { color: highlight }]} numberOfLines={1}>
         {label}
       </Animated.Text>

@@ -2,7 +2,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const STORAGE_KEY = '@pulpolive/recording-preferences';
 
-export const DEFAULT_RECORDING_FOLDER = 'PulpoLive/Grabaciones';
+/** Default: galería (MediaStore → Movies/PulpoLive). Solo cambia si el usuario elige carpeta SAF. */
+export const DEFAULT_RECORDING_FOLDER = 'Movies/PulpoLive';
 
 export interface RecordingPreferences {
   /** Ruta legible mostrada al usuario */

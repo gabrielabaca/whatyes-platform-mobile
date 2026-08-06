@@ -33,9 +33,13 @@ export const AuctionWinnerOverlay: React.FC<AuctionWinnerOverlayProps> = ({ winn
       />
       <View style={styles.banner}>
         <RNText style={styles.text} numberOfLines={1}>
-          🏆{' '}
+          {winner.saleMode === 'buy_now' ? '⚡' : '🏆'}{' '}
           <RNText style={styles.name}>{winner.username}</RNText>{' '}
-          {t('stream.winnerBannerWon')}{' '}
+          {t(
+            winner.saleMode === 'buy_now'
+              ? 'stream.winnerBannerBought'
+              : 'stream.winnerBannerWon'
+          )}{' '}
           <RNText style={styles.amount}>{formatStreamPrice(winner.amount)}</RNText>
         </RNText>
       </View>

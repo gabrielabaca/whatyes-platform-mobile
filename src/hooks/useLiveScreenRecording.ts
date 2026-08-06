@@ -1,10 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Platform } from 'react-native';
+import { Alert } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import RecordScreen, { RecordingResult } from 'react-native-record-screen';
 import {
-  isRecordingStorageAvailable,
+  CLIP_RECORDER_PERMISSION_DENIED,
+  isNativeClipRecorderAvailable,
+  startNativeClipRecording,
+  stopNativeClipRecording,
+} from '../native/screenClipRecorder';
+import {
   saveRecordingToPreferredFolder,
+  shareSavedRecording,
+  type SavedRecording,
 } from '../native/recordingStorage';
 
 function formatRecordingTime(totalSeconds: number): string {
@@ -40,70 +47,125 @@ export function useLiveScreenRecording() {
     isRecordingRef.current = isRecording;
   }, [isRecording]);
 
+  const showSavedDialog = useCallback(
+    (saved: SavedRecording) => {
+      const message =
+        saved.location === 'photos'
+          ? t('stream.recordingSavedPhotos')
+          : t('stream.recordingSavedMessage', { path: saved.displayPath });
+      Alert.alert(t('stream.recordingSavedTitle'), message, [
+        {
+          text: t('stream.share'),
+          onPress: () => {
+            shareSavedRecording(saved).catch(() => {
+              Alert.alert(t('common.appName'), t('stream.recordingShareError'));
+            });
+          },
+        },
+        { text: t('common.ok'), style: 'cancel' },
+      ]);
+    },
+    [t]
+  );
+
+  /** Frena la captura y devuelve el path del video, o null si no hay archivo. */
+  const stopCapture = useCallback(async (): Promise<string | null> => {
+    if (isNativeClipRecorderAvailable) {
+      return stopNativeClipRecording();
+    }
+    const res = await RecordScreen.stopRecording();
+    return res?.status === 'success' ? res.result?.outputURL ?? null : null;
+  }, []);
+
+  /**
+   * Frena y guarda. Con `silent` (desmontaje) no muestra ningún alert,
+   * pero igual intenta guardar para no descartar la grabación.
+   */
+  const stopAndSave = useCallback(
+    async (silent: boolean) => {
+      clearTimer();
+      setIsRecording(false);
+      setSeconds(0);
+      try {
+        const outputURL = await stopCapture();
+        if (!outputURL) {
+          if (!silent) {
+            Alert.alert(t('common.appName'), t('stream.recordingStopError'));
+          }
+          return;
+        }
+        let saved: SavedRecording;
+        try {
+          saved = await saveRecordingToPreferredFolder(outputURL);
+        } catch {
+          if (!silent) {
+            Alert.alert(t('common.appName'), t('stream.recordingSaveError'));
+          }
+          return;
+        }
+        if (!silent) {
+          showSavedDialog(saved);
+        }
+      } catch (e: unknown) {
+        if (!silent) {
+          const msg = e instanceof Error ? e.message : t('stream.recordingStopError');
+          Alert.alert(t('common.appName'), msg);
+        }
+      }
+    },
+    [clearTimer, showSavedDialog, stopCapture, t]
+  );
+
+  const stopAndSaveRef = useRef(stopAndSave);
+  useEffect(() => {
+    stopAndSaveRef.current = stopAndSave;
+  }, [stopAndSave]);
+
   useEffect(() => () => {
     clearTimer();
     if (isRecordingRef.current) {
-      RecordScreen.stopRecording().catch(() => {});
+      // Desmontaje con grabación activa: guardar en silencio en vez de descartar.
+      stopAndSaveRef.current(true).catch(() => {});
     }
   }, [clearTimer]);
 
-  const stopRecording = useCallback(async () => {
-    clearTimer();
-    setIsRecording(false);
-    setSeconds(0);
-    try {
-      const res = await RecordScreen.stopRecording();
-      if (!res || res.status !== 'success') {
-        return;
-      }
-      const outputURL = res.result?.outputURL;
-      if (!outputURL) {
-        return;
-      }
-      let savedPath = outputURL;
-      if (isRecordingStorageAvailable) {
-        try {
-          savedPath = await saveRecordingToPreferredFolder(outputURL);
-        } catch {
-          savedPath = outputURL;
-        }
-      }
-      Alert.alert(
-        t('stream.recordingSavedTitle'),
-        t('stream.recordingSavedMessage', { path: savedPath })
-      );
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : t('stream.recordingStopError');
-      Alert.alert(t('common.appName'), msg);
-    }
-  }, [clearTimer, t]);
-
   const startRecording = useCallback(async () => {
-    if (isBusyRef.current) return;
-    isBusyRef.current = true;
     try {
-      const result = await RecordScreen.startRecording({ mic: true });
-      if (result === RecordingResult.PermissionError || result === 'permission_error') {
-        Alert.alert(t('common.appName'), t('stream.recordingPermissionDenied'));
-        return;
+      if (isNativeClipRecorderAvailable) {
+        await startNativeClipRecording();
+      } else {
+        const result = await RecordScreen.startRecording({ mic: true });
+        if (result === RecordingResult.PermissionError) {
+          Alert.alert(t('common.appName'), t('stream.recordingPermissionDenied'));
+          return;
+        }
       }
       setIsRecording(true);
       startTimer();
     } catch (e: unknown) {
+      const code = (e as { code?: string } | null)?.code;
+      if (code === CLIP_RECORDER_PERMISSION_DENIED) {
+        Alert.alert(t('common.appName'), t('stream.recordingPermissionDenied'));
+        return;
+      }
       const msg = e instanceof Error ? e.message : t('stream.recordingStartError');
       Alert.alert(t('common.appName'), msg);
-    } finally {
-      isBusyRef.current = false;
     }
   }, [startTimer, t]);
 
   const toggleRecording = useCallback(async () => {
-    if (isRecording) {
-      await stopRecording();
-    } else {
-      await startRecording();
+    if (isBusyRef.current) return;
+    isBusyRef.current = true;
+    try {
+      if (isRecordingRef.current) {
+        await stopAndSave(false);
+      } else {
+        await startRecording();
+      }
+    } finally {
+      isBusyRef.current = false;
     }
-  }, [isRecording, startRecording, stopRecording]);
+  }, [startRecording, stopAndSave]);
 
   return {
     isRecording,

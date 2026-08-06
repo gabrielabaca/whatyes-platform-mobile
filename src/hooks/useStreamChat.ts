@@ -51,11 +51,32 @@ const toChatMessage = (msg: WsPayloadMessage): ChatMessage => {
   };
 };
 
+/** Cómo se resuelve la oferta: puja más alta (subasta) o primero que compra. */
+export type LiveOfferSaleMode = 'auction' | 'buy_now';
+
+/**
+ * Cuánto sobrevive el estado de la oferta después de `ends_at`.
+ *
+ * El servidor cierra en el segundo 0, pero una puja aceptada justo antes puede
+ * llegar al cliente con retraso de red trayendo el `ends_at` extendido (+3s). Sin
+ * esta ventana el estado ya sería `null` y no habría nada que extender: la
+ * subasta se vería cerrada aunque el servidor la haya estirado.
+ *
+ * No afecta a quién gana: el servidor sigue siendo la autoridad y una puja que le
+ * llega después de `ends_at` se rechaza igual.
+ */
+const AUCTION_END_GRACE_MS = 1000;
+
 export interface AuctionState {
   id: string;
   durationSeconds: number;
   startedAt: number;
   endsAt: number;
+  /** Backends previos a "Comprar ahora" no lo mandan: se asume subasta. */
+  saleMode: LiveOfferSaleMode;
+  /** Precio fijo de la compra directa (centavos). null en subasta. */
+  priceCents: number | null;
+  productId: string | null;
 }
 
 export interface AuctionBid {
@@ -65,12 +86,37 @@ export interface AuctionBid {
   created_at: number;
 }
 
+/**
+ * Segundos que una puja le sumó al cierre de la subasta. `id` cambia con cada
+ * extensión para que la UI pueda re-disparar la animación del "+N".
+ */
+export interface AuctionExtension {
+  id: string;
+  seconds: number;
+}
+
 export interface AuctionWinner {
   username: string;
   amount: number;
   /** UUID del ganador: permite detectar "ganaste vos" sin depender del nombre. */
   user_id?: string;
+  /** Modo con el que se resolvió: cambia el copy ("ganó" vs "lo compró"). */
+  saleMode?: LiveOfferSaleMode;
 }
+
+/**
+ * Payload de oferta del WS (`init.auction` / `auction_start`) → estado local.
+ * Subasta y compra directa comparten forma: solo cambia cómo se resuelve.
+ */
+const toAuctionState = (a: any): AuctionState => ({
+  id: a.id,
+  durationSeconds: a.duration_seconds ?? 10,
+  startedAt: a.started_at ?? 0,
+  endsAt: a.ends_at,
+  saleMode: a.sale_mode === 'buy_now' ? 'buy_now' : 'auction',
+  priceCents: typeof a.price_cents === 'number' ? a.price_cents : null,
+  productId: typeof a.product_id === 'string' ? a.product_id : null,
+});
 
 export function useStreamChat({
   roomId,
@@ -89,9 +135,16 @@ export function useStreamChat({
   const [auction, setAuction] = useState<AuctionState | null>(null);
   const [auctionBids, setAuctionBids] = useState<AuctionBid[]>([]);
   const [auctionWinner, setAuctionWinner] = useState<AuctionWinner | null>(null);
+  const [lastAuctionExtension, setLastAuctionExtension] = useState<AuctionExtension | null>(null);
   const [isStreamPaused, setIsStreamPaused] = useState(false);
   const [roomCoverUrl, setRoomCoverUrl] = useState<string | null>(null);
   const [roomIntroVideoUrl, setRoomIntroVideoUrl] = useState<string | null>(null);
+  /**
+   * Nota del vivo. `undefined` = todavía no llegó nada por el WS (el consumidor cae
+   * al valor de live-commerce); `null` = el servidor confirmó que el vivo NO tiene nota.
+   * La distinción importa: sin ella, publicar un borrado no podría pisar el valor viejo.
+   */
+  const [roomNote, setRoomNote] = useState<string | null | undefined>(undefined);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectEnabledRef = useRef(reconnect);
@@ -235,15 +288,16 @@ export function useStreamChat({
             if (typeof msg.payload.intro_video_url === 'string' && msg.payload.intro_video_url.trim()) {
               setRoomIntroVideoUrl(msg.payload.intro_video_url.trim());
             }
+            // A diferencia de cover/intro, acá sí se acepta el vacío: es la confirmación
+            // de que el vivo no tiene nota.
+            if ('note' in msg.payload) {
+              const note = msg.payload.note;
+              setRoomNote(typeof note === 'string' && note.trim() ? note : null);
+            }
             const a = msg.payload.auction;
             if (a && a.id && typeof a.ends_at === 'number' && a.ends_at > serverNow()) {
               if (typeof a.started_at === 'number') syncClock(a.started_at);
-              setAuction({
-                id: a.id,
-                durationSeconds: a.duration_seconds ?? 10,
-                startedAt: a.started_at ?? 0,
-                endsAt: a.ends_at,
-              });
+              setAuction(toAuctionState(a));
               const bids = Array.isArray(a.bids) ? a.bids : [];
               setAuctionBids(bids.map((b: any) => ({
                 id: b.id || `${b.username}-${b.created_at}`,
@@ -263,37 +317,51 @@ export function useStreamChat({
             // sirve para corregir el offset del dispositivo aunque el backend no envíe server_time.
             if (typeof a.started_at === 'number') syncClock(a.started_at);
             if (a.id && typeof a.ends_at === 'number') {
-              setAuction({
-                id: a.id,
-                durationSeconds: a.duration_seconds ?? 10,
-                startedAt: a.started_at ?? 0,
-                endsAt: a.ends_at,
-              });
+              setAuction(toAuctionState(a));
               setAuctionBids([]);
+              setLastAuctionExtension(null);
             }
             return;
           }
           if (msg.type === 'auction_end') {
+            // Mismo evento para los dos modos: en compra directa el "ganador" es
+            // quien llegó primero, y llega apenas compra (no al vencer el tiempo).
             const winner = msg.payload?.winner;
             if (winner?.username) {
               setAuctionWinner({
                 username: winner.username,
                 amount: winner.amount ?? 0,
                 user_id: winner.user_id ?? undefined,
+                saleMode: msg.payload?.sale_mode === 'buy_now' ? 'buy_now' : 'auction',
               });
             }
             setAuction(null);
             setAuctionBids([]);
+            setLastAuctionExtension(null);
             return;
           }
           if (msg.type === 'auction_bid' && msg.payload) {
             const b = msg.payload;
+            const bidId = b.id || `${b.username}-${b.created_at}`;
             setAuctionBids(prev => [...prev, {
-              id: b.id || `${b.username}-${b.created_at}`,
+              id: bidId,
               username: b.username || 'Usuario',
               amount: b.amount ?? 0,
               created_at: b.created_at ?? 0,
             }]);
+            // Anti-sniping: la puja corre el cierre. El servidor manda el ends_at
+            // resultante, así que todos recalculan el countdown desde ahí en vez
+            // de sumar segundos por su cuenta (que divergiría entre dispositivos).
+            // Si el mensaje llegó tarde, `prev` sigue vivo gracias a la ventana de
+            // gracia y la subasta se reabre en lugar de quedar cerrada de más.
+            if (typeof b.ends_at === 'number') {
+              setAuction(prev =>
+                prev && b.ends_at > prev.endsAt ? { ...prev, endsAt: b.ends_at } : prev
+              );
+            }
+            if (typeof b.extended_by === 'number' && b.extended_by > 0) {
+              setLastAuctionExtension({ id: bidId, seconds: b.extended_by });
+            }
             return;
           }
           if (msg.type === 'chat' && msg.payload) {
@@ -319,6 +387,11 @@ export function useStreamChat({
             if (typeof url === 'string' && url.trim()) {
               setRoomCoverUrl(url.trim());
             }
+            return;
+          }
+          if (msg.type === 'room_note') {
+            const note = msg.payload?.note;
+            setRoomNote(typeof note === 'string' && note.trim() ? note : null);
             return;
           }
           if (msg.type === 'like' && msg.payload) {
@@ -365,26 +438,44 @@ export function useStreamChat({
   const [auctionSecondsRemaining, setAuctionSecondsRemaining] = useState<number | null>(null);
 
   const now = serverNow();
+  /** Hay una oferta corriendo (subasta o compra directa): el temporizador es el mismo. */
   const isAuctionActive = auction !== null && auction.endsAt > now;
+  /**
+   * Hay una oferta en pantalla, incluida la ventana de gracia posterior al cierre.
+   * Se usa para decidir si mostrar el panel: durante la gracia el reloj marca 0
+   * pero la oferta todavía puede reabrirse (ver AUCTION_END_GRACE_MS).
+   */
+  const hasLiveOffer = auction !== null;
+  const offerSaleMode: LiveOfferSaleMode = auction?.saleMode ?? 'auction';
+  const isBuyNowActive = isAuctionActive && offerSaleMode === 'buy_now';
 
   useEffect(() => {
-    if (!auction || auction.endsAt <= serverNow()) {
+    if (!auction) {
       setAuctionSecondsRemaining(null);
       return;
     }
+    // Durante la gracia se muestra 0 (no `null`): el reloj ya llegó al final, pero
+    // la oferta sigue en pantalla por si una puja tardía la reabre.
     const update = () => {
-      const remaining = Math.max(0, auction.endsAt - serverNow());
-      setAuctionSecondsRemaining(remaining);
-      if (remaining <= 0) setAuction(null);
+      setAuctionSecondsRemaining(Math.max(0, auction.endsAt - serverNow()));
     };
     update();
     const id = setInterval(update, 1000);
     return () => clearInterval(id);
   }, [auction?.id, auction?.endsAt, serverNow]);
 
+  /**
+   * Único responsable de bajar la oferta de pantalla. Espera `AUCTION_END_GRACE_MS`
+   * después del cierre para que una puja del último segundo —aceptada por el
+   * servidor antes de `ends_at` pero cuyo broadcast llegó con retraso de red—
+   * encuentre el estado vivo y lo reabra con el `ends_at` extendido.
+   *
+   * El `ends_at` nuevo re-dispara este efecto, así que cada extensión recorre la
+   * ventana de gracia desde el nuevo cierre.
+   */
   useEffect(() => {
-    if (!auction || auction.endsAt <= now) return;
-    const delay = (auction.endsAt - now) * 1000 + 500;
+    if (!auction) return;
+    const delay = Math.max(0, (auction.endsAt - now) * 1000 + AUCTION_END_GRACE_MS);
     const t = setTimeout(() => setAuction(null), delay);
     return () => clearTimeout(t);
   }, [auction?.id, auction?.endsAt, now]);
@@ -411,11 +502,16 @@ export function useStreamChat({
     isStreamPaused,
     roomCoverUrl,
     roomIntroVideoUrl,
+    roomNote,
     auction,
     isAuctionActive,
+    hasLiveOffer,
+    offerSaleMode,
+    isBuyNowActive,
     auctionSecondsRemaining,
     auctionBids,
     auctionWinner,
+    lastAuctionExtension,
     clearAuctionWinner: () => setAuctionWinner(null),
   };
 }

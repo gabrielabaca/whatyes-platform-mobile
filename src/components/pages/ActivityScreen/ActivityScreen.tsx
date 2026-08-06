@@ -185,6 +185,9 @@ const ActivityCard: React.FC<{
   const { isDark } = useTheme();
   const d = themeColors.dark;
   const counterpartName = item.counterpart.name?.trim() || t('activity.unknownUser');
+  // Una URL caída (o vencida) debe caer al mismo placeholder que "producto sin foto".
+  const [imageFailed, setImageFailed] = useState(false);
+  const imageUrl = item.product_image_url?.trim() || null;
   const darkMuted = isDark ? { color: d.textSecondary } : null;
   const darkSurfaceAlt = isDark ? { backgroundColor: d.surfaceAlt } : null;
 
@@ -194,8 +197,13 @@ const ActivityCard: React.FC<{
       onPress={onPress}
       activeOpacity={0.85}
     >
-      {item.product_image_url ? (
-        <Image source={{ uri: item.product_image_url }} style={[styles.cardImage, darkSurfaceAlt]} />
+      {imageUrl && !imageFailed ? (
+        <Image
+          source={{ uri: imageUrl }}
+          style={[styles.cardImage, darkSurfaceAlt]}
+          resizeMode="cover"
+          onError={() => setImageFailed(true)}
+        />
       ) : (
         <View style={[styles.cardImage, styles.cardImagePlaceholder, darkSurfaceAlt]}>
           <ShoppingBag size={28} color={isDark ? d.textSecondary : MUTED} strokeWidth={1.5} />

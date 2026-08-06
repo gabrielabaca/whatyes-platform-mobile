@@ -7,9 +7,9 @@ import {
   StyleSheet,
   StatusBar,
   TouchableOpacity,
-  Alert,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { RTCView } from 'react-native-webrtc';
 import { Text } from '../../atoms/Text';
 import type { StreamData } from '../../molecules/StreamCard';
@@ -20,6 +20,8 @@ import {
   getRoomLiveCommerce,
   getRoomCatalog,
   getRooms,
+  buyNowActiveOffer,
+  BuyNowUnavailableError,
   SeatsFullError,
   type IvsStageCredentials,
   type LiveCommerceResponse,
@@ -39,6 +41,7 @@ import {
   IvsRemoteVideoView,
 } from '../../../native/IvsStageNative';
 import { HlsStreamPlayer } from '../../molecules/stream/HlsStreamPlayer';
+import { StreamToast, useStreamToast } from '../../molecules/stream/StreamToast';
 import { StreamViewerSplash } from '../../molecules/stream/StreamViewerSplash';
 import { fetchLiveRoomIds, pickNextLiveStreamIndex } from '../../../utils/streamLiveNavigation';
 import { useStreamChat, type AuctionWinner } from '../../../hooks/useStreamChat';
@@ -50,6 +53,8 @@ import { useFloatingBids, FloatingBidsLayer } from '../../molecules/FloatingBids
 import { enableSpeakerphone, disableSpeakerphone, muteSpeakerOutput } from '../../../utils/audioRoute';
 import { useLiveKeepAwake } from '../../../hooks/useLiveKeepAwake';
 import { StreamBuyerOverlay } from '../../organisms/stream/StreamBuyerOverlay';
+import { StreamLiveNoteDrawer } from '../../organisms/stream/StreamLiveNoteDrawer';
+import { useLiveRoomNote } from '../../../hooks/useLiveRoomNote';
 import {
   StreamRoomProductsDrawer,
   type LiveProductCardVM,
@@ -109,6 +114,7 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({
   onLiveEndedAccept,
 }) => {
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
   const [messageText, setMessageText] = useState('');
   // Transporte por sala: el backend decide vía GET /stream/watch — 'ivs' (stage
   // administrado, sin cupos), 'webrtc' (KVS legacy con asientos) u 'hls' (cupo
@@ -141,7 +147,10 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({
    * usuario lo cierra, aunque el evento del chat se limpie a los segundos.
    */
   const [winCelebration, setWinCelebration] = useState<AuctionWinner | null>(null);
+  /** Compra directa en vuelo: bloquea la barra hasta que el backend resuelve. */
+  const [buyNowPending, setBuyNowPending] = useState(false);
   const [productCatalogVisible, setProductCatalogVisible] = useState(false);
+  const [noteDrawerVisible, setNoteDrawerVisible] = useState(false);
   const [catalogItems, setCatalogItems] = useState<RoomCatalogProductItem[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [catalogError, setCatalogError] = useState<string | null>(null);
@@ -154,6 +163,9 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({
   const initialCredsRef = useRef<StreamWebRTCCredentialsResponse | null>(
     initialTransport === 'webrtc' ? (initialWatch?.webrtc_credentials ?? null) : null
   );
+  // Avisos del vivo (compra directa, errores): píldora con el look de la app en
+  // lugar del diálogo nativo, que tapa el video y corta la experiencia.
+  const { toast, showToast, dismissToast } = useStreamToast();
   const { likeEvents, handleLikeDone, handleLikeEvent } = useFloatingHearts();
   const { isRecording, recordingTimeLabel, toggleRecording } = useLiveScreenRecording();
   const wallet = useStreamWalletFlow();
@@ -196,19 +208,32 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({
     sendChat,
     sendLike,
     sendBid,
+    auction,
     isAuctionActive,
+    hasLiveOffer,
+    offerSaleMode,
     auctionSecondsRemaining,
     auctionBids,
     auctionWinner,
+    lastAuctionExtension,
     isStreamPaused,
     roomCoverUrl: wsCoverUrl,
     roomIntroVideoUrl: wsIntroVideoUrl,
+    roomNote,
     disconnectPermanently,
   } = useStreamChat({
     roomId,
     accessToken: chatToken,
     onLike: handleLikeEvent,
     onStreamEnded: onStreamEndedFromWs,
+  });
+
+  // Nota del vivo en solo lectura: el viewer nunca es dueño de la sala (canEdit false).
+  const liveNote = useLiveRoomNote({
+    roomId,
+    accessToken: chatToken,
+    initialNote: liveCommerce?.note ?? null,
+    liveNote: roomNote,
   });
 
   /**
@@ -512,7 +537,7 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({
     }
 
     if (!sellerId) {
-      Alert.alert(t('common.appName'), t('profile.loadError'));
+      showToast(t('profile.loadError'), 'error');
       return;
     }
     setSellerProfileUserId(sellerId);
@@ -523,6 +548,7 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({
     chatToken,
     roomId,
     t,
+    showToast,
   ]);
 
   const { conversation: directChat, startChat, closeChat } = useStartChat();
@@ -842,18 +868,56 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({
   const productBasePriceCents = liveCommerce?.active_product?.base_price_cents ?? 0;
   const displayViewerCount = isChatConnected ? viewerCount : stream.viewerCount;
 
-  /** Panel de subasta y bid bar: solo con subasta en curso (WS o live-commerce). */
+  /**
+   * Panel + barra de acción: solo con una oferta en curso (WS o live-commerce).
+   * `hasLiveOffer` incluye la ventana de gracia posterior al cierre, así que el
+   * panel no parpadea si una puja tardía reabre la subasta.
+   */
   const showAuctionUi = useMemo(() => {
     const nowSec = Math.floor(Date.now() / 1000);
     const apiAuction = liveCommerce?.active_auction;
     if (apiAuction?.status === 'active' && apiAuction.ends_at > nowSec) {
       return true;
     }
-    if (isAuctionActive && (auctionSecondsRemaining ?? 0) > 0) {
-      return true;
+    return hasLiveOffer;
+  }, [liveCommerce?.active_auction, hasLiveOffer]);
+
+  // El WS manda mientras haya oferta viva; live-commerce cubre el hueco entre
+  // abrir el vivo y recibir el `init` (o backends que aún no mandan sale_mode).
+  const apiActiveAuction = liveCommerce?.active_auction ?? null;
+  const effectiveSaleMode = auction
+    ? offerSaleMode
+    : apiActiveAuction?.sale_mode === 'buy_now'
+      ? 'buy_now'
+      : 'auction';
+  const buyNowPriceCents = auction?.priceCents ?? apiActiveAuction?.price_cents ?? null;
+  const activeOfferId = auction?.id ?? apiActiveAuction?.uuid ?? null;
+
+  /**
+   * Compra directa: el backend resuelve quién llegó primero. El cierre para
+   * todos (y la celebración del ganador) llega por el `auction_end` del WS, así
+   * que acá solo hay que contemplar el caso de haber llegado segundo.
+   */
+  const handleBuyNow = useCallback(async () => {
+    if (buyNowPending) return;
+    setBuyNowPending(true);
+    try {
+      const token = await storage.getAccessToken();
+      if (!token) {
+        showToast(t('common.error'), 'error');
+        return;
+      }
+      await buyNowActiveOffer(token, roomId, activeOfferId);
+    } catch (e: unknown) {
+      if (e instanceof BuyNowUnavailableError) {
+        showToast(t('stream.buyNowTooLate'), 'race');
+      } else {
+        showToast(e instanceof Error ? e.message : t('common.error'), 'error');
+      }
+    } finally {
+      setBuyNowPending(false);
     }
-    return false;
-  }, [liveCommerce?.active_auction, isAuctionActive, auctionSecondsRemaining]);
+  }, [buyNowPending, roomId, activeOfferId, t, showToast]);
 
   const splashCoverUrl = effectiveCoverUrl ?? stream.coverUrl ?? null;
 
@@ -962,6 +1026,12 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({
 
       <StreamVideoScrim />
 
+      <StreamToast
+        message={toast}
+        onDismiss={dismissToast}
+        topOffset={Math.max(insets.top, 16) + 64}
+      />
+
       {/* El ganador ve el festejo completo; el resto, el banner compacto. */}
       <AuctionWinnerOverlay winner={winCelebration ? null : auctionWinner} />
       <AuctionWinnerCelebration
@@ -992,6 +1062,7 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({
         onSendMessage={handleSendMessage}
         onLike={sendLike}
         onBid={sendBid}
+        onBuyNow={handleBuyNow}
         onExit={onClose}
         onOpenWallet={() => {
           void wallet.openWallet();
@@ -1004,6 +1075,10 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({
         auctionSecondsRemaining={auctionSecondsRemaining}
         auctionBids={auctionBids}
         auctionWinnerUsername={auctionWinner?.username ?? null}
+        auctionExtension={lastAuctionExtension}
+        saleMode={effectiveSaleMode}
+        buyNowPriceCents={buyNowPriceCents}
+        isBuyNowPending={buyNowPending}
         onOpenProductCatalog={openProductCatalog}
         onSellerPress={() => {
           void openSellerProfile();
@@ -1014,8 +1089,18 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({
         }}
         isAudioMuted={isAudioMuted}
         onToggleAudio={handleToggleAudio}
+        onOpenNote={() => setNoteDrawerVisible(true)}
         shippingQuote={shippingQuote}
         onPressShipping={handlePressShippingRate}
+        onNotify={showToast}
+      />
+
+      {/* La nota es solo lectura para el viewer: acá no hay edición ni "Publicar". */}
+      <StreamLiveNoteDrawer
+        visible={noteDrawerVisible}
+        onClose={() => setNoteDrawerVisible(false)}
+        mode="read"
+        note={liveNote.note}
       />
 
       {sellerProfileUserId ? (

@@ -12,6 +12,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { InterestCategoriesProvider } from './src/context/InterestCategoriesContext';
+import { OverlayPortalProvider } from './src/context/OverlayPortalContext';
 import { StartLiveWizardProvider, useStartLiveWizard } from './src/hooks/useStartLiveWizard';
 import { StartLiveWizardHost } from './src/components/organisms/startLive/StartLiveWizardHost';
 import { storage } from './src/utils/storage';
@@ -422,7 +423,14 @@ function ThemedStatusBarAndApp() {
         barStyle={isDark ? 'light-content' : 'dark-content'}
         backgroundColor={isDark ? '#050f2f' : '#ffffff'}
       />
-      <AppNavigator />
+      {/*
+       * Los drawers se montan acá adentro, al final del árbol: es lo que les permite
+       * taparle la barra de navegación a `GeneralLayout` sin salirse de la ventana nativa
+       * (el glass necesita seguir teniendo la pantalla detrás para difuminarla).
+       */}
+      <OverlayPortalProvider>
+        <AppNavigator />
+      </OverlayPortalProvider>
     </>
   );
 }

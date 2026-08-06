@@ -64,6 +64,7 @@ const TYPE_VISUALS: Record<string, { Icon: LucideIcon; color: string }> = {
   new_message: { Icon: MessageCircle, color: PRIMARY },
   auction_won: { Icon: Trophy, color: '#EAB308' },
   auction_second_chance: { Icon: Trophy, color: PRIMARY },
+  buy_now_won: { Icon: ShoppingBag, color: '#EAB308' },
   raffle_won: { Icon: Gift, color: '#EAB308' },
   purchase_paid: { Icon: CreditCard, color: themeColors.success },
   purchase_payment_action_required: { Icon: TriangleAlert, color: themeColors.danger },

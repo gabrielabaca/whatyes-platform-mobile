@@ -9,6 +9,7 @@ import {
 import { AlarmClock, ChevronRight, Pin } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { FONT_FAMILY } from '../../../theme/typography';
+import { STREAM_COLORS } from './streamTokens';
 
 export interface LiveProductCardVM {
   uuid: string;
@@ -20,6 +21,10 @@ export interface LiveProductCardVM {
   startsSoon?: boolean;
   auctionSecondsRemaining?: number | null;
   status?: string;
+  /** Fijado por el vendedor: pesa en el orden del catálogo. */
+  isPinned?: boolean;
+  /** Es el primero de la lista: el que muestra la pantalla y arranca el slider. */
+  isNext?: boolean;
 }
 
 export function formatCatalogPrice(cents: number, currency: string): string {
@@ -47,6 +52,8 @@ export interface LiveProductCardProps {
   interactive?: boolean;
   onStart?: () => void;
   onPin?: () => void;
+  /** Tocar la card lo deja primero en la lista, listo para el slider. */
+  onSelect?: () => void;
 }
 
 export const LiveProductCard: React.FC<LiveProductCardProps> = ({
@@ -54,14 +61,26 @@ export const LiveProductCard: React.FC<LiveProductCardProps> = ({
   interactive = false,
   onStart,
   onPin,
+  onSelect,
 }) => {
   const { t } = useTranslation();
   const startsSoon = Boolean(item.startsSoon);
   const hasCountdown = item.auctionSecondsRemaining != null;
   const countdownLabel = formatCountdown(item.auctionSecondsRemaining);
+  const Container = onSelect ? TouchableOpacity : View;
 
   return (
-    <View style={styles.card}>
+    <Container
+      style={[styles.card, item.isNext && styles.cardNext]}
+      {...(onSelect
+        ? {
+            onPress: onSelect,
+            activeOpacity: 0.85,
+            accessibilityRole: 'button' as const,
+            accessibilityState: { selected: Boolean(item.isNext) },
+          }
+        : {})}
+    >
       <View style={styles.thumbWrap}>
         {item.imageUrl ? (
           <Image source={{ uri: item.imageUrl }} style={styles.thumb} resizeMode="cover" />
@@ -71,6 +90,14 @@ export const LiveProductCard: React.FC<LiveProductCardProps> = ({
       </View>
 
       <View style={styles.body}>
+        {/* No está en el Figma: sin esta marca no se distingue cuál es el producto
+            que la pantalla muestra y que arranca el slider. */}
+        {item.isNext ? (
+          <View style={styles.nextBadge}>
+            <RNText style={styles.nextBadgeText}>{t('stream.productNext')}</RNText>
+          </View>
+        ) : null}
+
         {startsSoon ? (
           <View style={styles.startsSoonRow}>
             <AlarmClock size={20} color="#FFFFFF" strokeWidth={2} />
@@ -126,7 +153,7 @@ export const LiveProductCard: React.FC<LiveProductCardProps> = ({
           </View>
         ) : null}
       </View>
-    </View>
+    </Container>
   );
 };
 
@@ -137,6 +164,23 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
     borderBottomWidth: 1,
     borderBottomColor: '#DDD',
+  },
+  cardNext: {
+    borderBottomColor: STREAM_COLORS.primary,
+  },
+  nextBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: STREAM_COLORS.ctaSoft,
+    borderRadius: 1000,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  nextBadgeText: {
+    fontFamily: FONT_FAMILY.bold,
+    fontSize: 10,
+    lineHeight: 16,
+    color: '#FFFFFF',
+    includeFontPadding: false,
   },
   thumbWrap: {
     borderRadius: 12,

@@ -117,14 +117,23 @@ export const PurchaseClipViewer: React.FC<PurchaseClipViewerProps> = ({
           />
           {/* Velo inferior para legibilidad del texto (sin lib de gradientes) */}
           <View style={styles.bottomScrim} pointerEvents="none" />
-          {paused ? (
-            <View style={styles.playOverlay} pointerEvents="none">
-              <View style={styles.playCircle}>
-                <Play size={30} color="#FFFFFF" fill="#FFFFFF" strokeWidth={1} />
-              </View>
-            </View>
-          ) : null}
         </TouchableOpacity>
+
+        {/* Botón de play: control propio para que el tap en el centro reanude */}
+        {paused ? (
+          <View style={styles.playOverlay} pointerEvents="box-none">
+            <TouchableOpacity
+              style={styles.playCircle}
+              activeOpacity={0.85}
+              onPress={() => setPaused(false)}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              accessibilityRole="button"
+              accessibilityLabel={t('activity.clipPlay')}
+            >
+              <Play size={30} color="#FFFFFF" fill="#FFFFFF" strokeWidth={1} />
+            </TouchableOpacity>
+          </View>
+        ) : null}
 
         {/* Header: back + pill del vendedor */}
         <View style={[styles.headerRow, { top: insets.top + 16 }]}>

@@ -19,6 +19,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GlassBackdrop } from './GlassBackdrop';
 import { DismissKeyboardView } from '../../atoms/DismissKeyboardView';
+import { ModalWindowBoundary } from '../../../context/OverlayPortalContext';
 
 export interface GlassFullScreenModalHandle {
   dismiss: () => void;
@@ -191,46 +192,52 @@ export const GlassFullScreenModal = forwardRef<
       statusBarTranslucent
       onRequestClose={onRequestClose ?? dismiss}
     >
-      <View style={styles.host} pointerEvents="box-none">
-        <GlassBackdrop />
-        <TouchableOpacity
-          style={styles.backdropPress}
-          activeOpacity={1}
-          onPress={backdropReady ? handleBackdropPress : undefined}
-          disabled={!backdropReady}
-          accessibilityRole="button"
-          accessibilityLabel={backdropAccessibilityLabel}
-        />
-        <Animated.View
-          style={[styles.sheet, { transform: [{ translateY }] }]}
-          pointerEvents="box-none"
-        >
-          {keyboardAvoiding ? (
-            /**
-             * El KeyboardAvoidingView achica todo el contenedor, así que el footer fijo
-             * queda por encima del teclado. Por eso el ScrollView NO usa
-             * `automaticallyAdjustKeyboardInsets`: sumaría una segunda compensación y el
-             * contenido saltaría el doble en iOS.
-             * Android necesita 'height' porque el Modal es una ventana aparte y no hereda
-             * el `adjustResize` de la activity.
-             */
-            <KeyboardAvoidingView
-              style={styles.flex}
-              behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-              pointerEvents="box-none"
-            >
-              {inner}
-            </KeyboardAvoidingView>
-          ) : (
-            inner
-          )}
-        </Animated.View>
-        {overlay ? (
-          <View style={styles.overlay} pointerEvents="box-none">
-            {overlay}
-          </View>
-        ) : null}
-      </View>
+      {/*
+       * Este contenido ya vive en su propia ventana nativa: los sheets del slot `overlay`
+       * tienen que renderizar acá adentro y NO irse al portal raíz (que queda por debajo).
+       */}
+      <ModalWindowBoundary>
+        <View style={styles.host} pointerEvents="box-none">
+          <GlassBackdrop />
+          <TouchableOpacity
+            style={styles.backdropPress}
+            activeOpacity={1}
+            onPress={backdropReady ? handleBackdropPress : undefined}
+            disabled={!backdropReady}
+            accessibilityRole="button"
+            accessibilityLabel={backdropAccessibilityLabel}
+          />
+          <Animated.View
+            style={[styles.sheet, { transform: [{ translateY }] }]}
+            pointerEvents="box-none"
+          >
+            {keyboardAvoiding ? (
+              /**
+               * El KeyboardAvoidingView achica todo el contenedor, así que el footer fijo
+               * queda por encima del teclado. Por eso el ScrollView NO usa
+               * `automaticallyAdjustKeyboardInsets`: sumaría una segunda compensación y el
+               * contenido saltaría el doble en iOS.
+               * Android necesita 'height' porque el Modal es una ventana aparte y no hereda
+               * el `adjustResize` de la activity.
+               */
+              <KeyboardAvoidingView
+                style={styles.flex}
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                pointerEvents="box-none"
+              >
+                {inner}
+              </KeyboardAvoidingView>
+            ) : (
+              inner
+            )}
+          </Animated.View>
+          {overlay ? (
+            <View style={styles.overlay} pointerEvents="box-none">
+              {overlay}
+            </View>
+          ) : null}
+        </View>
+      </ModalWindowBoundary>
     </Modal>
   );
 });

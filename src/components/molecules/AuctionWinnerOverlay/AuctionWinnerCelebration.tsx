@@ -164,7 +164,9 @@ export const AuctionWinnerCelebration: React.FC<AuctionWinnerCelebrationProps> =
           <PulpoLogo size={116} color={GOLD} />
         </Animated.View>
 
-        <RNText style={styles.title}>{t('stream.winTitle')}</RNText>
+        <RNText style={styles.title}>
+          {t(winner.saleMode === 'buy_now' ? 'stream.buyNowWinTitle' : 'stream.winTitle')}
+        </RNText>
 
         {productTitle ? (
           <RNText style={styles.product} numberOfLines={2}>

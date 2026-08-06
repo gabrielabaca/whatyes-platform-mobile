@@ -126,7 +126,15 @@ export const AddProductPhotoSourceDrawer: React.FC<AddProductPhotoSourceDrawerPr
 
   if (useOverlay) {
     if (!visible) return null;
-    return <View style={styles.overlayHost}>{sheet}</View>;
+    /**
+     * `box-none`: fuera de un Modal el sheet se va al portal raíz y este host queda vacío;
+     * sin esto sería una capa transparente a pantalla completa comiéndose los toques.
+     */
+    return (
+      <View style={styles.overlayHost} pointerEvents="box-none">
+        {sheet}
+      </View>
+    );
   }
 
   return sheet;

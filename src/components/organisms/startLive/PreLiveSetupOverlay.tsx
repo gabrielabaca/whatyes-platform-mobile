@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import { AppDatePickerSheet } from '../../molecules/AppDatePickerSheet';
 import ConfettiCannon from 'react-native-confetti-cannon';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { ImagePickerResponse } from 'react-native-image-picker';
@@ -12,12 +12,10 @@ import {
   Dimensions,
   Modal,
   Platform,
-  Pressable,
   StyleSheet,
   Text as RNText,
   TextInput,
   TouchableOpacity,
-  useColorScheme,
   View,
   Image,
   type StyleProp,
@@ -42,6 +40,7 @@ import { useInterestCategories } from '../../../hooks/useInterestCategories';
 import { FONT_FAMILY } from '../../../theme/typography';
 import { themeColors } from '../../../theme/colors';
 import { LAYERS } from '../../../theme/layers';
+import { ModalWindowBoundary } from '../../../context/OverlayPortalContext';
 import { KeyboardDismissScrollView } from '../../atoms/KeyboardDismissScrollView';
 import { GlassBackdrop } from '../profile/GlassBackdrop';
 import { StreamBottomSheet } from '../stream/StreamBottomSheet';
@@ -421,7 +420,6 @@ export const PreLiveSetupOverlay: React.FC<{
 }> = ({ initialConfig, visible, onCancel, onStart }) => {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
-  const schemeDark = useColorScheme() === 'dark';
   const { categories } = useInterestCategories();
   const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   /** Entrada deslizando desde abajo, igual que las bases de sheet (el Modal no anima). */
@@ -612,335 +610,291 @@ export const PreLiveSetupOverlay: React.FC<{
       statusBarTranslucent
       onRequestClose={handleLeavePreLive}
     >
-      <View style={styles.overlay}>
-        <GlassBackdrop />
-        <Animated.View style={[styles.sheet, { transform: [{ translateY }] }]}>
-          <KeyboardDismissScrollView
-            style={styles.scrollBody}
-            contentContainerStyle={[styles.content, { paddingTop: insets.top + 16 }]}
-            showsVerticalScrollIndicator={false}
-            automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
-          >
-            <View style={styles.header}>
-              <RNText style={styles.title}>Configura tu live</RNText>
-              <TouchableOpacity onPress={handleLeavePreLive} hitSlop={12}>
-                <X size={22} color={themeColors.glass.text} />
+      {/*
+       * Los drawers de este asistente viven DENTRO de este Modal (su propia ventana
+       * nativa): no deben irse al portal raíz, que queda por debajo y los ocultaría.
+       */}
+      <ModalWindowBoundary>
+        <View style={styles.overlay}>
+          <GlassBackdrop />
+          <Animated.View style={[styles.sheet, { transform: [{ translateY }] }]}>
+            <KeyboardDismissScrollView
+              style={styles.scrollBody}
+              contentContainerStyle={[styles.content, { paddingTop: insets.top + 16 }]}
+              showsVerticalScrollIndicator={false}
+              automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
+            >
+              <View style={styles.header}>
+                <RNText style={styles.title}>Configura tu live</RNText>
+                <TouchableOpacity onPress={handleLeavePreLive} hitSlop={12}>
+                  <X size={22} color={themeColors.glass.text} />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.section}>
+                <View style={styles.field}>
+                  <FieldLabel>Nombre del live</FieldLabel>
+                  <View style={styles.inputPill}>
+                    <TextInput
+                      style={styles.input}
+                      value={title}
+                      onChangeText={(v) => setTitle(v.replace(/^\s/, '').slice(0, 80))}
+                      placeholder="Nombre"
+                      placeholderTextColor={themeColors.glass.placeholder}
+                    />
+                  </View>
+                </View>
+                <View style={styles.field}>
+                  <FieldLabel>Fecha</FieldLabel>
+                  <TouchableOpacity
+                    style={styles.inputPill}
+                    onPress={() => setShowScheduleDatePicker(true)}
+                    activeOpacity={0.85}
+                  >
+                    <RNText style={[styles.input, styles.inputTouchableText]}>{scheduledDateDisplay}</RNText>
+                    <CalendarDays size={18} color={themeColors.glass.textMuted} />
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.field}>
+                  <FieldLabel>Hora</FieldLabel>
+                  <TouchableOpacity style={styles.inputPill} onPress={() => setShowScheduleTimePicker(true)} activeOpacity={0.85}>
+                    <RNText style={[styles.input, styles.inputTouchableText]}>{scheduledTimeDisplay}</RNText>
+                    <Clock size={18} color={themeColors.glass.textMuted} />
+                  </TouchableOpacity>
+                </View>
+                <SelectField label="Frecuencia" value={frequencyLabel} placeholder="No repetir" onPress={() => setDrawer('frequency')} />
+                <SelectField
+                  label="Agregar moderadores"
+                  value={moderatorIds.length ? `${moderatorIds.length} moderador(es)` : null}
+                  placeholder="Seleccionar moderadores"
+                  icon={<UserRound size={22} color={themeColors.glass.placeholder} />}
+                  onPress={() => setDrawer('moderators')}
+                />
+              </View>
+
+              <View style={styles.section}>
+                <SelectField label="Categoría" value={categoryLabel} placeholder="Selecciona una categoría" onPress={() => setDrawer('categories')} />
+                <SelectField label="Formato de venta" value={saleFormatLabel} placeholder="Selecciona un formato" onPress={() => setDrawer('saleFormat')} />
+              </View>
+
+              <View style={styles.section}>
+                <View style={styles.sectionHeading}>
+                  <RNText style={styles.sectionTitle}>Multimedia</RNText>
+                  <RNText style={styles.sectionBody}>Agrega contenido multimedia para que tu live sea mas atractivo</RNText>
+                </View>
+                <View style={styles.mediaRow}>
+                  <View style={[styles.mediaCard, !!(liveCoverUrl || coverStagingUri) && styles.mediaCardHasCover]}>
+                    <TouchableOpacity
+                      style={[styles.coverCardTouch, !!(liveCoverUrl || coverStagingUri) && styles.coverCardTouchFilled]}
+                      onPress={() => !coverUploading && setDrawer('coverSource')}
+                      activeOpacity={0.85}
+                      disabled={coverUploading}
+                      accessibilityRole="button"
+                      accessibilityLabel="Agregar cover del live"
+                    >
+                      {liveCoverUrl || coverStagingUri ? (
+                        <Image
+                          source={{ uri: coverStagingUri ?? liveCoverUrl! }}
+                          style={styles.coverThumb}
+                          resizeMode="cover"
+                        />
+                      ) : (
+                        <>
+                          <ImagePlus size={24} color={START_LIVE_COLORS.border} />
+                          <RNText style={styles.mediaText}>Agregar un Cover</RNText>
+                        </>
+                      )}
+                      {coverUploading ? (
+                        <View style={styles.coverUploadingOverlay}>
+                          <ActivityIndicator size="large" color={themeColors.glass.text} />
+                        </View>
+                      ) : null}
+                    </TouchableOpacity>
+                    {(liveCoverUrl || coverStagingUri) && !coverUploading ? (
+                      <TouchableOpacity
+                        style={styles.coverClearBtn}
+                        onPress={() => {
+                          setLiveCoverUrl(null);
+                          setCoverStagingUri(null);
+                        }}
+                        hitSlop={10}
+                        accessibilityRole="button"
+                        accessibilityLabel="Quitar imagen de cover"
+                      >
+                        <X size={16} color={themeColors.glass.text} strokeWidth={2.5} />
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
+                  <TouchableOpacity style={styles.mediaCard} activeOpacity={0.85}>
+                    <Video size={24} color={START_LIVE_COLORS.border} />
+                    <RNText style={styles.mediaText}>Agregar un video</RNText>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              <View style={styles.section}>
+                <ToggleRow title="Contenido explicito" body="Activalo si tu live contiene contenido explicito" value={explicitContent} onValueChange={setExplicitContent} />
+                <ToggleRow
+                  title="Bloquear palabras"
+                  body={blockedWords.length ? `${blockedWords.length} palabras bloqueadas` : 'Bloquea las palabras de tu chat en vivo'}
+                  value={blockedWordsEnabled}
+                  onValueChange={(value) => {
+                    setBlockedWordsEnabled(value);
+                    if (value) setDrawer('blockedWords');
+                  }}
+                />
+              </View>
+
+              <View style={styles.section}>
+                <View style={styles.sectionHeading}>
+                  <RNText style={styles.sectionTitle}>Privacidad</RNText>
+                  <RNText style={styles.sectionBody}>¿Cómo quieres mostrar tus live?</RNText>
+                </View>
+                {(['public', 'private'] as Privacy[]).map((item) => (
+                  <TouchableOpacity key={item} style={styles.privacyRow} onPress={() => setPrivacy(item)} activeOpacity={0.85}>
+                    <View style={styles.selectLeft}>
+                      <UserRound size={20} color={themeColors.glass.placeholder} />
+                      <RNText style={styles.selectText}>{item === 'public' ? 'Publica' : 'Privado'}</RNText>
+                    </View>
+                    {privacy === item ? <CheckCircle2 size={22} color={themeColors.glass.text} /> : <RadioMark selected={false} />}
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+            </KeyboardDismissScrollView>
+
+            {/* CTA fijada al pie, fuera del scroll (canon de drawers) + safe area. */}
+            <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+              <StartLivePrimaryButton
+                label={t('startLive.saveCta')}
+                onPress={startCountdown}
+                disabled={!title.trim() || !categoryUuids.length || coverUploading}
+              />
+              <TouchableOpacity style={styles.cancelButton} onPress={handleLeavePreLive} activeOpacity={0.85}>
+                <RNText style={styles.cancelText}>{t('common.cancel')}</RNText>
               </TouchableOpacity>
             </View>
+          </Animated.View>
 
-            <View style={styles.section}>
-              <View style={styles.field}>
-                <FieldLabel>Nombre del live</FieldLabel>
-                <View style={styles.inputPill}>
-                  <TextInput
-                    style={styles.input}
-                    value={title}
-                    onChangeText={(v) => setTitle(v.replace(/^\s/, '').slice(0, 80))}
-                    placeholder="Nombre"
-                    placeholderTextColor={themeColors.glass.placeholder}
-                  />
-                </View>
-              </View>
-              <View style={styles.field}>
-                <FieldLabel>Fecha</FieldLabel>
-                <TouchableOpacity
-                  style={styles.inputPill}
-                  onPress={() => setShowScheduleDatePicker(true)}
-                  activeOpacity={0.85}
-                >
-                  <RNText style={[styles.input, styles.inputTouchableText]}>{scheduledDateDisplay}</RNText>
-                  <CalendarDays size={18} color={themeColors.glass.textMuted} />
-                </TouchableOpacity>
-              </View>
-              <View style={styles.field}>
-                <FieldLabel>Hora</FieldLabel>
-                <TouchableOpacity style={styles.inputPill} onPress={() => setShowScheduleTimePicker(true)} activeOpacity={0.85}>
-                  <RNText style={[styles.input, styles.inputTouchableText]}>{scheduledTimeDisplay}</RNText>
-                  <Clock size={18} color={themeColors.glass.textMuted} />
-                </TouchableOpacity>
-              </View>
-              <SelectField label="Frecuencia" value={frequencyLabel} placeholder="No repetir" onPress={() => setDrawer('frequency')} />
-              <SelectField
-                label="Agregar moderadores"
-                value={moderatorIds.length ? `${moderatorIds.length} moderador(es)` : null}
-                placeholder="Seleccionar moderadores"
-                icon={<UserRound size={22} color={themeColors.glass.placeholder} />}
-                onPress={() => setDrawer('moderators')}
-              />
-            </View>
+          <ChoiceDrawer
+            visible={drawer === 'frequency'}
+            title="Frecuencia"
+            options={FREQUENCY_OPTIONS}
+            value={frequency}
+            onClose={() => setDrawer('none')}
+            onSelect={(value) => setFrequency(value as Frequency)}
+          />
+          <ChoiceDrawer
+            visible={drawer === 'saleFormat'}
+            title="Formato de venta"
+            options={SALE_FORMAT_OPTIONS}
+            value={saleFormat}
+            onClose={() => setDrawer('none')}
+            onSelect={(value) => setSaleFormat(value as SaleFormat)}
+          />
+          <ModeratorsDrawer
+            visible={drawer === 'moderators'}
+            initialIds={moderatorIds}
+            onClose={() => setDrawer('none')}
+            onSave={(ids) => {
+              setModeratorIds(ids);
+              setDrawer('none');
+            }}
+          />
+          <BlockedWordsDrawer
+            visible={drawer === 'blockedWords'}
+            initialWords={blockedWords}
+            onClose={() => setDrawer('none')}
+            onSave={(words) => {
+              setBlockedWords(words);
+              setBlockedWordsEnabled(words.length > 0);
+              setDrawer('none');
+            }}
+          />
+          <StartLiveCategoriesDrawer
+            visible={drawer === 'categories'}
+            selectionMode="multiple"
+            initialSelected={categoryUuids}
+            onClose={() => setDrawer('none')}
+            onContinue={(uuids) => {
+              setCategoryUuids(uuids);
+              setDrawer('none');
+            }}
+          />
 
-            <View style={styles.section}>
-              <SelectField label="Categoría" value={categoryLabel} placeholder="Selecciona una categoría" onPress={() => setDrawer('categories')} />
-              <SelectField label="Formato de venta" value={saleFormatLabel} placeholder="Selecciona un formato" onPress={() => setDrawer('saleFormat')} />
-            </View>
+          <AddProductPhotoSourceDrawer
+            visible={drawer === 'coverSource'}
+            presentation="overlay"
+            photoCount={0}
+            maxPhotos={1}
+            onClose={() => setDrawer('none')}
+            onBeforePicker={() => setMediaPickerActive(true)}
+            onAfterPicker={resetMediaPickerUi}
+            onTakePhoto={handleCoverFromCamera}
+            onChooseGallery={handleCoverFromGallery}
+          />
 
-            <View style={styles.section}>
-              <View style={styles.sectionHeading}>
-                <RNText style={styles.sectionTitle}>Multimedia</RNText>
-                <RNText style={styles.sectionBody}>Agrega contenido multimedia para que tu live sea mas atractivo</RNText>
-              </View>
-              <View style={styles.mediaRow}>
-                <View style={[styles.mediaCard, !!(liveCoverUrl || coverStagingUri) && styles.mediaCardHasCover]}>
-                  <TouchableOpacity
-                    style={[styles.coverCardTouch, !!(liveCoverUrl || coverStagingUri) && styles.coverCardTouchFilled]}
-                    onPress={() => !coverUploading && setDrawer('coverSource')}
-                    activeOpacity={0.85}
-                    disabled={coverUploading}
-                    accessibilityRole="button"
-                    accessibilityLabel="Agregar cover del live"
-                  >
-                    {liveCoverUrl || coverStagingUri ? (
-                      <Image
-                        source={{ uri: coverStagingUri ?? liveCoverUrl! }}
-                        style={styles.coverThumb}
-                        resizeMode="cover"
-                      />
-                    ) : (
-                      <>
-                        <ImagePlus size={24} color={START_LIVE_COLORS.border} />
-                        <RNText style={styles.mediaText}>Agregar un Cover</RNText>
-                      </>
-                    )}
-                    {coverUploading ? (
-                      <View style={styles.coverUploadingOverlay}>
-                        <ActivityIndicator size="large" color={themeColors.glass.text} />
-                      </View>
-                    ) : null}
+          {/* El overlay es un Modal nativo: los sheets van con nativeModal (default)
+              para presentarse encadenados sobre esta ventana, no en el portal raíz. */}
+          <AppDatePickerSheet
+            visible={showScheduleDatePicker}
+            title="Fecha"
+            mode="date"
+            value={scheduleAt}
+            onChange={(d) => setScheduleAt((prev) => mergeCalendarDatePreserveTime(prev, d))}
+            onClose={() => setShowScheduleDatePicker(false)}
+          />
+
+          <AppDatePickerSheet
+            visible={showScheduleTimePicker}
+            title="Hora"
+            mode="time"
+            value={scheduleAt}
+            onChange={(d) => setScheduleAt((prev) => mergeClockTimePreserveDate(prev, d))}
+            onClose={() => setShowScheduleTimePicker(false)}
+          />
+
+          {countdown != null ? (
+            <View style={styles.countdownOverlay}>
+              <View style={styles.countdownSheet}>
+                <View style={styles.countdownSheetHeader}>
+                  <RNText style={styles.countdownHeaderTitle}>{t('stream.liveStartHeader')}</RNText>
+                  <TouchableOpacity onPress={handleLeavePreLive} hitSlop={12} accessibilityRole="button" accessibilityLabel={t('stream.cancelJoin')}>
+                    <X size={24} color={themeColors.glass.text} strokeWidth={2} />
                   </TouchableOpacity>
-                  {(liveCoverUrl || coverStagingUri) && !coverUploading ? (
-                    <TouchableOpacity
-                      style={styles.coverClearBtn}
-                      onPress={() => {
-                        setLiveCoverUrl(null);
-                        setCoverStagingUri(null);
-                      }}
-                      hitSlop={10}
-                      accessibilityRole="button"
-                      accessibilityLabel="Quitar imagen de cover"
-                    >
-                      <X size={16} color={themeColors.glass.text} strokeWidth={2.5} />
-                    </TouchableOpacity>
-                  ) : null}
                 </View>
-                <TouchableOpacity style={styles.mediaCard} activeOpacity={0.85}>
-                  <Video size={24} color={START_LIVE_COLORS.border} />
-                  <RNText style={styles.mediaText}>Agregar un video</RNText>
-                </TouchableOpacity>
+                <View style={styles.countdownSheetBody}>
+                  <RNText style={styles.countdownCongrats}>{t('stream.liveStartCongrats')}</RNText>
+                  <RNText style={styles.countdownIntro}>{t('stream.liveStartSubtitle')}</RNText>
+                  <RNText style={styles.countdownBigNumber} accessibilityLiveRegion="polite">
+                    {countdown}
+                  </RNText>
+                </View>
               </View>
-            </View>
-
-            <View style={styles.section}>
-              <ToggleRow title="Contenido explicito" body="Activalo si tu live contiene contenido explicito" value={explicitContent} onValueChange={setExplicitContent} />
-              <ToggleRow
-                title="Bloquear palabras"
-                body={blockedWords.length ? `${blockedWords.length} palabras bloqueadas` : 'Bloquea las palabras de tu chat en vivo'}
-                value={blockedWordsEnabled}
-                onValueChange={(value) => {
-                  setBlockedWordsEnabled(value);
-                  if (value) setDrawer('blockedWords');
-                }}
-              />
-            </View>
-
-            <View style={styles.section}>
-              <View style={styles.sectionHeading}>
-                <RNText style={styles.sectionTitle}>Privacidad</RNText>
-                <RNText style={styles.sectionBody}>¿Cómo quieres mostrar tus live?</RNText>
-              </View>
-              {(['public', 'private'] as Privacy[]).map((item) => (
-                <TouchableOpacity key={item} style={styles.privacyRow} onPress={() => setPrivacy(item)} activeOpacity={0.85}>
-                  <View style={styles.selectLeft}>
-                    <UserRound size={20} color={themeColors.glass.placeholder} />
-                    <RNText style={styles.selectText}>{item === 'public' ? 'Publica' : 'Privado'}</RNText>
-                  </View>
-                  {privacy === item ? <CheckCircle2 size={22} color={themeColors.glass.text} /> : <RadioMark selected={false} />}
-                </TouchableOpacity>
-              ))}
-            </View>
-
-          </KeyboardDismissScrollView>
-
-          {/* CTA fijada al pie, fuera del scroll (canon de drawers) + safe area. */}
-          <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
-            <StartLivePrimaryButton
-              label={t('startLive.saveCta')}
-              onPress={startCountdown}
-              disabled={!title.trim() || !categoryUuids.length || coverUploading}
-            />
-            <TouchableOpacity style={styles.cancelButton} onPress={handleLeavePreLive} activeOpacity={0.85}>
-              <RNText style={styles.cancelText}>{t('common.cancel')}</RNText>
-            </TouchableOpacity>
-          </View>
-        </Animated.View>
-
-        <ChoiceDrawer
-          visible={drawer === 'frequency'}
-          title="Frecuencia"
-          options={FREQUENCY_OPTIONS}
-          value={frequency}
-          onClose={() => setDrawer('none')}
-          onSelect={(value) => setFrequency(value as Frequency)}
-        />
-        <ChoiceDrawer
-          visible={drawer === 'saleFormat'}
-          title="Formato de venta"
-          options={SALE_FORMAT_OPTIONS}
-          value={saleFormat}
-          onClose={() => setDrawer('none')}
-          onSelect={(value) => setSaleFormat(value as SaleFormat)}
-        />
-        <ModeratorsDrawer
-          visible={drawer === 'moderators'}
-          initialIds={moderatorIds}
-          onClose={() => setDrawer('none')}
-          onSave={(ids) => {
-            setModeratorIds(ids);
-            setDrawer('none');
-          }}
-        />
-        <BlockedWordsDrawer
-          visible={drawer === 'blockedWords'}
-          initialWords={blockedWords}
-          onClose={() => setDrawer('none')}
-          onSave={(words) => {
-            setBlockedWords(words);
-            setBlockedWordsEnabled(words.length > 0);
-            setDrawer('none');
-          }}
-        />
-        <StartLiveCategoriesDrawer
-          visible={drawer === 'categories'}
-          selectionMode="multiple"
-          initialSelected={categoryUuids}
-          onClose={() => setDrawer('none')}
-          onContinue={(uuids) => {
-            setCategoryUuids(uuids);
-            setDrawer('none');
-          }}
-        />
-
-        <AddProductPhotoSourceDrawer
-          visible={drawer === 'coverSource'}
-          presentation="overlay"
-          photoCount={0}
-          maxPhotos={1}
-          onClose={() => setDrawer('none')}
-          onBeforePicker={() => setMediaPickerActive(true)}
-          onAfterPicker={resetMediaPickerUi}
-          onTakePhoto={handleCoverFromCamera}
-          onChooseGallery={handleCoverFromGallery}
-        />
-
-        <Modal
-          visible={showScheduleDatePicker}
-          transparent
-          animationType="slide"
-          statusBarTranslucent
-          onRequestClose={() => setShowScheduleDatePicker(false)}
-        >
-          <View style={styles.schedulePickerBackdrop}>
-            <Pressable style={styles.schedulePickerBackdropPress} onPress={() => setShowScheduleDatePicker(false)} />
-            <View style={[styles.schedulePickerChrome, { paddingBottom: Math.max(insets.bottom, 16) }]}>
-              <View style={styles.schedulePickerToolbar}>
-                <TouchableOpacity style={styles.schedulePickerToolbarBtn} onPress={() => setShowScheduleDatePicker(false)}>
-                  <RNText style={styles.schedulePickerToolbarLabel}>{t('common.cancel')}</RNText>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.schedulePickerToolbarBtn} onPress={() => setShowScheduleDatePicker(false)}>
-                  <RNText style={styles.schedulePickerToolbarLabel}>{t('common.done')}</RNText>
-                </TouchableOpacity>
-              </View>
-              <View style={styles.schedulePickerBody}>
-                <DateTimePicker
-                  value={scheduleAt}
-                  mode="date"
-                  display="spinner"
-                  locale="es-AR"
-                  themeVariant={schemeDark ? 'dark' : 'light'}
-                  onChange={(_, d) => {
-                    if (!d) return;
-                    setScheduleAt((prev) => mergeCalendarDatePreserveTime(prev, d));
-                  }}
+              <View style={styles.countdownConfettiLayer} pointerEvents="none">
+                <ConfettiCannon
+                  count={120}
+                  origin={{ x: LIVE_PRE_LAUNCH_WIDTH * 0.22, y: LIVE_PRE_LAUNCH_HEIGHT * 0.22 }}
+                  explosionSpeed={420}
+                  fallSpeed={3100}
+                  fadeOut
+                  autoStart
+                  colors={LIVE_LAUNCH_CONFETTI_COLORS}
+                />
+                <ConfettiCannon
+                  count={120}
+                  origin={{ x: LIVE_PRE_LAUNCH_WIDTH * 0.78, y: LIVE_PRE_LAUNCH_HEIGHT * 0.22 }}
+                  explosionSpeed={420}
+                  fallSpeed={3100}
+                  fadeOut
+                  autoStart
+                  colors={LIVE_LAUNCH_CONFETTI_COLORS}
                 />
               </View>
             </View>
-          </View>
-        </Modal>
-
-        <Modal
-          visible={showScheduleTimePicker}
-          transparent
-          animationType="slide"
-          statusBarTranslucent
-          onRequestClose={() => setShowScheduleTimePicker(false)}
-        >
-          <View style={styles.schedulePickerBackdrop}>
-            <Pressable style={styles.schedulePickerBackdropPress} onPress={() => setShowScheduleTimePicker(false)} />
-            <View style={[styles.schedulePickerChrome, { paddingBottom: Math.max(insets.bottom, 16) }]}>
-              <View style={styles.schedulePickerToolbar}>
-                <TouchableOpacity style={styles.schedulePickerToolbarBtn} onPress={() => setShowScheduleTimePicker(false)}>
-                  <RNText style={styles.schedulePickerToolbarLabel}>{t('common.cancel')}</RNText>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.schedulePickerToolbarBtn} onPress={() => setShowScheduleTimePicker(false)}>
-                  <RNText style={styles.schedulePickerToolbarLabel}>{t('common.done')}</RNText>
-                </TouchableOpacity>
-              </View>
-              <View style={styles.schedulePickerBody}>
-                <DateTimePicker
-                  value={scheduleAt}
-                  mode="time"
-                  display="spinner"
-                  locale="es-AR"
-                  themeVariant={schemeDark ? 'dark' : 'light'}
-                  onChange={(_, d) => {
-                    if (!d) return;
-                    setScheduleAt((prev) => mergeClockTimePreserveDate(prev, d));
-                  }}
-                />
-              </View>
-            </View>
-          </View>
-        </Modal>
-
-        {countdown != null ? (
-          <View style={styles.countdownOverlay}>
-            <View style={styles.countdownSheet}>
-              <View style={styles.countdownSheetHeader}>
-                <RNText style={styles.countdownHeaderTitle}>{t('stream.liveStartHeader')}</RNText>
-                <TouchableOpacity onPress={handleLeavePreLive} hitSlop={12} accessibilityRole="button" accessibilityLabel={t('stream.cancelJoin')}>
-                  <X size={24} color={themeColors.glass.text} strokeWidth={2} />
-                </TouchableOpacity>
-              </View>
-              <View style={styles.countdownSheetBody}>
-                <RNText style={styles.countdownCongrats}>{t('stream.liveStartCongrats')}</RNText>
-                <RNText style={styles.countdownIntro}>{t('stream.liveStartSubtitle')}</RNText>
-                <RNText style={styles.countdownBigNumber} accessibilityLiveRegion="polite">
-                  {countdown}
-                </RNText>
-              </View>
-            </View>
-            <View style={styles.countdownConfettiLayer} pointerEvents="none">
-              <ConfettiCannon
-                count={120}
-                origin={{ x: LIVE_PRE_LAUNCH_WIDTH * 0.22, y: LIVE_PRE_LAUNCH_HEIGHT * 0.22 }}
-                explosionSpeed={420}
-                fallSpeed={3100}
-                fadeOut
-                autoStart
-                colors={LIVE_LAUNCH_CONFETTI_COLORS}
-              />
-              <ConfettiCannon
-                count={120}
-                origin={{ x: LIVE_PRE_LAUNCH_WIDTH * 0.78, y: LIVE_PRE_LAUNCH_HEIGHT * 0.22 }}
-                explosionSpeed={420}
-                fallSpeed={3100}
-                fadeOut
-                autoStart
-                colors={LIVE_LAUNCH_CONFETTI_COLORS}
-              />
-            </View>
-          </View>
-        ) : null}
-      </View>
+          ) : null}
+        </View>
+      </ModalWindowBoundary>
     </Modal>
   );
 };
@@ -1311,44 +1265,6 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.semibold,
     fontSize: 14,
     color: themeColors.glass.text,
-  },
-  schedulePickerBackdrop: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
-  schedulePickerBackdropPress: {
-    flex: 1,
-    backgroundColor: themeColors.dark.overlay,
-  },
-  schedulePickerChrome: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    backgroundColor: '#FEFEFE',
-    width: '100%',
-    overflow: 'hidden',
-  },
-  schedulePickerToolbar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e5e7eb',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  schedulePickerToolbarBtn: {
-    paddingHorizontal: 4,
-    paddingVertical: 4,
-  },
-  schedulePickerToolbarLabel: {
-    fontFamily: FONT_FAMILY.semibold,
-    fontSize: 16,
-    color: START_LIVE_COLORS.primary,
-  },
-  schedulePickerBody: {
-    alignItems: 'stretch',
-    paddingVertical: 8,
-    width: '100%',
   },
   countdownOverlay: {
     ...StyleSheet.absoluteFillObject,

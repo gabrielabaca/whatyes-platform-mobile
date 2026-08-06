@@ -29,6 +29,8 @@ export interface StreamRoomProductsDrawerProps {
   onSaleModeChange?: (mode: LiveProductSaleMode) => void;
   onStartProduct?: (item: LiveProductCardVM) => void;
   onPinProduct?: (item: LiveProductCardVM) => void;
+  /** Seleccionar un producto lo deja primero en la lista (sin arrancarlo). */
+  onSelectProduct?: (item: LiveProductCardVM) => void;
   onAddProduct?: () => void;
 }
 
@@ -43,6 +45,7 @@ export const StreamRoomProductsDrawer: React.FC<StreamRoomProductsDrawerProps> =
   onSaleModeChange,
   onStartProduct,
   onPinProduct,
+  onSelectProduct,
   onAddProduct,
 }) => {
   const { t } = useTranslation();
@@ -53,6 +56,7 @@ export const StreamRoomProductsDrawer: React.FC<StreamRoomProductsDrawerProps> =
       interactive={interactive}
       onStart={onStartProduct ? () => onStartProduct(item) : undefined}
       onPin={onPinProduct ? () => onPinProduct(item) : undefined}
+      onSelect={onSelectProduct ? () => onSelectProduct(item) : undefined}
     />
   );
 

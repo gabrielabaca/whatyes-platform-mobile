@@ -2,6 +2,8 @@
 #import <React/RCTEventEmitter.h>
 #import <React/RCTViewManager.h>
 #import <UIKit/UIKit.h>
+#import <AVFoundation/AVFoundation.h>
+#import <ReplayKit/ReplayKit.h>
 #import <AmazonIVSBroadcast/AmazonIVSBroadcast.h>
 
 // Bridge de Amazon IVS Real-Time (Stages).
@@ -635,4 +637,197 @@ RCT_EXPORT_MODULE(IvsPreviewVideo)
   view.backgroundColor = [UIColor blackColor];
   return view;
 }
+@end
+
+#pragma mark - Grabador de clips (ReplayKit + AVAssetWriter)
+
+// Grabador de pantalla propio para el clip del comprador. Reemplaza a
+// react-native-record-screen en iOS: RPScreenRecorder startCapture +
+// AVAssetWriter, con el mic de ReplayKit activo (graba el audio del vivo por
+// el parlante + la voz del usuario; el tap de audio-de-app NO captura el
+// audio de WebRTC/IVS, por eso el mic es necesario).
+//
+// La pieza clave es la sesión de audio: mientras se graba se pone el preset
+// STUDIO del audio manager de IVS (PlayAndRecord + defaultToSpeaker + modo
+// default, SIN cancelación de eco). Configurado a través del manager, el SDK
+// no lo revierte (con la sesión seteada por fuera la re-pisaba a Playback a
+// los ~300 ms y el mic activo mandaba la ruta al auricular), la salida queda
+// en el altavoz y sin el timbre telefónico del voice processing (preset
+// VideoChat). Al frenar se restaura el preset según el rol.
+@interface ScreenClipRecorder : NSObject <RCTBridgeModule>
+@end
+
+@implementation ScreenClipRecorder {
+  AVAssetWriter *_writer;
+  AVAssetWriterInput *_videoInput;
+  AVAssetWriterInput *_audioInput;
+  NSString *_outputPath;
+  BOOL _active;
+}
+
+// Vuelve la sesión de audio del SDK al preset del rol vigente.
+static void restoreIvsAudioPreset(void) {
+  BOOL publishing = [IvsStageCoordinator shared].publishing;
+  [[IVSStageAudioManager sharedInstance]
+      setPreset:publishing ? IVSStageAudioManagerUseCasePresetVideoChat
+                           : IVSStageAudioManagerUseCasePresetSubscribeOnly];
+}
+
+RCT_EXPORT_MODULE(ScreenClipRecorder);
+
++ (BOOL)requiresMainQueueSetup {
+  return NO;
+}
+
+RCT_EXPORT_METHOD(startRecording:(RCTPromiseResolveBlock)resolve
+                  reject:(RCTPromiseRejectBlock)reject) {
+  RPScreenRecorder *recorder = [RPScreenRecorder sharedRecorder];
+  if (!recorder.isAvailable) {
+    reject(@"UNAVAILABLE", @"Screen recording not available", nil);
+    return;
+  }
+  @synchronized(self) {
+    if (_active || _writer) {
+      reject(@"ALREADY_RECORDING", @"Recording already in progress", nil);
+      return;
+    }
+    NSString *path = [NSTemporaryDirectory()
+        stringByAppendingPathComponent:
+            [NSString stringWithFormat:@"pulpoclip_%.0f.mp4",
+                                       [NSDate date].timeIntervalSince1970 * 1000]];
+    [[NSFileManager defaultManager] removeItemAtPath:path error:nil];
+    NSError *writerError = nil;
+    _writer = [[AVAssetWriter alloc] initWithURL:[NSURL fileURLWithPath:path]
+                                        fileType:AVFileTypeMPEG4
+                                           error:&writerError];
+    if (writerError) {
+      _writer = nil;
+      reject(@"WRITER_FAILED", writerError.localizedDescription, writerError);
+      return;
+    }
+    CGSize size = UIScreen.mainScreen.bounds.size;
+    CGFloat scale = UIScreen.mainScreen.scale;
+    _videoInput = [AVAssetWriterInput
+        assetWriterInputWithMediaType:AVMediaTypeVideo
+                       outputSettings:@{
+                         AVVideoCodecKey : AVVideoCodecTypeH264,
+                         AVVideoWidthKey : @(size.width * scale),
+                         AVVideoHeightKey : @(size.height * scale),
+                       }];
+    _videoInput.expectsMediaDataInRealTime = YES;
+    [_writer addInput:_videoInput];
+    AudioChannelLayout stereo = {0};
+    stereo.mChannelLayoutTag = kAudioChannelLayoutTag_Stereo;
+    _audioInput = [AVAssetWriterInput
+        assetWriterInputWithMediaType:AVMediaTypeAudio
+                       outputSettings:@{
+                         AVFormatIDKey : @(kAudioFormatMPEG4AAC),
+                         AVSampleRateKey : @44100,
+                         AVNumberOfChannelsKey : @2,
+                         AVEncoderBitRateKey : @128000,
+                         AVChannelLayoutKey : [NSData dataWithBytes:&stereo
+                                                             length:sizeof(stereo)],
+                       }];
+    _audioInput.expectsMediaDataInRealTime = YES;
+    [_writer addInput:_audioInput];
+    _outputPath = path;
+  }
+  // Preset Studio ANTES de que ReplayKit active el mic: la sesión ya queda
+  // PlayAndRecord + altavoz + modo default y ReplayKit la adopta tal cual.
+  [[IVSStageAudioManager sharedInstance] setPreset:IVSStageAudioManagerUseCasePresetStudio];
+  recorder.microphoneEnabled = YES;
+  __weak __typeof(self) weakSelf = self;
+  [recorder startCaptureWithHandler:^(CMSampleBufferRef sampleBuffer,
+                                      RPSampleBufferType bufferType,
+                                      NSError *error) {
+    if (error) return;
+    [weakSelf appendSampleBuffer:sampleBuffer type:bufferType];
+  }
+      completionHandler:^(NSError *error) {
+        __typeof(self) self = weakSelf;
+        if (!self) return;
+        if (error) {
+          @synchronized(self) {
+            self->_writer = nil;
+            self->_videoInput = nil;
+            self->_audioInput = nil;
+            self->_active = NO;
+          }
+          restoreIvsAudioPreset();
+          BOOL declined = error.code == RPRecordingErrorUserDeclined;
+          reject(declined ? @"PERMISSION_DENIED" : @"START_FAILED",
+                 error.localizedDescription, error);
+        } else {
+          @synchronized(self) {
+            self->_active = YES;
+          }
+          resolve(nil);
+        }
+      }];
+}
+
+- (void)appendSampleBuffer:(CMSampleBufferRef)sampleBuffer
+                      type:(RPSampleBufferType)bufferType {
+  if (!CMSampleBufferDataIsReady(sampleBuffer)) return;
+  @synchronized(self) {
+    if (!_active || !_writer) return;
+    if (_writer.status == AVAssetWriterStatusUnknown) {
+      // Arrancar la sesión del writer en el primer frame de VIDEO para que
+      // el timestamp base sea visual (audio previo se descarta).
+      if (bufferType != RPSampleBufferTypeVideo) return;
+      [_writer startWriting];
+      [_writer startSessionAtSourceTime:CMSampleBufferGetPresentationTimeStamp(sampleBuffer)];
+    }
+    if (_writer.status != AVAssetWriterStatusWriting) return;
+    if (bufferType == RPSampleBufferTypeVideo && _videoInput.readyForMoreMediaData) {
+      [_videoInput appendSampleBuffer:sampleBuffer];
+    } else if (bufferType == RPSampleBufferTypeAudioMic &&
+               _audioInput.readyForMoreMediaData) {
+      // Pista de audio = mic (vivo por el parlante + voz). El tap AudioApp no
+      // trae el audio de WebRTC/IVS, así que se ignora para no duplicar.
+      [_audioInput appendSampleBuffer:sampleBuffer];
+    }
+  }
+}
+
+RCT_EXPORT_METHOD(stopRecording:(RCTPromiseResolveBlock)resolve
+                  reject:(RCTPromiseRejectBlock)reject) {
+  @synchronized(self) {
+    if (!_active) {
+      reject(@"NOT_RECORDING", @"No recording in progress", nil);
+      return;
+    }
+    _active = NO;
+  }
+  __weak __typeof(self) weakSelf = self;
+  [[RPScreenRecorder sharedRecorder] stopCaptureWithHandler:^(NSError *error) {
+    restoreIvsAudioPreset();
+    __typeof(self) self = weakSelf;
+    if (!self) return;
+    @synchronized(self) {
+      AVAssetWriter *writer = self->_writer;
+      NSString *path = self->_outputPath;
+      self->_writer = nil;
+      self->_videoInput = nil;
+      self->_audioInput = nil;
+      if (!writer || writer.status != AVAssetWriterStatusWriting) {
+        reject(@"NO_DATA", error.localizedDescription ?: @"No frames captured", error);
+        return;
+      }
+      for (AVAssetWriterInput *input in writer.inputs) {
+        [input markAsFinished];
+      }
+      [writer finishWritingWithCompletionHandler:^{
+        if (writer.status == AVAssetWriterStatusCompleted) {
+          resolve(path);
+        } else {
+          reject(@"FINALIZE_FAILED",
+                 writer.error.localizedDescription ?: @"Could not finalize clip",
+                 writer.error);
+        }
+      }];
+    }
+  }];
+}
+
 @end

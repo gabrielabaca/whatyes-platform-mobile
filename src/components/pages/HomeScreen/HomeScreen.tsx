@@ -41,6 +41,16 @@ import { useChatUnread } from '../../../hooks/useChatUnread';
 import { useStartChat } from '../../../hooks/useStartChat';
 import { ConversationModal } from '../../organisms/chat/ConversationModal';
 import { useNotificationsUnread } from '../../../hooks/useNotificationsUnread';
+import {
+  useUserRealtime,
+  type UserRealtimeChatMessage,
+  type UserRealtimeNotification,
+} from '../../../hooks/useUserRealtime';
+import {
+  AppHeadsUp,
+  useAppHeadsUp,
+  type AppHeadsUpMessage,
+} from '../../molecules/AppHeadsUp';
 import { NotificationsScreen } from '../NotificationsScreen/NotificationsScreen';
 import { ChatListScreen } from '../ChatListScreen/ChatListScreen';
 import { previewToStreamData } from '../../../utils/streamPreviewToStreamData';
@@ -128,7 +138,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     reload: reloadChatUnread,
   } = useChatUnread(hasHomeTabs);
   const { conversation: directChat, startChat, closeChat } = useStartChat();
-  const { unreadNotifications, setUnreadNotifications } = useNotificationsUnread(hasHomeTabs);
+  const {
+    unreadNotifications,
+    setUnreadNotifications,
+    reload: reloadNotificationsUnread,
+  } = useNotificationsUnread(hasHomeTabs);
+  const { headsUp, showHeadsUp, dismissHeadsUp } = useAppHeadsUp();
 
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>(ALL_CATEGORIES_ID);
   const [bottomTab, setBottomTab] = useState<HomeBottomTab>('home');
@@ -144,6 +159,77 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       loadOnce().catch(() => {});
     }
   }, [isBuyer, isSeller, loadOnce]);
+
+  // --- Tiempo real de mensajes y notificaciones -----------------------------
+  // El WS solo avisa QUÉ pasó; los contadores los vuelve a pedir al backend, que
+  // es el que sabe calcularlos: `unreadConversations` cuenta conversaciones (no
+  // mensajes), y el evento `chat_message` también llega a los otros dispositivos
+  // del remitente. Sumar de a uno en el cliente daría un número equivocado.
+
+  /** El aviso sobra si el usuario ya está mirando esa misma conversación. */
+  const isReadingConversation = useCallback(
+    (conversationId: string) => directChat?.uuid === conversationId,
+    [directChat?.uuid]
+  );
+
+  const handleRealtimeNotification = useCallback(
+    (notification: UserRealtimeNotification) => {
+      void reloadNotificationsUnread();
+      if (notification.type === 'new_message') {
+        // El chat se anuncia por `chat_message`, que llega siempre (la
+        // notificación de mensajes se reusa por conversación y solo se emite la
+        // primera vez). Acá alcanza con refrescar el badge para no duplicar.
+        void reloadChatUnread();
+        return;
+      }
+      showHeadsUp(
+        'notification',
+        notification.title?.trim() || t('notifications.defaultTitle'),
+        notification.body
+      );
+    },
+    [reloadNotificationsUnread, reloadChatUnread, showHeadsUp, t]
+  );
+
+  const handleRealtimeChatMessage = useCallback(
+    (message: UserRealtimeChatMessage) => {
+      // Solo el badge de chats: la notificación de mensajes se crea una vez por
+      // conversación (y ahí llega por `notification`), así que los mensajes
+      // siguientes no mueven el contador de la campana.
+      void reloadChatUnread();
+      // Mensaje propio replicado a mis otros dispositivos: refresca, no avisa.
+      if (!message.sender_user_id || message.sender_user_id === user?.uuid) return;
+      if (isReadingConversation(message.conversation_id)) return;
+      const preview = message.body?.trim()
+        ? message.body.trim()
+        : message.image_urls?.length
+          ? t('chat.photoPreview')
+          : '';
+      showHeadsUp('chat', t('chat.newMessageTitle'), preview);
+    },
+    [reloadChatUnread, user?.uuid, isReadingConversation, showHeadsUp, t]
+  );
+
+  /** La contraparte leyó, o leí desde otro dispositivo: el badge puede bajar. */
+  const handleRealtimeRead = useCallback(() => {
+    void reloadChatUnread();
+    void reloadNotificationsUnread();
+  }, [reloadChatUnread, reloadNotificationsUnread]);
+
+  useUserRealtime({
+    enabled: hasHomeTabs,
+    onNotification: handleRealtimeNotification,
+    onNotificationRead: handleRealtimeRead,
+    onChatMessage: handleRealtimeChatMessage,
+    onChatRead: handleRealtimeRead,
+  });
+
+  const openHeadsUpTarget = useCallback((message: AppHeadsUpMessage) => {
+    dismissHeadsUp();
+    const target: HomePath['name'] = message.kind === 'chat' ? 'chat' : 'notifications';
+    setHomePath((prev) => (prev.name === target ? prev : { name: target, returnTo: prev }));
+  }, [dismissHeadsUp]);
+  // --- fin tiempo real ------------------------------------------------------
 
   // Datos del hub del vendedor (Figma 636-30524): total de ventas para la card
   // de pagos, cantidad de vendidos y lives pasados. Se recarga al entrar al hub
@@ -382,6 +468,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     <GeneralLayout hideChrome menuOptions={[]} containerStyle={styles.homeRoot}>
       <HomeNavBridge activeTab={bottomNavActiveTab} onTabPress={handleBottomTab}>
         <View style={styles.homeRoot}>
+          {/* Aviso de mensaje / notificación en tiempo real: se toca para ir al
+              lugar correspondiente y se va solo. */}
+          <AppHeadsUp
+            message={headsUp}
+            onPress={openHeadsUpTarget}
+            onDismiss={dismissHeadsUp}
+          />
+
           {showHomeHeader ? (
             <HomeHeader
               onPressSearch={() => Alert.alert(t('common.appName'), t('home.searchPlaceholder'))}

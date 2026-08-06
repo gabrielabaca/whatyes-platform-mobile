@@ -17,7 +17,7 @@ import {
   Text as RNText,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { Copy, Play, Star, Tag, Video as VideoIcon } from 'lucide-react-native';
+import { Copy, Pause, Play, Star, Tag, Video as VideoIcon } from 'lucide-react-native';
 import Video from 'react-native-video';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { IconChevronLeft, IconShare, IconBell, IconChat } from '../../icons';
@@ -292,45 +292,63 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
         {purchase.recording_asset_url && !clipError ? (
           <View style={[styles.card, darkCard]}>
             <RNText style={[styles.cardTitle, darkText]}>{t('activity.clipTitle')}</RNText>
-            <TouchableOpacity
-              style={styles.clipVideoWrap}
-              activeOpacity={0.9}
-              onPress={() => setClipViewerOpen(true)}
-              accessibilityRole="button"
-              accessibilityLabel={t('activity.clipTitle')}
-            >
-              <Video
-                source={{ uri: purchase.recording_asset_url }}
-                style={styles.clipVideo}
-                paused={clipPaused}
-                resizeMode="cover"
-                poster={purchase.product_image_url ?? undefined}
-                posterResizeMode="cover"
-                onLoad={(data) => setClipDuration(data.duration)}
-                onEnd={() => setClipPaused(true)}
-                onError={() => setClipError(true)}
-                ignoreSilentSwitch="ignore"
-              />
+            <View style={styles.clipVideoWrap}>
+              {/* Tocar el video (fuera del botón) abre el visor fullscreen. */}
+              <TouchableOpacity
+                style={StyleSheet.absoluteFill}
+                activeOpacity={0.9}
+                onPress={() => {
+                  setClipPaused(true); // evita audio doble con el visor
+                  setClipViewerOpen(true);
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={t('activity.clipTitle')}
+              >
+                <Video
+                  source={{ uri: purchase.recording_asset_url }}
+                  style={styles.clipVideo}
+                  paused={clipPaused}
+                  resizeMode="cover"
+                  poster={purchase.product_image_url ?? undefined}
+                  posterResizeMode="cover"
+                  onLoad={(data) => setClipDuration(data.duration)}
+                  onEnd={() => setClipPaused(true)}
+                  onError={() => setClipError(true)}
+                  ignoreSilentSwitch="ignore"
+                />
+              </TouchableOpacity>
               {purchase.category_name ? (
-                <View style={styles.clipCategoryChip}>
+                <View style={styles.clipCategoryChip} pointerEvents="none">
                   <RNText style={styles.clipCategoryText}>{purchase.category_name}</RNText>
                 </View>
               ) : null}
-              {clipPaused ? (
-                <View style={styles.clipPlayOverlay} pointerEvents="none">
-                  <View style={styles.clipPlayCircle}>
+              {/* Botón play/pausa: control propio, por encima del video. */}
+              <View style={styles.clipPlayOverlay} pointerEvents="box-none">
+                <TouchableOpacity
+                  style={[styles.clipPlayCircle, clipPaused && styles.clipPlayCircleIdle]}
+                  activeOpacity={0.85}
+                  onPress={() => setClipPaused((p) => !p)}
+                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                  accessibilityRole="button"
+                  accessibilityLabel={
+                    clipPaused ? t('activity.clipPlay') : t('activity.clipPause')
+                  }
+                >
+                  {clipPaused ? (
                     <Play size={30} color="#FFFFFF" fill="#FFFFFF" strokeWidth={1} />
-                  </View>
-                </View>
-              ) : null}
+                  ) : (
+                    <Pause size={26} color="#FFFFFF" fill="#FFFFFF" strokeWidth={1} />
+                  )}
+                </TouchableOpacity>
+              </View>
               {clipDuration != null && clipDuration > 0 ? (
-                <View style={styles.clipDurationBadge}>
+                <View style={styles.clipDurationBadge} pointerEvents="none">
                   <RNText style={styles.clipDurationText}>
                     {formatClipDuration(clipDuration)}
                   </RNText>
                 </View>
               ) : null}
-            </TouchableOpacity>
+            </View>
             <View style={styles.clipInfoRow}>
               <View style={styles.clipInfoIcon}>
                 <VideoIcon size={20} color={PRIMARY} strokeWidth={1.75} />
@@ -842,6 +860,9 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.4)',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  /** Centrado óptico del triángulo de play. */
+  clipPlayCircleIdle: {
     paddingLeft: 4,
   },
   clipDurationBadge: {

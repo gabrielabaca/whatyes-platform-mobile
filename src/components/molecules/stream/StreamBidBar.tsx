@@ -66,6 +66,14 @@ export interface StreamBidBarProps {
   onBid: () => void;
   disabled?: boolean;
   isAuctionActive?: boolean;
+  /**
+   * `bid` (default): "Ofertar $X" y el monto es la puja sugerida.
+   * `buy_now`: "Comprar ahora $X" y el monto es el precio fijo del producto.
+   * El gesto y la animación son los mismos en ambos modos.
+   */
+  mode?: 'bid' | 'buy_now';
+  /** Muestra un aviso con el look del vivo; sin esto se cae al Alert nativo. */
+  onNotify?: (text: string) => void;
 }
 
 export const StreamBidBar: React.FC<StreamBidBarProps> = ({
@@ -73,6 +81,8 @@ export const StreamBidBar: React.FC<StreamBidBarProps> = ({
   onBid,
   disabled,
   isAuctionActive = true,
+  mode = 'bid',
+  onNotify,
 }) => {
   const { t } = useTranslation();
   const [trackWidth, setTrackWidth] = useState(0);
@@ -219,7 +229,14 @@ export const StreamBidBar: React.FC<StreamBidBarProps> = ({
     if (w > 0) setTrackWidth(w);
   };
 
-  const handleFilter = () => Alert.alert(t('common.appName'), t('stream.comingSoon'));
+  const handleFilter = () => {
+    const text = t('stream.comingSoon');
+    if (onNotify) {
+      onNotify(text);
+      return;
+    }
+    Alert.alert(t('common.appName'), text);
+  };
 
   const hasLayout = trackWidth > 0 && maxTravel > 0;
 
@@ -275,7 +292,7 @@ export const StreamBidBar: React.FC<StreamBidBarProps> = ({
               pointerEvents="none"
             >
               <RNText style={styles.label} numberOfLines={1}>
-                {t('stream.bid')}{' '}
+                {mode === 'buy_now' ? t('stream.buyNow') : t('stream.bid')}{' '}
                 <RNText style={styles.labelPrice}>{formatStreamPrice(bidAmount)}</RNText>
               </RNText>
             </Animated.View>

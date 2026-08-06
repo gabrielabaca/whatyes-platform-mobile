@@ -14,11 +14,9 @@ import {
   Alert,
   TouchableOpacity,
   TextInput,
-  Modal,
-  Pressable,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { AppDatePickerSheet } from '../../molecules/AppDatePickerSheet';
 import { ArrowLeft, CalendarDays, Check, Eye, EyeOff } from 'lucide-react-native';
 import { Text } from '../../atoms/Text';
 import { Button } from '../../atoms/Button';
@@ -175,7 +173,6 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
 
   const { isDark } = useTheme();
   const c = isDark ? themeColors.dark : themeColors.light;
-  const insets = useSafeAreaInsets();
   const [birthdayDate, setBirthdayDate] = useState(() => new Date(DEFAULT_BIRTHDAY));
   const [showBirthdayPicker, setShowBirthdayPicker] = useState(false);
   const [buyerFocus, setBuyerFocus] = useState<'email' | 'birthday' | 'password' | 'confirm' | null>(null);
@@ -493,56 +490,19 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                   <CalendarDays size={18} color={c.text} />
                 </TouchableOpacity>
 
-                <Modal
+                <AppDatePickerSheet
                   visible={showBirthdayPicker}
-                  transparent
-                  animationType="slide"
-                  onRequestClose={() => setShowBirthdayPicker(false)}
-                >
-                  <View className="flex-1 justify-end">
-                    <Pressable
-                      className="flex-1 bg-black/40"
-                      onPress={() => setShowBirthdayPicker(false)}
-                    />
-                    <View
-                      className="rounded-t-3xl bg-[#FEFEFE] dark:bg-night-900"
-                      style={{ paddingBottom: Math.max(insets.bottom, 12) }}
-                    >
-                      <View className="flex-row items-center justify-between border-b border-gray-200 px-2 py-1 dark:border-night-700">
-                        <Button
-                          title={t('common.cancel')}
-                          variant="ghost"
-                          size="medium"
-                          onPress={() => setShowBirthdayPicker(false)}
-                          className="min-h-[44px] px-3"
-                        />
-                        <Button
-                          title={t('common.done')}
-                          variant="ghost"
-                          size="medium"
-                          onPress={() => setShowBirthdayPicker(false)}
-                          className="min-h-[44px] px-3"
-                        />
-                      </View>
-                      <View className="items-center py-2">
-                        <DateTimePicker
-                          value={birthdayDate}
-                          mode="date"
-                          display="spinner"
-                          themeVariant={isDark ? 'dark' : 'light'}
-                          onChange={(_e, d) => {
-                            if (d) {
-                              setBirthdayDate(d);
-                              if (buyerBirthdayError) setBuyerBirthdayError(null);
-                            }
-                          }}
-                          maximumDate={maxBirthday}
-                          minimumDate={minBirthday}
-                        />
-                      </View>
-                    </View>
-                  </View>
-                </Modal>
+                  title={t('register.buyerBirthday')}
+                  mode="date"
+                  value={birthdayDate}
+                  onChange={(d) => {
+                    setBirthdayDate(d);
+                    if (buyerBirthdayError) setBuyerBirthdayError(null);
+                  }}
+                  onClose={() => setShowBirthdayPicker(false)}
+                  maximumDate={maxBirthday}
+                  minimumDate={minBirthday}
+                />
                 {buyerBirthdayError ? (
                   <Text className="mt-1 text-[10px] leading-[18px]" style={{ color: '#E53935' }}>
                     {buyerBirthdayError}
