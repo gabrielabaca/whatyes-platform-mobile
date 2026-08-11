@@ -6,11 +6,10 @@ import {
   View,
   StyleSheet,
   TouchableOpacity,
-  TextInput,
   Text as RNText,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
+import { AppTextInput } from '../../atoms/AppTextInput';
 import { useTranslation } from 'react-i18next';
 import {
   GlassFullScreenModal,
@@ -20,6 +19,7 @@ import { GlassModalHeader } from '../profile/GlassModalHeader';
 import { FONT_FAMILY } from '../../../theme/typography';
 import { themeColors } from '../../../theme/colors';
 import { deleteOwnAccount, ApiError } from '../../../api/authApi';
+import { appAlert } from '../../../alerts';
 
 export interface DeleteAccountModalProps {
   visible: boolean;
@@ -70,7 +70,7 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({
         e instanceof ApiError
           ? e.message
           : t('account.deleteAccountModal.deleteError');
-      Alert.alert(t('common.error'), msg);
+      appAlert(t('common.error'), msg);
     } finally {
       setDeleting(false);
     }
@@ -134,7 +134,7 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({
           {t('account.deleteAccountModal.confirmHint')}
         </RNText>
         <View style={styles.inputWrap}>
-          <TextInput
+          <AppTextInput
             value={confirmText}
             onChangeText={setConfirmText}
             placeholder={t('account.deleteAccountModal.confirmPlaceholder')}

@@ -13,7 +13,6 @@ import {
   StatusBar,
   Dimensions,
   Platform,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import {
@@ -42,6 +41,10 @@ import {
   startRoomProductAuction,
   startRoomProductBuyNow,
   startRoomProductRaffle,
+  pauseRoomAuction,
+  resumeRoomAuction,
+  cancelRoomAuction,
+  type AuctionCancelReasonCode,
   type LiveCommerceResponse,
   type RoomCatalogProductItem,
 } from '../../../api/platformApi';
@@ -63,6 +66,9 @@ import {
   IvsLocalPreviewView,
 } from '../../../native/IvsStageNative';
 import { useStreamChat } from '../../../hooks/useStreamChat';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { StreamToast, useStreamToast } from '../../molecules/stream/StreamToast';
+import { StreamAuctionCancelDrawer } from '../../organisms/stream/StreamAuctionCancelDrawer';
 import { useLiveAutoCoverSnapshot } from '../../../hooks/useLiveAutoCoverSnapshot';
 import { AuctionWinnerOverlay } from '../../molecules/AuctionWinnerOverlay/AuctionWinnerOverlay';
 import { useFloatingHearts, FloatingHeartsLayer } from '../../molecules/FloatingHearts/FloatingHearts';
@@ -81,6 +87,7 @@ import { useLiveRoomNote } from '../../../hooks/useLiveRoomNote';
 import { SellerAddProductDrawer } from '../../organisms/stream/SellerAddProductDrawer';
 import { SellerAddProductTypeDrawer, type ProductListType } from '../../organisms/stream/SellerAddProductTypeDrawer';
 import type { ProductListScope } from '../../../api/types';
+import { appAlert } from '../../../alerts';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -113,10 +120,27 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
   const [addProductTypeVisible, setAddProductTypeVisible] = useState(false);
   const [addProductVisible, setAddProductVisible] = useState(false);
   const [pendingScope, setPendingScope] = useState<ProductListScope>('room_exclusive');
+  /**
+   * Lista ya elegida en este vivo (tarea 29): con contexto activo, "Agregar
+   * producto" abre el form directo en vez de volver a preguntar el tipo de lista.
+   * null = todavía no hay lista (primer producto) → sí se muestra el prompt.
+   */
+  const [activeListScope, setActiveListScope] = useState<ProductListScope | null>(null);
   const [catalogItems, setCatalogItems] = useState<RoomCatalogProductItem[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [catalogError, setCatalogError] = useState<string | null>(null);
   const [saleMode, setSaleMode] = useState<LiveProductSaleMode>('auction');
+  /**
+   * Producto elegido con las flechas < > (tarea 17). null = seguir al activo que
+   * resuelve el backend. Navegación 100% local: no escribe nada en el servidor
+   * (y por eso tampoco dispara cotizaciones ni otros cálculos por producto);
+   * recién al iniciar la oferta el backend marca el producto como activo.
+   */
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
+  const [cancelDrawerVisible, setCancelDrawerVisible] = useState(false);
+  const [cancelPending, setCancelPending] = useState(false);
+  /** Pausa (o inicio) en vuelo: evita doble tap sobre la CTA central. */
+  const [auctionActionPending, setAuctionActionPending] = useState(false);
   const [isMicMuted, setIsMicMuted] = useState(false);
   // Figma 698-12228: al crear la sala el vivo ya queda listado, pero arranca en
   // pausa ("por comenzar") hasta que el vendedor toca "Comenzar Live".
@@ -130,10 +154,20 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
   const streamViewRef = useRef<View>(null);
 
   const { likeEvents, handleLikeDone, handleLikeEvent } = useFloatingHearts();
+  const insets = useSafeAreaInsets();
+  const { toast, showToast, dismissToast } = useStreamToast();
 
   const handleStreamEnded = useCallback(() => {
     onEndStream();
   }, [onEndStream]);
+
+  /**
+   * Confirmación de la cancelación por el canal autoritativo (WS): cubre también
+   * una cancelación hecha desde otra sesión del mismo vendedor.
+   */
+  const handleAuctionCancelled = useCallback(() => {
+    showToast(t('stream.auctionCancelledSellerConfirm'), 'info');
+  }, [showToast, t]);
 
   const {
     messages,
@@ -161,6 +195,7 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
     reconnect: true,
     onLike: handleLikeEvent,
     onStreamEnded: handleStreamEnded,
+    onAuctionCancelled: handleAuctionCancelled,
   });
 
   const { bidEvents, handleBidDone } = useFloatingBids(auctionBids);
@@ -349,6 +384,19 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
     };
   }, [token, roomId]);
 
+  /**
+   * Reingreso a un vivo con productos: el scope del producto activo dice en qué
+   * lista se está trabajando, así el flow de agregar no vuelve a preguntar. La
+   * elección explícita del vendedor (si la hubo) no se pisa.
+   */
+  useEffect(() => {
+    if (activeListScope) return;
+    const scope = liveCommerce?.active_product?.scope;
+    if (scope === 'global' || scope === 'room_exclusive') {
+      setActiveListScope(scope);
+    }
+  }, [liveCommerce, activeListScope]);
+
   const refreshCatalog = useCallback(async () => {
     if (!token || !roomId) return;
     try {
@@ -384,6 +432,28 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
       .catch(() => {});
   }, [token, roomId]);
 
+  /**
+   * Las flechas < > navegan sobre el catálogo, así que se carga apenas existe la
+   * sala (antes solo se pedía al abrir el drawer de productos).
+   */
+  useEffect(() => {
+    void refreshCatalog();
+  }, [refreshCatalog]);
+
+  // Con una oferta corriendo la pantalla sigue al producto en juego (el backend
+  // ya lo resolvió como activo): la selección local de las flechas se suelta.
+  useEffect(() => {
+    if (hasLiveOffer) setSelectedProductId(null);
+  }, [hasLiveOffer]);
+
+  // Si el producto elegido salió del catálogo (se vendió/quitó), volver al activo.
+  useEffect(() => {
+    if (!selectedProductId) return;
+    if (!catalogItems.some((it) => it.uuid === selectedProductId)) {
+      setSelectedProductId(null);
+    }
+  }, [catalogItems, selectedProductId]);
+
   const productCards = useMemo<LiveProductCardVM[]>(
     () =>
       catalogItems.map((it, index) => ({
@@ -408,6 +478,11 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
   const startProductById = useCallback(
     async (productId: string) => {
       if (!token || !roomId) return;
+      // Con el vivo pausado (por comenzar o pausa media) no se abre ninguna oferta.
+      if (isStreamPaused) {
+        showToast(t('stream.salesBlockedWhilePaused'), 'info');
+        return;
+      }
       try {
         if (saleMode === 'auction') {
           // Sin duración: el backend usa la config guardada al crear el producto.
@@ -421,15 +496,27 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
             participationMode: 'everyone',
           });
         }
+        // Con la oferta abierta el backend ya marcó el producto activo: la
+        // selección local de las flechas se suelta y la vista lo sigue.
+        setSelectedProductId(null);
         await refreshCatalog();
         refreshLiveCommerce();
         setProductCatalogVisible(false);
       } catch (err) {
         const msg = err instanceof Error ? err.message : t('common.error');
-        Alert.alert(t('common.appName'), msg);
+        appAlert(t('common.appName'), msg);
       }
     },
-    [saleMode, token, roomId, refreshCatalog, refreshLiveCommerce, t],
+    [
+      saleMode,
+      token,
+      roomId,
+      isStreamPaused,
+      refreshCatalog,
+      refreshLiveCommerce,
+      showToast,
+      t,
+    ],
   );
 
   const handleStartProduct = useCallback(
@@ -461,7 +548,7 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
         setProductCatalogVisible(false);
       } catch (err) {
         const msg = err instanceof Error ? err.message : t('common.error');
-        Alert.alert(t('common.appName'), msg);
+        appAlert(t('common.appName'), msg);
       }
     },
     [token, roomId, refreshCatalog, refreshLiveCommerce, t],
@@ -475,7 +562,7 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
         await refreshCatalog();
       } catch (err) {
         const msg = err instanceof Error ? err.message : t('common.error');
-        Alert.alert(t('common.appName'), msg);
+        appAlert(t('common.appName'), msg);
       }
     },
     [token, roomId, refreshCatalog, t],
@@ -483,14 +570,22 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
 
   const openAddProductFlow = useCallback(() => {
     if (!resolvedStreamConfig.interestCategoryUuids?.[0]) {
-      Alert.alert(t('common.appName'), t('stream.addProductNoCategory'));
+      appAlert(t('common.appName'), t('stream.addProductNoCategory'));
+      return;
+    }
+    /** Ya hay lista en este vivo: se usa directo, sin re-preguntar (tarea 29). */
+    if (activeListScope) {
+      setPendingScope(activeListScope);
+      setAddProductVisible(true);
       return;
     }
     setAddProductTypeVisible(true);
-  }, [resolvedStreamConfig.interestCategoryUuids, t]);
+  }, [resolvedStreamConfig.interestCategoryUuids, activeListScope, t]);
 
   const handleSelectProductListType = useCallback((type: ProductListType) => {
-    setPendingScope(type === 'temporary' ? 'room_exclusive' : 'global');
+    const scope: ProductListScope = type === 'temporary' ? 'room_exclusive' : 'global';
+    setPendingScope(scope);
+    setActiveListScope(scope);
     setAddProductTypeVisible(false);
     setAddProductVisible(true);
   }, []);
@@ -568,7 +663,7 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
       }
       setIsMicMuted(nextMuted);
     } catch {
-      Alert.alert(t('common.appName'), t('stream.muteMicError'));
+      appAlert(t('common.appName'), t('stream.muteMicError'));
     }
   }, [isMicMuted, ivsPublishing, t]);
 
@@ -581,7 +676,7 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
         await setKinesisWebRTCMasterVideoEnabled(!nextPaused);
       }
     } catch {
-      Alert.alert(t('common.appName'), t('stream.pauseStreamError'));
+      appAlert(t('common.appName'), t('stream.pauseStreamError'));
       return;
     }
     if (nextPaused) {
@@ -601,7 +696,7 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
         await setKinesisWebRTCMasterVideoEnabled(true);
       }
     } catch {
-      Alert.alert(t('common.appName'), t('stream.pauseStreamError'));
+      appAlert(t('common.appName'), t('stream.pauseStreamError'));
       setStartLivePending(false);
       return;
     }
@@ -610,13 +705,107 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
     setStartLivePending(false);
   }, [ivsPublishing, sendStreamResume, t]);
 
-  /** Deslizar "Siguiente Subasta": pone en juego el primer producto del catálogo. */
-  const handleNextProduct = useCallback(() => {
-    const productId = liveCommerce?.active_product?.uuid;
+  /**
+   * Flechas < > (tarea 17): mueven el producto en pantalla una posición dentro
+   * del catálogo, con vuelta circular. Solo estado local — ver `selectedProductId`.
+   */
+  const stepProduct = useCallback(
+    (direction: 1 | -1) => {
+      if (catalogItems.length < 2) return;
+      const currentId =
+        selectedProductId ?? liveCommerce?.active_product?.uuid ?? null;
+      const currentIndex = catalogItems.findIndex((it) => it.uuid === currentId);
+      const baseIndex = currentIndex >= 0 ? currentIndex : 0;
+      const nextIndex =
+        (baseIndex + direction + catalogItems.length) % catalogItems.length;
+      const target = catalogItems[nextIndex];
+      if (target) setSelectedProductId(target.uuid);
+    },
+    [catalogItems, selectedProductId, liveCommerce?.active_product?.uuid],
+  );
+
+  const handlePrevProduct = useCallback(() => stepProduct(-1), [stepProduct]);
+  const handleNextProduct = useCallback(() => stepProduct(1), [stepProduct]);
+
+  /**
+   * "Cancelar" (tareas 17/18): primero se PAUSA la oferta en el backend —reloj
+   * congelado y pujas rechazadas desde ya— y recién entonces se abre el drawer
+   * de motivos. Si la pausa falla (la oferta cerró justo antes), se avisa y no
+   * se abre nada.
+   */
+  const openCancelFlow = useCallback(async () => {
+    if (!token || !roomId || auctionActionPending) return;
+    setAuctionActionPending(true);
+    try {
+      await pauseRoomAuction(token, roomId);
+      setCancelDrawerVisible(true);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : t('common.error');
+      showToast(msg, 'error');
+      refreshLiveCommerce();
+    } finally {
+      setAuctionActionPending(false);
+    }
+  }, [token, roomId, auctionActionPending, showToast, refreshLiveCommerce, t]);
+
+  /** Desistir de cancelar: cerrar el drawer reanuda desde el restante pausado. */
+  const handleCancelDrawerClose = useCallback(() => {
+    setCancelDrawerVisible(false);
+    if (!token || !roomId) return;
+    resumeRoomAuction(token, roomId).catch((err) => {
+      // La subasta quedó pausada: con el toast alcanza porque "Cancelar" sigue
+      // en pantalla y reintentar (pausa idempotente + resume) es un tap.
+      const msg = err instanceof Error ? err.message : t('common.error');
+      showToast(msg, 'error');
+    });
+  }, [token, roomId, showToast, t]);
+
+  const handleConfirmCancelAuction = useCallback(
+    async (reasonCode: AuctionCancelReasonCode, details: string) => {
+      if (!token || !roomId) return;
+      setCancelPending(true);
+      try {
+        await cancelRoomAuction(token, roomId, { reasonCode, details });
+        // El WS (auction_cancelled) limpia la oferta en pantalla y muestra la
+        // confirmación; acá solo se refresca el contexto de comercio.
+        setCancelDrawerVisible(false);
+        await refreshCatalog();
+        refreshLiveCommerce();
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : t('common.error');
+        showToast(msg, 'error');
+      } finally {
+        setCancelPending(false);
+      }
+    },
+    [token, roomId, refreshCatalog, refreshLiveCommerce, showToast, t],
+  );
+
+  /** CTA central: inicia la oferta del producto visible o abre la cancelación. */
+  const handlePrimaryAction = useCallback(() => {
+    if (isStreamPaused) {
+      showToast(t('stream.salesBlockedWhilePaused'), 'info');
+      return;
+    }
+    if (hasLiveOffer) {
+      void openCancelFlow();
+      return;
+    }
+    const productId =
+      selectedProductId ?? liveCommerce?.active_product?.uuid ?? null;
     if (!productId) return;
-    // startProductById ya reporta sus propios errores con un Alert.
-    startProductById(productId);
-  }, [liveCommerce?.active_product?.uuid, startProductById]);
+    // startProductById ya reporta sus propios errores con appAlert.
+    void startProductById(productId);
+  }, [
+    isStreamPaused,
+    hasLiveOffer,
+    openCancelFlow,
+    selectedProductId,
+    liveCommerce?.active_product?.uuid,
+    startProductById,
+    showToast,
+    t,
+  ]);
 
   const handleToggleCamera = useCallback(async () => {
     const nextPosition = cameraPosition === 'front' ? 'back' : 'front';
@@ -624,40 +813,78 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
       try {
         await switchIvsStageCamera(nextPosition === 'front' ? 'user' : 'environment');
       } catch {
-        Alert.alert(t('common.appName'), t('stream.flipCameraWebRtcHint'));
+        appAlert(t('common.appName'), t('stream.flipCameraWebRtcHint'));
         return;
       }
     } else if (localWebRTCStream) {
       try {
         await switchKinesisWebRTCMasterCamera(nextPosition === 'front' ? 'user' : 'environment');
       } catch {
-        Alert.alert(t('common.appName'), t('stream.flipCameraWebRtcHint'));
+        appAlert(t('common.appName'), t('stream.flipCameraWebRtcHint'));
         return;
       }
     }
     setCameraPosition(nextPosition);
   }, [cameraPosition, localWebRTCStream, ivsPublishing, t]);
 
+  /**
+   * Producto que muestra el panel: el elegido con las flechas o, sin selección
+   * local, el activo que resuelve el backend (primero del catálogo si no hay
+   * nada corriendo). La navegación no toca el servidor, así que los datos del
+   * elegido salen del catálogo ya cargado — sin requests ni cálculos extra por
+   * producto (tarea 25: el vendedor jamás cotiza envío).
+   */
+  const activeProduct = liveCommerce?.active_product ?? null;
+  const selectedCatalogItem =
+    selectedProductId != null
+      ? catalogItems.find((it) => it.uuid === selectedProductId) ?? null
+      : null;
+  const showsServerActive =
+    selectedCatalogItem == null || selectedCatalogItem.uuid === activeProduct?.uuid;
+
   const productTitle =
-    liveCommerce?.active_product?.title?.trim() ||
+    (showsServerActive ? activeProduct?.title?.trim() : selectedCatalogItem?.title?.trim()) ||
     resolvedStreamConfig.title?.trim() ||
     sellerProfile?.display_name ||
     user?.name ||
     '';
-  const productImageUrls =
-    liveCommerce?.active_product?.image_urls?.filter((u) => Boolean(u?.trim())) ??
-    (resolvedStreamConfig.coverUrl ? [resolvedStreamConfig.coverUrl] : []);
+  const productImageUrls = showsServerActive
+    ? activeProduct?.image_urls?.filter((u) => Boolean(u?.trim())) ??
+      (resolvedStreamConfig.coverUrl ? [resolvedStreamConfig.coverUrl] : [])
+    : selectedCatalogItem?.image_url?.trim()
+      ? [selectedCatalogItem.image_url]
+      : [];
   const catalogTotal = liveCommerce?.catalog_preview?.total_products_in_room ?? productImageUrls.length;
   const productExtraCount = Math.max(0, catalogTotal - Math.min(productImageUrls.length, 3));
-  const productBasePriceCents = Math.max(liveCommerce?.active_product?.base_price_cents ?? 100, 100);
-  // El backend ya resuelve `active_product` al primer producto del catálogo
-  // cuando no hay nada corriendo, así que la vista del vendedor siempre muestra
-  // el que está por salir y el slider arranca ese mismo.
-  const nextProductId = liveCommerce?.active_product?.uuid ?? null;
+  const productBasePriceCents = Math.max(
+    (showsServerActive
+      ? activeProduct?.base_price_cents
+      : selectedCatalogItem?.base_price_cents) ?? 100,
+    100,
+  );
+  const displayedProductId = selectedCatalogItem?.uuid ?? activeProduct?.uuid ?? null;
   // `hasLiveOffer` en vez de `isAuctionActive`: durante la ventana de gracia la
-  // oferta todavía puede reabrirse por una puja tardía, así que no habilitamos el
-  // siguiente producto hasta que baje de pantalla.
-  const nextProductDisabled = !nextProductId || hasLiveOffer;
+  // oferta todavía puede reabrirse por una puja tardía, así que ni las flechas
+  // ni un nuevo inicio se habilitan hasta que baje de pantalla.
+  const productNavDisabled = hasLiveOffer || catalogItems.length < 2;
+  /**
+   * CTA central (Figma 1094-749): inicia la oferta del producto visible según el
+   * modo elegido, o cancela la que corre (tarea 17). Durante la ventana de
+   * gracia (0s pero reabrible) no hay nada que iniciar ni que cancelar.
+   */
+  const primaryIsCancel = hasLiveOffer;
+  const primaryActionLabel = primaryIsCancel
+    ? t('stream.cancelOfferCta')
+    : t(
+        saleMode === 'buy_now'
+          ? 'stream.startBuyNowCta'
+          : saleMode === 'raffle'
+            ? 'stream.startRaffleCta'
+            : 'stream.startAuctionCta',
+      );
+  const primaryActionDisabled = primaryIsCancel
+    ? !isAuctionActive || auctionActionPending || cancelDrawerVisible
+    : !displayedProductId || auctionActionPending;
   const sellerName =
     sellerProfile?.display_name?.trim() || user?.name?.trim() || t('home.defaultRoomName');
   const sellerRating = sellerProfile?.reviews_avg ?? null;
@@ -824,17 +1051,31 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
         onToggleMic={handleToggleMic}
         onFlipCamera={handleToggleCamera}
         onOpenProductCatalog={openProductCatalog}
+        onPrevProduct={handlePrevProduct}
         onNextProduct={handleNextProduct}
-        nextProductDisabled={nextProductDisabled}
-        nextProductLabel={t(
-          saleMode === 'buy_now'
-            ? 'stream.nextBuyNowCta'
-            : saleMode === 'raffle'
-              ? 'stream.nextRaffleCta'
-              : 'stream.nextAuctionCta'
-        )}
+        productNavDisabled={productNavDisabled}
+        primaryActionLabel={primaryActionLabel}
+        onPrimaryAction={handlePrimaryAction}
+        primaryActionDisabled={primaryActionDisabled}
+        primaryActionVariant={primaryIsCancel ? 'cancel' : 'start'}
         onAddPress={openAddProduct}
         onOpenNote={() => setNoteDrawerVisible(true)}
+      />
+
+      {/* Avisos del vivo con el look de la app (pausa/cancelación de subasta). */}
+      <StreamToast
+        message={toast}
+        onDismiss={dismissToast}
+        topOffset={Math.max(insets.top, 16) + 64}
+      />
+
+      {/* Tarea 18: el drawer abre con la subasta YA pausada (openCancelFlow);
+          cerrarlo sin confirmar reanuda desde el restante congelado. */}
+      <StreamAuctionCancelDrawer
+        visible={cancelDrawerVisible}
+        onClose={handleCancelDrawerClose}
+        onConfirm={handleConfirmCancelAuction}
+        confirmPending={cancelPending}
       />
 
       <StreamLiveNoteDrawer
@@ -884,7 +1125,7 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
         saleMode={saleMode}
         onSaleModeChange={setSaleMode}
         onSelectProduct={handleSelectProduct}
-        onStartProduct={handleStartProduct}
+        onStartProduct={isStreamPaused ? undefined : handleStartProduct}
         onPinProduct={handlePinProduct}
         onAddProduct={() => {
           setProductCatalogVisible(false);

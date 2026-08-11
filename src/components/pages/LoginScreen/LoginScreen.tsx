@@ -4,16 +4,15 @@ import {
   View,
   KeyboardAvoidingView,
   Platform,
-  ScrollView,
-  Alert,
   TouchableOpacity,
-  TextInput,
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, Eye, EyeOff } from 'lucide-react-native';
 import { Text } from '../../atoms/Text';
 import { Button } from '../../atoms/Button';
+import { AppTextInput } from '../../atoms/AppTextInput';
+import { KeyboardDismissScrollView } from '../../atoms/KeyboardDismissScrollView';
 import { useAuth } from '../../../hooks/useAuth';
 import { ApiError } from '../../../api';
 import type { SocialProvider } from '../../../api/types';
@@ -24,6 +23,7 @@ import { useTheme } from '../../../context/ThemeContext';
 import { isValidEmail } from '../../../utils/formValidation';
 import GoogleIcon from '../../../../assets/icons/google.svg';
 import AppleIcon from '../../../../assets/icons/apple.svg';
+import { appAlert } from '../../../alerts';
 
 interface LoginScreenProps {
   onBack?: () => void;
@@ -58,7 +58,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
           : error instanceof Error && error.message
             ? error.message
             : t('login.socialFailed');
-      Alert.alert(t('common.error'), message);
+      appAlert(t('common.error'), message);
     }
   };
 
@@ -67,7 +67,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
     setEmailError(null);
 
     if (!email.trim() || !password) {
-      Alert.alert(t('common.error'), t('login.fillAllFields'));
+      appAlert(t('common.error'), t('login.fillAllFields'));
       return;
     }
 
@@ -96,9 +96,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
           return;
         }
 
-        Alert.alert(t('common.error'), error.message);
+        appAlert(t('common.error'), error.message);
       } else {
-        Alert.alert(t('common.error'), t('login.loginFailed'));
+        appAlert(t('common.error'), t('login.loginFailed'));
       }
     }
   };
@@ -109,9 +109,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         className="flex-1"
       >
-        <ScrollView
+        <KeyboardDismissScrollView
           contentContainerStyle={{ flexGrow: 1 }}
-          keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
           <View className="flex-1 px-6 pt-4 pb-6">
@@ -136,7 +135,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               <View className="relative">
                 <Text className="text-[10px] text-[#34363E] dark:text-night-muted mb-2">{t('common.email')}</Text>
                 <View className="mb-4">
-                  <TextInput
+                  <AppTextInput
                     value={email}
                     onChangeText={(value) => {
                       setEmail(value);
@@ -163,7 +162,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
 
                 <Text className="text-[10px] text-[#34363E] dark:text-night-muted mb-2">{t('common.password')}</Text>
                 <View className="relative mb-7">
-                  <TextInput
+                  <AppTextInput
                     value={password}
                     onChangeText={(value) => {
                       setPassword(value);
@@ -266,7 +265,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               </Text>
             </View>
           </View>
-        </ScrollView>
+        </KeyboardDismissScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

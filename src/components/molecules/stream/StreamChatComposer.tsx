@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, TextInput, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import { AppTextInput } from '../../atoms/AppTextInput';
 import { Heart } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { StreamIconButton } from '../../atoms/stream/StreamIconButton';
@@ -35,7 +36,7 @@ export const StreamChatComposer: React.FC<StreamChatComposerProps> = ({
   return (
     <View style={styles.row}>
       <View style={styles.inputWrap}>
-        <TextInput
+        <AppTextInput
           value={value}
           onChangeText={onChangeText}
           placeholder={t('stream.chatPlaceholder')}
@@ -44,6 +45,7 @@ export const StreamChatComposer: React.FC<StreamChatComposerProps> = ({
           returnKeyType="send"
           onSubmitEditing={onSubmit}
           blurOnSubmit={false}
+          accessoryAppearance="dark"
         />
         {showLikeButton ? (
           <StreamIconButton onPress={onLike} accessibilityLabel={t('stream.like')}>

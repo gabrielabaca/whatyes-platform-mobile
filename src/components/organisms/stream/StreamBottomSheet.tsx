@@ -3,14 +3,13 @@
  * bottomPanel: home visible arriba; panel inferior con glass blur (Figma 636-23638).
  * fullHeight: blur glass a pantalla completa.
  */
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   StyleSheet,
   TouchableOpacity,
   Text as RNText,
   Animated,
-  ScrollView,
   Keyboard,
   Modal,
   Platform,
@@ -20,6 +19,8 @@ import {
 } from 'react-native';
 import { X } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { KeyboardDismissScrollView } from '../../atoms/KeyboardDismissScrollView';
+import { KeyboardAccessoryAppearanceProvider } from '../../atoms/AppTextInput';
 import { GlassBackdrop, DrawerPanelGlass } from '../profile/GlassBackdrop';
 import { drawerPanelGlassKey } from '../../../theme/glassTokens';
 import { FONT_FAMILY } from '../../../theme/typography';
@@ -132,6 +133,25 @@ export const StreamBottomSheet: React.FC<StreamBottomSheetProps> = ({
   const [footerHeight, setFooterHeight] = useState<number | undefined>(undefined);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
+  /** Borde superior del teclado, en coordenadas de ventana (Android). */
+  const [keyboardScreenY, setKeyboardScreenY] = useState<number | null>(null);
+  /** Borde inferior REAL del host del sheet, en las mismas coordenadas (Android). */
+  const [hostBottomY, setHostBottomY] = useState<number | null>(null);
+  const hostRef = useRef<View>(null);
+
+  /**
+   * Medir el host es lo único que distingue los dos escenarios de Android: si la
+   * ventana se achicó (`adjustResize` efectivo) su borde inferior YA coincide con el
+   * techo del teclado; si no se achicó, sigue en la base de la pantalla. La medición
+   * corre al abrirse el teclado y en cada relayout del host, así que el valor se
+   * corrige solo si el resize llega después del evento.
+   */
+  const measureHost = useCallback(() => {
+    if (Platform.OS === 'ios') return;
+    hostRef.current?.measureInWindow((_x, y, _width, height) => {
+      if (Number.isFinite(y) && Number.isFinite(height)) setHostBottomY(y + height);
+    });
+  }, []);
 
   useEffect(() => {
     const showEvt = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
@@ -139,24 +159,38 @@ export const StreamBottomSheet: React.FC<StreamBottomSheetProps> = ({
     const showSub = Keyboard.addListener(showEvt, (e) => {
       setKeyboardVisible(true);
       setKeyboardHeight(e?.endCoordinates?.height ?? 0);
+      const screenY = e?.endCoordinates?.screenY;
+      setKeyboardScreenY(typeof screenY === 'number' ? screenY : null);
+      measureHost();
     });
     const hideSub = Keyboard.addListener(hideEvt, () => {
       setKeyboardVisible(false);
       setKeyboardHeight(0);
+      setKeyboardScreenY(null);
     });
     return () => {
       showSub.remove();
       hideSub.remove();
     };
-  }, []);
+  }, [measureHost]);
 
   /**
    * El panel inferior está anclado a `bottom: 0`, así que el teclado lo tapa entero: en un
    * bottom sheet no alcanza con insets de scroll (el contenido queda igual detrás del teclado),
-   * hay que levantar el panel. En Android no: `windowSoftInputMode=adjustResize` ya achica la
-   * ventana y aplicarlo de nuevo lo levantaría el doble.
+   * hay que levantar el panel.
+   *
+   * En Android NO alcanza con `windowSoftInputMode=adjustResize` de la activity: no se aplica
+   * ni sobre pantallas a pantalla completa (el vivo oculta la status bar) ni dentro de un
+   * `Modal` RN, que es una ventana aparte —el mismo motivo por el que `GlassFullScreenModal`
+   * usa un KeyboardAvoidingView 'height'—. Por eso se compensa con el solapamiento REAL entre
+   * el teclado y el borde inferior del host: donde el resize sí funcionó ese valor da 0 y no
+   * se levanta nada, así que la compensación nunca se duplica.
    */
-  const keyboardOffset = Platform.OS === 'ios' ? keyboardHeight : 0;
+  const keyboardOverlap =
+    keyboardScreenY != null && hostBottomY != null
+      ? Math.max(0, hostBottomY - keyboardScreenY)
+      : 0;
+  const keyboardOffset = Platform.OS === 'ios' ? keyboardHeight : keyboardOverlap;
 
   useEffect(() => {
     if (!visible) return;
@@ -252,18 +286,15 @@ export const StreamBottomSheet: React.FC<StreamBottomSheetProps> = ({
   ) : null;
 
   const scrollableBody = scrollEnabled ? (
-    <ScrollView
+    <KeyboardDismissScrollView
       nestedScrollEnabled
-      keyboardShouldPersistTaps="handled"
-      keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
-      automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
       showsVerticalScrollIndicator={false}
       bounces={false}
       style={useFullPanel ? styles.scroll : styles.scrollBottom}
       contentContainerStyle={styles.scrollInner}
     >
       {bodyContent}
-    </ScrollView>
+    </KeyboardDismissScrollView>
   ) : (
     <View style={useFullPanel ? styles.scroll : styles.scrollBottom}>{bodyContent}</View>
   );
@@ -319,10 +350,8 @@ export const StreamBottomSheet: React.FC<StreamBottomSheetProps> = ({
   const panelContentHeightPx = panelHeightPx - panelBottomPadding;
 
   const bottomPanelScroll = scrollEnabled ? (
-    <ScrollView
+    <KeyboardDismissScrollView
       nestedScrollEnabled
-      keyboardShouldPersistTaps="handled"
-      keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
       showsVerticalScrollIndicator={false}
       bounces={false}
       style={styles.scrollBottomPanel}
@@ -332,7 +361,7 @@ export const StreamBottomSheet: React.FC<StreamBottomSheetProps> = ({
       }
     >
       {bodyContent}
-    </ScrollView>
+    </KeyboardDismissScrollView>
   ) : (
     <View style={styles.scrollBottomPanel}>{bodyContent}</View>
   );
@@ -402,7 +431,14 @@ export const StreamBottomSheet: React.FC<StreamBottomSheetProps> = ({
         panelStyle,
         {
           paddingTop: insets.top + 16,
-          paddingBottom: panelBottomPadding,
+          /**
+           * El panel completo no se levanta (ya ocupa la pantalla): se le descuenta
+           * el teclado por abajo para que el footer fijo quede por encima y el cuerpo
+           * pueda scrollear. En iOS de eso se encarga `automaticallyAdjustKeyboardInsets`
+           * del ScrollView, así que acá el extra es 0 y no se compensa dos veces.
+           */
+          paddingBottom:
+            panelBottomPadding + (Platform.OS === 'ios' ? 0 : keyboardOverlap),
           minHeight: windowHeight,
         },
       ]}
@@ -414,7 +450,11 @@ export const StreamBottomSheet: React.FC<StreamBottomSheetProps> = ({
   ) : null;
 
   const sheetContent = (
+    // Drawer glass: siempre oscuro, la barra "Listo" del teclado acompaña.
+    <KeyboardAccessoryAppearanceProvider appearance="dark">
     <View
+      ref={hostRef}
+      onLayout={measureHost}
       style={[resolvedNativeModal ? styles.hostModal : styles.hostInline]}
       pointerEvents="box-none"
     >
@@ -452,6 +492,7 @@ export const StreamBottomSheet: React.FC<StreamBottomSheetProps> = ({
         </View>
       )}
     </View>
+    </KeyboardAccessoryAppearanceProvider>
   );
 
   if (!visible) {

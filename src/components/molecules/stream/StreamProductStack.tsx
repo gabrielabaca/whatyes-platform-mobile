@@ -1,8 +1,9 @@
 import React from 'react';
-import { View, Image, Text as RNText, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, Image, Text as RNText, TouchableOpacity, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { FONT_FAMILY } from '../../../theme/typography';
 import { STREAM_COLORS, STREAM_RADIUS } from './streamTokens';
+import { appAlert } from '../../../alerts';
 
 export interface StreamProductStackProps {
   imageUrls?: string[];
@@ -27,7 +28,7 @@ export const StreamProductStack: React.FC<StreamProductStackProps> = ({
       onPress();
       return;
     }
-    Alert.alert(t('common.appName'), t('stream.comingSoon'));
+    appAlert(t('common.appName'), t('stream.comingSoon'));
   };
 
   if (urls.length === 0 && !showPlaceholder) {

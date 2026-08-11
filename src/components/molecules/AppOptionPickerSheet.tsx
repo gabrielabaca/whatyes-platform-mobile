@@ -11,9 +11,9 @@ import {
   StyleSheet,
   TouchableOpacity,
   Text as RNText,
-  TextInput,
   FlatList,
 } from 'react-native';
+import { AppTextInput } from '../atoms/AppTextInput';
 import { Check, Search } from 'lucide-react-native';
 import { StreamBottomSheet, streamBottomPanelStyle } from '../organisms/stream/StreamBottomSheet';
 import { FONT_FAMILY } from '../../theme/typography';
@@ -96,7 +96,7 @@ export const AppOptionPickerSheet: React.FC<AppOptionPickerSheetProps> = ({
       {searchPlaceholder ? (
         <View style={styles.searchRow}>
           <Search size={18} color={themeColors.glass.placeholder} />
-          <TextInput
+          <AppTextInput
             value={query}
             onChangeText={setQuery}
             placeholder={searchPlaceholder}

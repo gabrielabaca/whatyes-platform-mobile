@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Alert } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { getShippingAddress } from '../api/shippingAddressApi';
 import {
@@ -20,6 +19,7 @@ import { getBuyerKycStatus, getCurrentUser } from '../api';
 import type { UserMe } from '../api/types';
 import { storage, type PreferredPaymentOrigin } from '../utils/storage';
 import { useAuth } from './useAuth';
+import { appAlert } from '../alerts';
 
 export type WalletStep =
   | 'closed'
@@ -209,7 +209,7 @@ export function useStreamWalletFlow() {
     } catch (e) {
       setMpConnectVisible(false);
       const msg = e instanceof ApiError ? e.message : t('stream.wallet.mpConnectError');
-      Alert.alert(t('common.appName'), msg);
+      appAlert(t('common.appName'), msg);
     } finally {
       setMpConnectLoading(false);
     }
@@ -224,11 +224,11 @@ export function useStreamWalletFlow() {
         return;
       }
       if (status === 'pending') {
-        Alert.alert(t('common.appName'), t('stream.wallet.mpConnectPending'));
+        appAlert(t('common.appName'), t('stream.wallet.mpConnectPending'));
         setStep('methods');
         return;
       }
-      Alert.alert(t('common.appName'), t('stream.wallet.mpConnectFailure'));
+      appAlert(t('common.appName'), t('stream.wallet.mpConnectFailure'));
       setStep('methods');
     },
     [finishMpWalletLink, t]

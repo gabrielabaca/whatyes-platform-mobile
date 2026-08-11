@@ -6,21 +6,19 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { ImagePickerResponse } from 'react-native-image-picker';
 import { launchPhotoCameraNow, launchPhotoLibraryNow } from '../../../utils/mediaPicker';
 import {
-  Alert,
   ActivityIndicator,
   Animated,
   Dimensions,
   Modal,
-  Platform,
   StyleSheet,
   Text as RNText,
-  TextInput,
   TouchableOpacity,
   View,
   Image,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
+import { AppTextInput, KeyboardAccessoryAppearanceProvider } from '../../atoms/AppTextInput';
 import {
   CalendarDays,
   Check,
@@ -48,6 +46,7 @@ import { AddProductPhotoSourceDrawer } from '../addProduct/AddProductPhotoSource
 import { StartLiveCategoriesDrawer } from './StartLiveCategoriesDrawer';
 import { StartLivePrimaryButton } from './StartLivePrimitives';
 import { START_LIVE_COLORS, startLivePanelStyle } from './startLiveStyles';
+import { appAlert } from '../../../alerts';
 
 type Frequency = NonNullable<StreamConfig['recurrence']>;
 type SaleFormat = NonNullable<StreamConfig['saleFormat']>;
@@ -289,7 +288,7 @@ const BlockedWordsDrawer: React.FC<{
             Permite filtrar términos específicos para evitar que aparezcan en el chat o comentarios para mantener un ambiente respetuoso y libre de contenido inapropiado durante la transmisión.
           </RNText>
           <View style={styles.searchPill}>
-            <TextInput
+            <AppTextInput
               style={styles.searchInput}
               value={input}
               onChangeText={setInput}
@@ -368,7 +367,7 @@ const ModeratorsDrawer: React.FC<{
       dismissOnBackdropPress={false}
     >
           <View style={styles.searchPill}>
-            <TextInput
+            <AppTextInput
               style={styles.searchInput}
               value={input}
               onChangeText={(v) => {
@@ -529,7 +528,7 @@ export const PreLiveSetupOverlay: React.FC<{
             : e instanceof Error
               ? e.message
               : 'No se pudo subir la imagen.';
-        Alert.alert(t('common.error'), msg);
+        appAlert(t('common.error'), msg);
       } finally {
         setCoverUploading(false);
       }
@@ -615,6 +614,8 @@ export const PreLiveSetupOverlay: React.FC<{
        * nativa): no deben irse al portal raíz, que queda por debajo y los ocultaría.
        */}
       <ModalWindowBoundary>
+        {/* Wizard glass: siempre oscuro, la barra "Listo" del teclado acompaña. */}
+        <KeyboardAccessoryAppearanceProvider appearance="dark">
         <View style={styles.overlay}>
           <GlassBackdrop />
           <Animated.View style={[styles.sheet, { transform: [{ translateY }] }]}>
@@ -622,7 +623,6 @@ export const PreLiveSetupOverlay: React.FC<{
               style={styles.scrollBody}
               contentContainerStyle={[styles.content, { paddingTop: insets.top + 16 }]}
               showsVerticalScrollIndicator={false}
-              automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
             >
               <View style={styles.header}>
                 <RNText style={styles.title}>Configura tu live</RNText>
@@ -635,7 +635,7 @@ export const PreLiveSetupOverlay: React.FC<{
                 <View style={styles.field}>
                   <FieldLabel>Nombre del live</FieldLabel>
                   <View style={styles.inputPill}>
-                    <TextInput
+                    <AppTextInput
                       style={styles.input}
                       value={title}
                       onChangeText={(v) => setTitle(v.replace(/^\s/, '').slice(0, 80))}
@@ -894,6 +894,7 @@ export const PreLiveSetupOverlay: React.FC<{
             </View>
           ) : null}
         </View>
+        </KeyboardAccessoryAppearanceProvider>
       </ModalWindowBoundary>
     </Modal>
   );

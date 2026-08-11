@@ -1,20 +1,14 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   View,
   Text as RNText,
   TouchableOpacity,
   StyleSheet,
   Animated,
-  PanResponder,
-  type LayoutChangeEvent,
-  type GestureResponderEvent,
-  type PanResponderGestureState,
+  Easing,
 } from 'react-native';
-import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
+import { ChevronLeft, ChevronRight } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import HapticFeedback from 'react-native-haptic-feedback';
-import DoubleArrowIcon from '../../../../assets/icons/stream/doubleArrow.svg';
-import { PulpoLogo } from '../../atoms/stream/PulpoLogo';
 import { FONT_FAMILY } from '../../../theme/typography';
 import { STREAM_COLORS, STREAM_RADIUS } from './streamTokens';
 
@@ -24,250 +18,161 @@ export interface SellerLiveActionBarProps {
   /** El vendedor ya arrancó el vivo alguna vez: cambia "Comenzar" por "Reanudar". */
   hasStartedLive: boolean;
   onStartLive: () => void;
-  onEndLive: () => void;
-  /**
-   * Se dispara al completar el deslizamiento: pone en juego el primer producto
-   * del catálogo con el modo de venta elegido (subasta / venta directa / sorteo).
-   */
-  onNextProduct?: () => void;
-  /** Sin producto disponible o con una oferta corriendo: el slider queda inerte. */
-  nextProductDisabled?: boolean;
-  /** Texto del slider; refleja el modo elegido (subasta / venta directa / sorteo). */
-  nextProductLabel?: string;
   startDisabled?: boolean;
+  /** Flechas < > (Figma 890-1384): cambian el producto en juego dentro del catálogo. */
+  onPrevProduct?: () => void;
+  onNextProduct?: () => void;
+  /** Con una oferta corriendo o con un solo producto, las flechas quedan inertes. */
+  navDisabled?: boolean;
+  /** CTA central: "Iniciar subasta/venta/sorteo", o "Cancelar" con la oferta corriendo. */
+  primaryLabel: string;
+  onPrimaryPress?: () => void;
+  primaryDisabled?: boolean;
+  /** `cancel` pinta la CTA en rojo (corta la oferta en curso); `start` en violeta. */
+  primaryVariant?: 'start' | 'cancel';
 }
 
 const BAR_HEIGHT = 40;
-/** Figma 890-1426: el track no se pinta; solo se ven la perilla y el pulpo. */
-const TRACK_PAD_LEFT = 4;
-const TRACK_PAD_RIGHT = 12;
-const PULPO_W = 25;
-/** Fracción del recorrido que confirma al soltar. */
-const COMPLETE_THRESHOLD = 0.7;
-/** Un flick rápido (px/ms) confirma aunque no llegue al umbral de distancia. */
-const FLICK_VELOCITY = 0.8;
-const FLICK_MIN_PROGRESS = 0.3;
-
-const HAPTIC_OPTIONS = { enableVibrateFallback: true, ignoreAndroidSystemSettings: false };
 
 /**
  * Acciones inferiores del vendedor.
  * - Pausado / por comenzar → CTA violeta a todo el ancho (Figma 698-12307).
- * - En vivo → "Terminar vivo" + slider "Siguiente Subasta" (Figma 890-1384).
- *
- * El slider replica el gesto de ofertar del comprador (`StreamBidBar`): la
- * perilla arranca a la izquierda, el pulpo espera a la derecha y se desvanece
- * antes de que la perilla lo alcance.
+ * - En vivo → [<] [Iniciar subasta | Cancelar] [>] (Figma 890-1384): las flechas
+ *   navegan el catálogo para cambiar rápido el producto en juego y la CTA
+ *   central abre la oferta del producto visible o cancela la que está corriendo.
+ *   Terminar el vivo queda en la X del header (drawer de confirmación).
  */
 export const SellerLiveActionBar: React.FC<SellerLiveActionBarProps> = ({
   isStreamPaused,
   hasStartedLive,
   onStartLive,
-  onEndLive,
-  onNextProduct,
-  nextProductDisabled,
-  nextProductLabel,
   startDisabled,
+  onPrevProduct,
+  onNextProduct,
+  navDisabled,
+  primaryLabel,
+  onPrimaryPress,
+  primaryDisabled,
+  primaryVariant = 'start',
 }) => {
   const { t } = useTranslation();
-  const sliderLabel = nextProductLabel ?? t('stream.nextAuctionCta');
-  const [trackWidth, setTrackWidth] = useState(0);
-  const [knobWidth, setKnobWidth] = useState(0);
-  const posAnim = useRef(new Animated.Value(0)).current;
+  const pulse = useRef(new Animated.Value(0)).current;
 
-  const isSliderDisabled = Boolean(nextProductDisabled) || !onNextProduct;
-  const isDisabledRef = useRef(isSliderDisabled);
-  const maxTravelRef = useRef(0);
-  const onConfirmRef = useRef(onNextProduct);
-  /** true mientras el drag está por encima del umbral (para el tick háptico). */
-  const armedRef = useRef(false);
-  /** Evita doble confirmación entre release y terminate. */
-  const completingRef = useRef(false);
-
-  useEffect(() => { isDisabledRef.current = isSliderDisabled; }, [isSliderDisabled]);
-  useEffect(() => { onConfirmRef.current = onNextProduct; }, [onNextProduct]);
-
-  const maxTravel =
-    trackWidth > 0 && knobWidth > 0
-      ? Math.max(0, trackWidth - TRACK_PAD_LEFT - TRACK_PAD_RIGHT - knobWidth)
-      : 0;
-
+  // Pulso suave para que el CTA de (re)comenzar se note sin ser agresivo.
   useEffect(() => {
-    maxTravelRef.current = maxTravel;
-    posAnim.setValue(0);
-  }, [maxTravel, posAnim]);
-
-  const reset = () => {
-    armedRef.current = false;
-    Animated.spring(posAnim, { toValue: 0, bounciness: 8, useNativeDriver: false }).start();
-  };
-
-  const complete = () => {
-    if (completingRef.current) return;
-    completingRef.current = true;
-    armedRef.current = false;
-    HapticFeedback.trigger('notificationSuccess', HAPTIC_OPTIONS);
-    Animated.timing(posAnim, {
-      toValue: maxTravelRef.current,
-      duration: 90,
-      useNativeDriver: false,
-    }).start(() => {
-      onConfirmRef.current?.();
-      setTimeout(() => {
-        Animated.spring(posAnim, {
-          toValue: 0,
-          bounciness: 8,
-          useNativeDriver: false,
-        }).start(() => {
-          completingRef.current = false;
-        });
-      }, 450);
-    });
-  };
-
-  /** Decide confirmar o volver, tanto en release como si otro gesto interrumpe. */
-  const settle = (_: GestureResponderEvent, g: PanResponderGestureState) => {
-    const max = maxTravelRef.current;
-    const traveled = Math.max(0, Math.min(g.dx, max));
-    const progress = max > 0 ? traveled / max : 0;
-    const byDistance = progress >= COMPLETE_THRESHOLD;
-    const byFlick = g.vx >= FLICK_VELOCITY && progress >= FLICK_MIN_PROGRESS;
-    if (max > 0 && (byDistance || byFlick)) {
-      complete();
-    } else {
-      reset();
+    if (!isStreamPaused || startDisabled) {
+      pulse.stopAnimation();
+      pulse.setValue(0);
+      return;
     }
-  };
-
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => !isDisabledRef.current,
-      onMoveShouldSetPanResponder: (_, g) => !isDisabledRef.current && Math.abs(g.dx) > 3,
-      onPanResponderTerminationRequest: () => false,
-      onShouldBlockNativeResponder: () => true,
-      onPanResponderGrant: () => {
-        armedRef.current = false;
-        HapticFeedback.trigger('impactLight', HAPTIC_OPTIONS);
-      },
-      onPanResponderMove: (_, g) => {
-        const max = maxTravelRef.current;
-        const traveled = Math.max(0, Math.min(g.dx, max));
-        posAnim.setValue(traveled);
-        const overThreshold = max > 0 && traveled / max >= COMPLETE_THRESHOLD;
-        if (overThreshold !== armedRef.current) {
-          armedRef.current = overThreshold;
-          HapticFeedback.trigger(overThreshold ? 'impactMedium' : 'impactLight', HAPTIC_OPTIONS);
-        }
-      },
-      onPanResponderRelease: settle,
-      onPanResponderTerminate: settle,
-    }),
-  ).current;
-
-  const onTrackLayout = (e: LayoutChangeEvent) => {
-    const w = e.nativeEvent.layout.width;
-    if (w > 0 && w !== trackWidth) setTrackWidth(w);
-  };
-
-  const onKnobLayout = (e: LayoutChangeEvent) => {
-    const w = e.nativeEvent.layout.width;
-    if (w > 0 && w !== knobWidth) setKnobWidth(w);
-  };
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, {
+          toValue: 1,
+          duration: 1100,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulse, {
+          toValue: 0,
+          duration: 1100,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    loop.start();
+    return () => {
+      loop.stop();
+    };
+  }, [isStreamPaused, startDisabled, pulse]);
 
   if (isStreamPaused) {
+    const scale = pulse.interpolate({
+      inputRange: [0, 1],
+      outputRange: [1, 1.035],
+    });
+    const glowOpacity = pulse.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0.18, 0.55],
+    });
+
     return (
-      <TouchableOpacity
-        style={[styles.startBtn, startDisabled && styles.disabled]}
-        onPress={onStartLive}
-        disabled={startDisabled}
-        activeOpacity={0.88}
-        accessibilityRole="button"
-      >
-        <RNText style={styles.startLabel}>
-          {hasStartedLive ? t('stream.resumeLiveCta') : t('stream.startLiveCta')}
-        </RNText>
-      </TouchableOpacity>
+      <View style={styles.startWrap}>
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.startGlow,
+            {
+              opacity: glowOpacity,
+              transform: [{ scale }],
+            },
+          ]}
+        />
+        <Animated.View style={{ transform: [{ scale }], width: '100%' }}>
+          <TouchableOpacity
+            style={[styles.startBtn, startDisabled && styles.disabled]}
+            onPress={onStartLive}
+            disabled={startDisabled}
+            activeOpacity={0.88}
+            accessibilityRole="button"
+            accessibilityHint={
+              hasStartedLive
+                ? t('stream.sellerPausedHint')
+                : t('stream.sellerReadyToStartHint')
+            }
+          >
+            <RNText style={styles.label}>
+              {hasStartedLive ? t('stream.resumeLiveCta') : t('stream.startLiveCta')}
+            </RNText>
+          </TouchableOpacity>
+        </Animated.View>
+      </View>
     );
   }
+
+  const isNavDisabled = Boolean(navDisabled) || (!onPrevProduct && !onNextProduct);
+  const isPrimaryDisabled = Boolean(primaryDisabled) || !onPrimaryPress;
 
   return (
     <View style={styles.row}>
       <TouchableOpacity
-        style={styles.endBtn}
-        onPress={onEndLive}
+        style={[styles.navBtn, isNavDisabled && styles.disabled]}
+        onPress={onPrevProduct}
+        disabled={isNavDisabled}
+        activeOpacity={0.88}
+        accessibilityRole="button"
+        accessibilityLabel={t('stream.prevProductA11y')}
+      >
+        <ChevronLeft size={24} color={STREAM_COLORS.white} />
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[
+          styles.primaryBtn,
+          primaryVariant === 'cancel' && styles.primaryBtnCancel,
+          isPrimaryDisabled && styles.disabled,
+        ]}
+        onPress={onPrimaryPress}
+        disabled={isPrimaryDisabled}
         activeOpacity={0.88}
         accessibilityRole="button"
       >
-        <RNText style={styles.label}>{t('stream.endLiveCta')}</RNText>
+        <RNText style={styles.label} numberOfLines={1}>
+          {primaryLabel}
+        </RNText>
       </TouchableOpacity>
 
-      <View
-        style={[styles.track, isSliderDisabled && styles.disabled]}
-        onLayout={onTrackLayout}
+      <TouchableOpacity
+        style={[styles.navBtn, isNavDisabled && styles.disabled]}
+        onPress={onNextProduct}
+        disabled={isNavDisabled}
+        activeOpacity={0.88}
+        accessibilityRole="button"
+        accessibilityLabel={t('stream.nextProductA11y')}
       >
-        {/* El pulpo espera a la derecha y se desvanece antes de que la perilla
-            lo alcance, igual que en el slider de oferta del comprador. */}
-        <Animated.View
-          style={[
-            styles.pulpo,
-            maxTravel > 0
-              ? {
-                  opacity: posAnim.interpolate({
-                    inputRange: [0, maxTravel * 0.72, maxTravel * 0.9],
-                    outputRange: [1, 1, 0],
-                    extrapolate: 'clamp',
-                  }),
-                  transform: [
-                    {
-                      scale: posAnim.interpolate({
-                        inputRange: [0, maxTravel],
-                        outputRange: [1, 1.35],
-                        extrapolate: 'clamp',
-                      }),
-                    },
-                  ],
-                }
-              : null,
-          ]}
-          pointerEvents="none"
-        >
-          <PulpoLogo size={PULPO_W} />
-        </Animated.View>
-
-        <Animated.View
-          style={[styles.knob, { transform: [{ translateX: posAnim }] }]}
-          onLayout={onKnobLayout}
-          accessibilityRole="adjustable"
-          accessibilityLabel={sliderLabel}
-          {...(!isSliderDisabled ? panResponder.panHandlers : {})}
-        >
-          {knobWidth > 0 ? (
-            <Svg
-              pointerEvents="none"
-              style={StyleSheet.absoluteFill}
-              width={knobWidth}
-              height={BAR_HEIGHT}
-            >
-              <Defs>
-                <LinearGradient id="nextProductGrad" x1="0" y1="0" x2="1" y2="0">
-                  <Stop offset="0" stopColor={STREAM_COLORS.ctaSoft} />
-                  <Stop offset="1" stopColor={STREAM_COLORS.ctaSoftGradientEnd} />
-                </LinearGradient>
-              </Defs>
-              <Rect
-                width={knobWidth}
-                height={BAR_HEIGHT}
-                rx={BAR_HEIGHT / 2}
-                fill="url(#nextProductGrad)"
-              />
-            </Svg>
-          ) : null}
-          <RNText style={styles.label} numberOfLines={1}>
-            {sliderLabel}
-          </RNText>
-          <DoubleArrowIcon width={24} height={24} />
-        </Animated.View>
-      </View>
+        <ChevronRight size={24} color={STREAM_COLORS.white} />
+      </TouchableOpacity>
     </View>
   );
 };
@@ -279,6 +184,16 @@ const styles = StyleSheet.create({
     gap: 12,
     width: '100%',
   },
+  startWrap: {
+    width: '100%',
+    position: 'relative',
+    justifyContent: 'center',
+  },
+  startGlow: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: STREAM_RADIUS.pill,
+    backgroundColor: STREAM_COLORS.primary,
+  },
   startBtn: {
     height: BAR_HEIGHT,
     width: '100%',
@@ -288,15 +203,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 12,
   },
-  startLabel: {
-    fontFamily: FONT_FAMILY.bold,
-    fontSize: 14,
-    lineHeight: 20,
-    color: STREAM_COLORS.white,
-    textAlign: 'center',
-    includeFontPadding: false,
-  },
-  endBtn: {
+  /** Figma 890-1380 / 1094-747: pill violeta al 20% con el chevron blanco. */
+  navBtn: {
     height: BAR_HEIGHT,
     borderRadius: STREAM_RADIUS.pill,
     backgroundColor: STREAM_COLORS.ctaSoft,
@@ -304,31 +212,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 12,
   },
-  track: {
+  /** Figma 1094-749: la CTA central estira entre las flechas. */
+  primaryBtn: {
     flex: 1,
     minWidth: 0,
     height: BAR_HEIGHT,
     borderRadius: STREAM_RADIUS.pill,
-    justifyContent: 'center',
-  },
-  pulpo: {
-    position: 'absolute',
-    right: TRACK_PAD_RIGHT,
+    backgroundColor: STREAM_COLORS.primary,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  knob: {
-    position: 'absolute',
-    left: TRACK_PAD_LEFT,
-    height: BAR_HEIGHT,
-    maxWidth: '82%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
     paddingHorizontal: 12,
-    borderRadius: STREAM_RADIUS.pill,
-    overflow: 'hidden',
+  },
+  primaryBtnCancel: {
+    backgroundColor: STREAM_COLORS.liveStop,
   },
   label: {
     fontFamily: FONT_FAMILY.bold,

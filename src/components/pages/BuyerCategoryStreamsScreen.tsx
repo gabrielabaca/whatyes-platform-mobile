@@ -4,7 +4,6 @@ import {
   ScrollView,
   TouchableOpacity,
   RefreshControl,
-  Alert,
   StyleSheet,
   useWindowDimensions,
 } from 'react-native';
@@ -22,6 +21,7 @@ import type { InterestCategoryItem } from '../../api/types';
 import type { LiveStreamPreviewModel } from '../organisms/home/types';
 import { displayInterestCategoryIcon } from '../../utils/interestCategoryEmoji';
 import { IconFilter } from '../icons';
+import { appAlert } from '../../alerts';
 
 export type CategorySortMode = 'recommended' | 'bestSellers';
 
@@ -155,7 +155,7 @@ export const BuyerCategoryStreamsScreen: React.FC<BuyerCategoryStreamsScreenProp
 
       <View style={styles.filtersRow}>
         <TouchableOpacity
-          onPress={() => Alert.alert(t('common.appName'), t('explore.filtersComingSoon'))}
+          onPress={() => appAlert(t('common.appName'), t('explore.filtersComingSoon'))}
           activeOpacity={0.85}
           style={[styles.filterButton, darkSurfaceAlt]}
           accessibilityLabel={t('explore.filters')}

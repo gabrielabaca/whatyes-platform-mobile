@@ -44,7 +44,12 @@ import { HlsStreamPlayer } from '../../molecules/stream/HlsStreamPlayer';
 import { StreamToast, useStreamToast } from '../../molecules/stream/StreamToast';
 import { StreamViewerSplash } from '../../molecules/stream/StreamViewerSplash';
 import { fetchLiveRoomIds, pickNextLiveStreamIndex } from '../../../utils/streamLiveNavigation';
-import { useStreamChat, type AuctionWinner } from '../../../hooks/useStreamChat';
+import {
+  useStreamChat,
+  type AuctionWinner,
+  type AuctionCancelledInfo,
+} from '../../../hooks/useStreamChat';
+import { auctionCancelledMessageKey } from '../../organisms/stream/StreamAuctionCancelDrawer';
 import { AuctionWinnerOverlay } from '../../molecules/AuctionWinnerOverlay/AuctionWinnerOverlay';
 import { AuctionWinnerCelebration } from '../../molecules/AuctionWinnerOverlay/AuctionWinnerCelebration';
 import { useAuth } from '../../../hooks/useAuth';
@@ -201,6 +206,15 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({
     setStreamEndedReason(reason === 'master_absent' ? 'disconnect' : 'ended');
   }, []);
 
+  // Tarea 18: al cancelar el vendedor, el viewer ve SOLO el mensaje genérico del
+  // motivo (el detalle interno nunca viaja por el WS).
+  const handleAuctionCancelled = useCallback(
+    (info: AuctionCancelledInfo) => {
+      showToast(t(auctionCancelledMessageKey(info.reasonCode)), 'info');
+    },
+    [showToast, t]
+  );
+
   const {
     messages,
     viewerCount,
@@ -210,6 +224,7 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({
     sendBid,
     auction,
     isAuctionActive,
+    isAuctionPaused,
     hasLiveOffer,
     offerSaleMode,
     auctionSecondsRemaining,
@@ -226,6 +241,7 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({
     accessToken: chatToken,
     onLike: handleLikeEvent,
     onStreamEnded: onStreamEndedFromWs,
+    onAuctionCancelled: handleAuctionCancelled,
   });
 
   // Nota del vivo en solo lectura: el viewer nunca es dueño de la sala (canEdit false).
@@ -1072,6 +1088,7 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({
         onToggleRecording={toggleRecording}
         showAuctionUi={showAuctionUi}
         isAuctionActive={isAuctionActive}
+        isAuctionPaused={isAuctionPaused}
         auctionSecondsRemaining={auctionSecondsRemaining}
         auctionBids={auctionBids}
         auctionWinnerUsername={auctionWinner?.username ?? null}

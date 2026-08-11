@@ -12,8 +12,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
-  ScrollView,
-  TextInput,
   TouchableOpacity,
   Image,
   StyleSheet,
@@ -21,6 +19,8 @@ import {
   RefreshControl,
   Text as RNText,
 } from 'react-native';
+import { AppTextInput } from '../../atoms/AppTextInput';
+import { KeyboardDismissScrollView } from '../../atoms/KeyboardDismissScrollView';
 import { useTranslation } from 'react-i18next';
 import { MessageCircle } from 'lucide-react-native';
 import { IconChevronLeft, IconSearch } from '../../icons';
@@ -170,7 +170,7 @@ export const ChatListScreen: React.FC<ChatListScreenProps> = ({
       </View>
 
       <View style={[styles.searchBox, isDark ? { backgroundColor: d.surface } : null]}>
-        <TextInput
+        <AppTextInput
           value={query}
           onChangeText={setQuery}
           placeholder={t('chat.searchPlaceholder')}
@@ -193,10 +193,9 @@ export const ChatListScreen: React.FC<ChatListScreenProps> = ({
           </RNText>
         </View>
       ) : (
-        <ScrollView
+        <KeyboardDismissScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.listContent}
-          keyboardShouldPersistTaps="handled"
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -228,7 +227,7 @@ export const ChatListScreen: React.FC<ChatListScreenProps> = ({
               {item.unread_count > 0 ? <View style={styles.unreadDot} /> : null}
             </TouchableOpacity>
           ))}
-        </ScrollView>
+        </KeyboardDismissScrollView>
       )}
 
       {openConversation ? (

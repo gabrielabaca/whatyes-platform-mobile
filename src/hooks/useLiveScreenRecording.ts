@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import RecordScreen, { RecordingResult } from 'react-native-record-screen';
 import {
@@ -13,6 +12,7 @@ import {
   shareSavedRecording,
   type SavedRecording,
 } from '../native/recordingStorage';
+import { appAlert } from '../alerts';
 
 function formatRecordingTime(totalSeconds: number): string {
   const m = Math.floor(totalSeconds / 60);
@@ -53,12 +53,12 @@ export function useLiveScreenRecording() {
         saved.location === 'photos'
           ? t('stream.recordingSavedPhotos')
           : t('stream.recordingSavedMessage', { path: saved.displayPath });
-      Alert.alert(t('stream.recordingSavedTitle'), message, [
+      appAlert(t('stream.recordingSavedTitle'), message, [
         {
           text: t('stream.share'),
           onPress: () => {
             shareSavedRecording(saved).catch(() => {
-              Alert.alert(t('common.appName'), t('stream.recordingShareError'));
+              appAlert(t('common.appName'), t('stream.recordingShareError'));
             });
           },
         },
@@ -90,7 +90,7 @@ export function useLiveScreenRecording() {
         const outputURL = await stopCapture();
         if (!outputURL) {
           if (!silent) {
-            Alert.alert(t('common.appName'), t('stream.recordingStopError'));
+            appAlert(t('common.appName'), t('stream.recordingStopError'));
           }
           return;
         }
@@ -99,7 +99,7 @@ export function useLiveScreenRecording() {
           saved = await saveRecordingToPreferredFolder(outputURL);
         } catch {
           if (!silent) {
-            Alert.alert(t('common.appName'), t('stream.recordingSaveError'));
+            appAlert(t('common.appName'), t('stream.recordingSaveError'));
           }
           return;
         }
@@ -109,7 +109,7 @@ export function useLiveScreenRecording() {
       } catch (e: unknown) {
         if (!silent) {
           const msg = e instanceof Error ? e.message : t('stream.recordingStopError');
-          Alert.alert(t('common.appName'), msg);
+          appAlert(t('common.appName'), msg);
         }
       }
     },
@@ -136,7 +136,7 @@ export function useLiveScreenRecording() {
       } else {
         const result = await RecordScreen.startRecording({ mic: true });
         if (result === RecordingResult.PermissionError) {
-          Alert.alert(t('common.appName'), t('stream.recordingPermissionDenied'));
+          appAlert(t('common.appName'), t('stream.recordingPermissionDenied'));
           return;
         }
       }
@@ -145,11 +145,11 @@ export function useLiveScreenRecording() {
     } catch (e: unknown) {
       const code = (e as { code?: string } | null)?.code;
       if (code === CLIP_RECORDER_PERMISSION_DENIED) {
-        Alert.alert(t('common.appName'), t('stream.recordingPermissionDenied'));
+        appAlert(t('common.appName'), t('stream.recordingPermissionDenied'));
         return;
       }
       const msg = e instanceof Error ? e.message : t('stream.recordingStartError');
-      Alert.alert(t('common.appName'), msg);
+      appAlert(t('common.appName'), msg);
     }
   }, [startTimer, t]);
 

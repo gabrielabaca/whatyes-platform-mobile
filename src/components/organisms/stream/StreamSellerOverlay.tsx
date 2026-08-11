@@ -6,9 +6,9 @@ import {
   Keyboard,
   Platform,
   Pressable,
-  Alert,
+  Text as RNText,
 } from 'react-native';
-import { CreditCard, Gavel, Mic, MicOff, Pause } from 'lucide-react-native';
+import { CreditCard, Mic, MicOff, Pause } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -25,12 +25,14 @@ import {
   type StreamSellerMoreAction,
 } from './StreamSellerMoreModal';
 import { STREAM_COLORS } from '../../molecules/stream/streamTokens';
+import { FONT_FAMILY } from '../../../theme/typography';
 import type {
   ChatMessage,
   AuctionBid,
   AuctionExtension,
   LiveOfferSaleMode,
 } from '../../../hooks/useStreamChat';
+import { appAlert } from '../../../alerts';
 
 export interface StreamSellerOverlayProps {
   sellerName: string;
@@ -68,17 +70,21 @@ export interface StreamSellerOverlayProps {
   flipCameraDisabled?: boolean;
   onAddPress?: () => void;
   onOpenProductCatalog?: () => void;
-  /** Texto del slider: refleja el modo elegido (subasta / venta directa / sorteo). */
-  nextProductLabel?: string;
-  /** Deslizar "Siguiente Subasta": pone en juego el primer producto del catálogo. */
+  /** Flechas < > de la barra (Figma 890-1384): navegan el producto en juego. */
+  onPrevProduct?: () => void;
   onNextProduct?: () => void;
-  nextProductDisabled?: boolean;
+  /** Con una oferta corriendo o un solo producto, las flechas quedan inertes. */
+  productNavDisabled?: boolean;
+  /** CTA central: "Iniciar subasta/venta/sorteo" o "Cancelar" según el estado. */
+  primaryActionLabel: string;
+  onPrimaryAction?: () => void;
+  primaryActionDisabled?: boolean;
+  primaryActionVariant?: 'start' | 'cancel';
   onAddPaymentMethod?: () => void;
   /** Botón comment_bank: abre el drawer de la nota del vivo (edición). */
   onOpenNote?: () => void;
   onShare?: () => void;
   onMore?: () => void;
-  onStartAuction?: () => void;
   isMicMuted?: boolean;
   onToggleMic?: () => void;
 }
@@ -114,14 +120,17 @@ export const StreamSellerOverlay: React.FC<StreamSellerOverlayProps> = ({
   flipCameraDisabled,
   onAddPress,
   onOpenProductCatalog,
+  onPrevProduct,
   onNextProduct,
-  nextProductDisabled,
-  nextProductLabel,
+  productNavDisabled,
+  primaryActionLabel,
+  onPrimaryAction,
+  primaryActionDisabled,
+  primaryActionVariant,
   onAddPaymentMethod,
   onOpenNote,
   onShare,
   onMore,
-  onStartAuction,
   isMicMuted,
   onToggleMic,
 }) => {
@@ -159,23 +168,14 @@ export const StreamSellerOverlay: React.FC<StreamSellerOverlayProps> = ({
 
   /**
    * Acciones del menú "más". Figma 890-1336 deja un único icono para las acciones
-   * secundarias, así que micrófono, pausa, métodos de cobro e inicio de subasta
-   * —que antes tenían botón propio en el rail— se agrupan acá.
-   * Finalizar el vivo NO vive en este menú: está en la X del header y en
-   * "Terminar vivo", que confirman con el drawer.
+   * secundarias, así que micrófono, pausa y métodos de cobro —que antes tenían
+   * botón propio en el rail— se agrupan acá. Iniciar la subasta ya no vive acá:
+   * es la CTA central de la barra inferior (Figma 890-1384).
+   * Finalizar el vivo tampoco: está en la X del header, que confirma con el drawer.
    */
   const moreActions = useMemo<StreamSellerMoreAction[]>(() => {
-    const comingSoon = () => Alert.alert(t('common.appName'), t('stream.comingSoon'));
+    const comingSoon = () => appAlert(t('common.appName'), t('stream.comingSoon'));
     const actions: StreamSellerMoreAction[] = [];
-
-    if (onStartAuction) {
-      actions.push({
-        key: 'start-auction',
-        label: t('stream.sellerStartAuction'),
-        icon: <Gavel size={24} color={STREAM_COLORS.white} />,
-        onPress: onStartAuction,
-      });
-    }
 
     actions.push({
       key: 'mic',
@@ -208,7 +208,6 @@ export const StreamSellerOverlay: React.FC<StreamSellerOverlayProps> = ({
     return actions;
   }, [
     t,
-    onStartAuction,
     isMicMuted,
     onToggleMic,
     isStreamPaused,
@@ -260,6 +259,21 @@ export const StreamSellerOverlay: React.FC<StreamSellerOverlayProps> = ({
         viewerCount={viewerCount}
         onExitPress={() => setEndDrawerVisible(true)}
       />
+
+      {isStreamPaused ? (
+        <View style={styles.readyHint} pointerEvents="none" accessibilityLiveRegion="polite">
+          <RNText style={styles.readyHintTitle} maxFontSizeMultiplier={1.2}>
+            {hasStartedLive
+              ? t('stream.sellerPausedTitle')
+              : t('stream.sellerReadyToStartTitle')}
+          </RNText>
+          <RNText style={styles.readyHintBody} maxFontSizeMultiplier={1.2}>
+            {hasStartedLive
+              ? t('stream.sellerPausedHint')
+              : t('stream.sellerReadyToStartHint')}
+          </RNText>
+        </View>
+      ) : null}
 
       <View
         style={[styles.contentBlock, { paddingBottom: contentPaddingBottom }]}
@@ -315,10 +329,13 @@ export const StreamSellerOverlay: React.FC<StreamSellerOverlayProps> = ({
             hasStartedLive={hasStartedLive}
             onStartLive={onStartLive}
             startDisabled={startLiveDisabled}
-            onEndLive={() => setEndDrawerVisible(true)}
+            onPrevProduct={onPrevProduct}
             onNextProduct={onNextProduct}
-            nextProductDisabled={nextProductDisabled}
-            nextProductLabel={nextProductLabel}
+            navDisabled={productNavDisabled}
+            primaryLabel={primaryActionLabel}
+            onPrimaryPress={onPrimaryAction}
+            primaryDisabled={primaryActionDisabled}
+            primaryVariant={primaryActionVariant}
           />
         </View>
       </View>
@@ -374,5 +391,42 @@ const styles = StyleSheet.create({
   },
   keyboardDismissBackdrop: {
     ...StyleSheet.absoluteFillObject,
+  },
+  /**
+   * Hint centrado mientras el vivo está pausado / por comenzar: guía al CTA
+   * inferior sin tapar controles (pointerEvents none). Va un poco por encima
+   * del centro para no solaparse con el chat.
+   */
+  readyHint: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: '26%',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    zIndex: 5,
+  },
+  readyHintTitle: {
+    fontFamily: FONT_FAMILY.bold,
+    fontSize: 20,
+    lineHeight: 28,
+    color: STREAM_COLORS.white,
+    textAlign: 'center',
+    includeFontPadding: false,
+    textShadowColor: 'rgba(0,0,0,0.55)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 8,
+  },
+  readyHintBody: {
+    marginTop: 8,
+    fontFamily: FONT_FAMILY.regular,
+    fontSize: 15,
+    lineHeight: 22,
+    color: 'rgba(255,255,255,0.88)',
+    textAlign: 'center',
+    includeFontPadding: false,
+    textShadowColor: 'rgba(0,0,0,0.45)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 6,
   },
 });

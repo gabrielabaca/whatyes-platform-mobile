@@ -1,13 +1,13 @@
 import React from 'react';
 import {
   View,
-  ScrollView,
   Text as RNText,
-  TextInput,
   TouchableOpacity,
   Image,
   ActivityIndicator,
 } from 'react-native';
+import { AppTextInput } from '../../atoms/AppTextInput';
+import { KeyboardDismissScrollView } from '../../atoms/KeyboardDismissScrollView';
 import { useTranslation } from 'react-i18next';
 import { ArrowRight, ImageUp, Plus, X } from 'lucide-react-native';
 import { useInterestCategories } from '../../../hooks/useInterestCategories';
@@ -45,11 +45,10 @@ export const AddProductScreen: React.FC<AddProductScreenProps> = ({ onCancel, on
 
   return (
     <>
-      <ScrollView
+      <KeyboardDismissScrollView
         style={addProductStyles.screen}
         contentContainerStyle={addProductStyles.scrollContent}
         showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
       >
         <TouchableOpacity style={addProductStyles.tipsBanner} activeOpacity={0.85}>
           <View style={addProductStyles.tipsTextCol}>
@@ -109,7 +108,7 @@ export const AddProductScreen: React.FC<AddProductScreenProps> = ({ onCancel, on
         <View style={addProductStyles.fields}>
           <View style={addProductStyles.field}>
             <RNText style={addProductStyles.fieldLabel}>{t('addProduct.fieldTitle')}</RNText>
-            <TextInput
+            <AppTextInput
               style={addProductStyles.pillInput}
               value={form.title}
               onChangeText={form.setTitle}
@@ -120,7 +119,7 @@ export const AddProductScreen: React.FC<AddProductScreenProps> = ({ onCancel, on
 
           <View style={addProductStyles.field}>
             <RNText style={addProductStyles.fieldLabel}>{t('addProduct.fieldDescription')}</RNText>
-            <TextInput
+            <AppTextInput
               style={[addProductStyles.pillInput, addProductStyles.pillInputMultiline]}
               value={form.description}
               onChangeText={form.setDescription}
@@ -157,7 +156,7 @@ export const AddProductScreen: React.FC<AddProductScreenProps> = ({ onCancel, on
               {form.minOfferPrice ? (
                 <RNText style={addProductStyles.pricePrefix}>$</RNText>
               ) : null}
-              <TextInput
+              <AppTextInput
                 style={addProductStyles.priceInput}
                 value={form.minOfferPrice}
                 onChangeText={form.setMinOfferPrice}
@@ -177,7 +176,7 @@ export const AddProductScreen: React.FC<AddProductScreenProps> = ({ onCancel, on
 
           <View style={addProductStyles.field}>
             <RNText style={addProductStyles.fieldLabel}>{t('addProduct.fieldSku')}</RNText>
-            <TextInput
+            <AppTextInput
               style={addProductStyles.pillInput}
               value={form.sku}
               onChangeText={form.setSku}
@@ -204,7 +203,7 @@ export const AddProductScreen: React.FC<AddProductScreenProps> = ({ onCancel, on
             <RNText style={addProductStyles.cancelBtnText}>{t('addProduct.cancel')}</RNText>
           </TouchableOpacity>
         </View>
-      </ScrollView>
+      </KeyboardDismissScrollView>
 
       <AddProductHost
         activeDrawer={form.activeDrawer}

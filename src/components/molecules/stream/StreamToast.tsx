@@ -1,7 +1,6 @@
 /**
- * Avisos del vivo con el lenguaje visual de la app, en lugar del diálogo nativo
- * de `Alert.alert` (que corta el vivo, se ve como sistema operativo y obliga a
- * tocar "OK" para volver).
+ * Avisos del vivo con el lenguaje visual de la app, en lugar de un diálogo
+ * bloqueante (que corta el vivo y obliga a tocar "OK" para volver).
  *
  * Misma píldora oscura sobre el video que el banner de ganador
  * (`AuctionWinnerOverlay`), con el color de borde/ícono según el tono del aviso.
@@ -100,7 +99,7 @@ export const StreamToast: React.FC<StreamToastProps> = ({
 };
 
 /**
- * Estado del aviso: reemplaza a `Alert.alert` en las pantallas del vivo.
+ * Estado del aviso: reemplaza al diálogo bloqueante en las pantallas del vivo.
  * Un solo aviso a la vez — el nuevo pisa al anterior, que es lo correcto acá:
  * el último es siempre el relevante (p. ej. el resultado de la compra).
  */

@@ -4,15 +4,15 @@ import {
   StyleSheet,
   TouchableOpacity,
   Text as RNText,
-  TextInput,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
+import { AppTextInput } from '../../../atoms/AppTextInput';
 import { useTranslation } from 'react-i18next';
 import { CreditCard, Truck } from 'lucide-react-native';
 import { StreamBottomSheet, streamBottomPanelStyle, streamSheetStyles } from '../StreamBottomSheet';
 import { FONT_FAMILY } from '../../../../theme/typography';
 import { themeColors } from '../../../../theme/colors';
+import { appAlert } from '../../../../alerts';
 
 /** Figma 536-20085 — hub wallet */
 export interface StreamWalletHubDrawerProps {
@@ -42,7 +42,7 @@ export const StreamWalletHubDrawer: React.FC<StreamWalletHubDrawerProps> = ({
   }, [visible]);
 
   const handleApplyBonus = () => {
-    Alert.alert(t('common.appName'), t('stream.wallet.bonusComingSoon'));
+    appAlert(t('common.appName'), t('stream.wallet.bonusComingSoon'));
   };
 
   return (
@@ -74,7 +74,7 @@ export const StreamWalletHubDrawer: React.FC<StreamWalletHubDrawerProps> = ({
           </View>
 
           <View style={styles.bonusRow}>
-            <TextInput
+            <AppTextInput
               style={styles.bonusInput}
               value={bonusCode}
               onChangeText={setBonusCode}

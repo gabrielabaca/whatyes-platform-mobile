@@ -1,6 +1,6 @@
 /**
  * Normaliza `detail` de FastAPI (string | array de validación | objeto) a string
- * para Alert.alert y mensajes de error en RN (Android requiere string).
+ * para diálogos de error y mensajes en RN (Android requiere string).
  */
 export function formatApiErrorMessage(
   detail: unknown,

@@ -7,7 +7,6 @@ import {
   Modal,
   ActivityIndicator,
   ScrollView,
-  Alert,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { useTranslation } from 'react-i18next';
@@ -23,6 +22,7 @@ import {
   subscribeMpWalletReturn,
   type MpWalletReturnStatus,
 } from '../../../../utils/mpWalletDeepLink';
+import { appAlert } from '../../../../alerts';
 
 export interface StreamMpWalletConnectModalProps {
   visible: boolean;
@@ -73,7 +73,7 @@ export const StreamMpWalletConnectModal: React.FC<StreamMpWalletConnectModalProp
   useEffect(() => {
     if (!visible || loading || !session || session.test_ack_only) return;
     if (!checkoutUrl) {
-      Alert.alert(t('common.appName'), t('stream.wallet.mpConnectNoUrl'));
+      appAlert(t('common.appName'), t('stream.wallet.mpConnectNoUrl'));
       onCancel();
     }
   }, [visible, loading, session, checkoutUrl, onCancel, t]);

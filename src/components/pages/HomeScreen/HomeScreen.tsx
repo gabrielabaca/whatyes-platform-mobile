@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View, ScrollView, RefreshControl, Alert, StyleSheet } from 'react-native';
+import { View, ScrollView, RefreshControl, StyleSheet } from 'react-native';
 import { GeneralLayout } from '../../templates/GeneralLayout';
 import { Text } from '../../atoms/Text';
 import { StreamData } from '../../molecules/StreamCard';
@@ -68,6 +68,7 @@ import {
   type HomeBottomTab,
 } from '../../organisms/home';
 import { AddProductScreen } from '../AddProductScreen';
+import { appAlert } from '../../../alerts';
 
 interface HomeScreenProps {
   onStreamPress?: (stream: StreamData | any) => void;
@@ -478,7 +479,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
           {showHomeHeader ? (
             <HomeHeader
-              onPressSearch={() => Alert.alert(t('common.appName'), t('home.searchPlaceholder'))}
+              onPressSearch={() => appAlert(t('common.appName'), t('home.searchPlaceholder'))}
               onPressNotifications={() =>
                 setHomePath((prev) =>
                   prev.name === 'notifications' ? prev : { name: 'notifications', returnTo: prev }
@@ -502,10 +503,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               showFirstLiveCta={showFirstLiveCta}
               onPressVerify={() => setKycVisible(true)}
               onPressPayments={() =>
-                Alert.alert(t('common.appName'), t('home.placeholderScreen'))
+                appAlert(t('common.appName'), t('home.placeholderScreen'))
               }
               onPressSold={() =>
-                Alert.alert(t('common.appName'), t('home.placeholderScreen'))
+                appAlert(t('common.appName'), t('home.placeholderScreen'))
               }
               onPressGoLive={() => onStartNewStream?.()}
               onPressAddProduct={() => setHomePath({ name: 'addProduct', returnTo: 'sellerHub' })}
@@ -575,7 +576,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                 emptyActionLabel={t('home.notifyWhenLive')}
                 // TODO: cablear la suscripción a notificaciones de lives.
                 onEmptyActionPress={() =>
-                  Alert.alert(t('common.appName'), t('home.placeholderNotifyWhenLive'))
+                  appAlert(t('common.appName'), t('home.placeholderNotifyWhenLive'))
                 }
                 gap={GRID_GAP}
                 previewWithCategory={previewWithCategory}
@@ -585,7 +586,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                       title={t('home.forYou')}
                       actionLabel={t('home.seeAll')}
                       onActionPress={() =>
-                        Alert.alert(t('common.appName'), t('home.placeholderSeeAll'))
+                        appAlert(t('common.appName'), t('home.placeholderSeeAll'))
                       }
                     />
                   ) : undefined

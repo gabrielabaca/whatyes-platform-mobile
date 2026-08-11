@@ -4,7 +4,6 @@
  * contra service-platform, con celebración al activar.
  */
 import { useCallback, useEffect, useState } from 'react';
-import { Alert } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import {
   getSellerNotificationSubscription,
@@ -12,6 +11,7 @@ import {
   unsubscribeSellerNotifications,
 } from '../api/platformApi';
 import { storage } from '../utils/storage';
+import { appAlert } from '../alerts';
 
 export interface UseSellerNotificationsOptions {
   sellerUserId: string | null | undefined;
@@ -68,7 +68,7 @@ export function useSellerNotifications({
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : t('common.error');
-      Alert.alert(t('common.appName'), msg);
+      appAlert(t('common.appName'), msg);
     } finally {
       setSubscriptionLoading(false);
     }

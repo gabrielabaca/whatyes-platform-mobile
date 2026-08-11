@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
-import { TextInput, TextInputProps, View, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { Eye, EyeOff } from 'lucide-react-native';
 import { Text } from '../Text';
+import { AppTextInput, type AppTextInputProps } from '../AppTextInput';
 import { FONT_FAMILY } from '../../../theme/typography';
 import { useTheme } from '../../../context/ThemeContext';
 import { themeColors } from '../../../theme/colors';
 
-export interface InputProps extends TextInputProps {
+export interface InputProps extends AppTextInputProps {
   label?: string;
   error?: string;
   className?: string;
@@ -53,7 +54,7 @@ export const Input: React.FC<InputProps> = ({
         </Text>
       )}
       <View style={styles.inputContainer}>
-        <TextInput
+        <AppTextInput
           className={inputClasses}
           style={{ fontFamily: FONT_FAMILY.regular }}
           placeholderTextColor={placeholderColor}

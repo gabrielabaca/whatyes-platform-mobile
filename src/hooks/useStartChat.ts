@@ -4,10 +4,10 @@
  * y el resultado se muestra en un ConversationModal que renderiza el caller.
  */
 import { useCallback, useRef, useState } from 'react';
-import { Alert } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { createConversation, type ConversationItem } from '../api/platformApi';
 import { storage } from '../utils/storage';
+import { appAlert } from '../alerts';
 
 export function useStartChat() {
   const { t } = useTranslation();
@@ -24,7 +24,7 @@ export function useStartChat() {
         if (!token) return;
         setConversation(await createConversation(token, peerUserId));
       } catch {
-        Alert.alert(t('common.appName'), t('chat.startError'));
+        appAlert(t('common.appName'), t('chat.startError'));
       } finally {
         startingRef.current = false;
       }

@@ -14,7 +14,6 @@ import {
   Text as RNText,
   StyleSheet,
   Platform,
-  Alert,
   type LayoutChangeEvent,
 } from 'react-native';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
@@ -33,6 +32,7 @@ import HelpIcon from '../../../assets/icons/account/help.svg';
 import { FONT_FAMILY } from '../../theme/typography';
 import { themeColors } from '../../theme/colors';
 import { useTheme } from '../../context/ThemeContext';
+import { appAlert } from '../../alerts';
 
 /** Figma 536:16099 — Main Content */
 const H_PADDING = 16;
@@ -84,7 +84,7 @@ export const BuyerAccountScreen: React.FC<BuyerAccountScreenProps> = ({
   const wallet = useStreamWalletFlow();
 
   const showPlaceholder = () => {
-    Alert.alert(t('common.appName'), t('home.placeholderScreen'));
+    appAlert(t('common.appName'), t('home.placeholderScreen'));
   };
 
   return (

@@ -4,10 +4,9 @@ import {
   StyleSheet,
   TouchableOpacity,
   Text as RNText,
-  TextInput,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
+import { AppTextInput } from '../../../atoms/AppTextInput';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 import { useTranslation } from 'react-i18next';
 import { Check } from 'lucide-react-native';
@@ -21,6 +20,7 @@ import {
   type CardCreatePayload,
 } from '../../../../api/paymentsApi';
 import { ApiError } from '../../../../api';
+import { appAlert } from '../../../../alerts';
 
 export interface StreamAddCardDrawerProps {
   visible: boolean;
@@ -80,7 +80,7 @@ export const StreamAddCardDrawer: React.FC<StreamAddCardDrawerProps> = ({
         const cfg = await getPublicPaymentsConfig();
         if (cancelled) return;
         if (!cfg.public_key?.trim()) {
-          Alert.alert(t('common.appName'), t('stream.wallet.mpNotConfigured'));
+          appAlert(t('common.appName'), t('stream.wallet.mpNotConfigured'));
           onClose();
           return;
         }
@@ -88,7 +88,7 @@ export const StreamAddCardDrawer: React.FC<StreamAddCardDrawerProps> = ({
       } catch (e) {
         if (!cancelled) {
           const msg = e instanceof Error ? e.message : t('stream.wallet.loadConfigError');
-          Alert.alert(t('common.appName'), msg);
+          appAlert(t('common.appName'), msg);
           onClose();
         }
       } finally {
@@ -103,7 +103,7 @@ export const StreamAddCardDrawer: React.FC<StreamAddCardDrawerProps> = ({
   const saveCard = useCallback(
     async (mp: MpTokenMessage) => {
       if (!mp.token || !mp.paymentMethodId) {
-        Alert.alert(t('common.appName'), t('stream.wallet.tokenError'));
+        appAlert(t('common.appName'), t('stream.wallet.tokenError'));
         return;
       }
       const payload: CardCreatePayload = {
@@ -123,7 +123,7 @@ export const StreamAddCardDrawer: React.FC<StreamAddCardDrawerProps> = ({
         onSaved(saved);
       } catch (e) {
         const msg = e instanceof ApiError ? e.message : t('stream.wallet.saveCardError');
-        Alert.alert(t('common.appName'), msg);
+        appAlert(t('common.appName'), msg);
       } finally {
         setSaving(false);
       }
@@ -140,7 +140,7 @@ export const StreamAddCardDrawer: React.FC<StreamAddCardDrawerProps> = ({
           return;
         }
         if (data.type === 'error') {
-          Alert.alert(t('common.appName'), data.message || t('stream.wallet.tokenError'));
+          appAlert(t('common.appName'), data.message || t('stream.wallet.tokenError'));
           return;
         }
         if (data.type === 'token') {
@@ -155,19 +155,19 @@ export const StreamAddCardDrawer: React.FC<StreamAddCardDrawerProps> = ({
 
   const handleSubmit = () => {
     if (!cardholderName.trim()) {
-      Alert.alert(t('common.appName'), t('stream.wallet.cardholderRequired'));
+      appAlert(t('common.appName'), t('stream.wallet.cardholderRequired'));
       return;
     }
     if (!termsAccepted) {
-      Alert.alert(t('common.appName'), t('stream.wallet.termsRequired'));
+      appAlert(t('common.appName'), t('stream.wallet.termsRequired'));
       return;
     }
     if (!identificationNumber.trim()) {
-      Alert.alert(t('common.appName'), t('stream.wallet.docNumberRequired'));
+      appAlert(t('common.appName'), t('stream.wallet.docNumberRequired'));
       return;
     }
     if (!mpReady) {
-      Alert.alert(t('common.appName'), t('stream.wallet.mpNotReady'));
+      appAlert(t('common.appName'), t('stream.wallet.mpNotReady'));
       return;
     }
     const submitOpts = JSON.stringify({
@@ -212,7 +212,7 @@ export const StreamAddCardDrawer: React.FC<StreamAddCardDrawerProps> = ({
       </RNText>
 
       <Field label={t('stream.wallet.cardholderLabel')}>
-        <TextInput
+        <AppTextInput
           style={styles.input}
           value={cardholderName}
           onChangeText={setCardholderName}
@@ -222,7 +222,7 @@ export const StreamAddCardDrawer: React.FC<StreamAddCardDrawerProps> = ({
       </Field>
 
       <Field label={t('stream.wallet.docNumberLabel')}>
-        <TextInput
+        <AppTextInput
           style={styles.input}
           value={identificationNumber}
           onChangeText={setIdentificationNumber}
@@ -275,7 +275,7 @@ export const StreamAddCardDrawer: React.FC<StreamAddCardDrawerProps> = ({
       </RNText>
 
       <Field label={t('stream.wallet.countryLabel')}>
-        <TextInput
+        <AppTextInput
           style={styles.input}
           value={country}
           onChangeText={setCountry}
@@ -284,7 +284,7 @@ export const StreamAddCardDrawer: React.FC<StreamAddCardDrawerProps> = ({
       </Field>
 
       <Field label={t('stream.wallet.postalLabel')}>
-        <TextInput
+        <AppTextInput
           style={styles.input}
           value={postalCode}
           onChangeText={setPostalCode}

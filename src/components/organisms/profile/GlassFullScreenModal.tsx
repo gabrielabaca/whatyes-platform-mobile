@@ -9,7 +9,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   Animated,
-  ScrollView,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
@@ -19,6 +18,8 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GlassBackdrop } from './GlassBackdrop';
 import { DismissKeyboardView } from '../../atoms/DismissKeyboardView';
+import { KeyboardDismissScrollView } from '../../atoms/KeyboardDismissScrollView';
+import { KeyboardAccessoryAppearanceProvider } from '../../atoms/AppTextInput';
 import { ModalWindowBoundary } from '../../../context/OverlayPortalContext';
 
 export interface GlassFullScreenModalHandle {
@@ -44,6 +45,13 @@ export interface GlassFullScreenModalProps {
   overlay?: React.ReactNode;
   scrollable?: boolean;
   keyboardAvoiding?: boolean;
+  /**
+   * Desmonta el footer mientras el teclado está abierto. Para formularios: el KAV
+   * levanta el footer fijo y lo planta sobre el teclado tapando los campos que el
+   * usuario está editando. En iOS usa keyboardWillShow, así desaparece antes de
+   * que el teclado termine de subir, y vuelve al cerrarse.
+   */
+  hideFooterOnKeyboard?: boolean;
   /** Retraso antes de permitir cerrar tocando el backdrop. */
   backdropDelayMs?: number;
   contentContainerStyle?: StyleProp<ViewStyle>;
@@ -77,6 +85,7 @@ export const GlassFullScreenModal = forwardRef<
     overlay,
     scrollable = true,
     keyboardAvoiding = true,
+    hideFooterOnKeyboard = false,
     backdropDelayMs = 0,
     contentContainerStyle,
     scrollStyle,
@@ -157,28 +166,28 @@ export const GlassFullScreenModal = forwardRef<
   });
 
   const scrollArea = scrollable ? (
-    <ScrollView
+    <KeyboardDismissScrollView
       style={[styles.scroll, scrollStyle]}
       contentContainerStyle={[styles.scrollContent, contentContainerStyle]}
-      keyboardShouldPersistTaps="handled"
-      keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
       showsVerticalScrollIndicator={false}
       bounces={false}
     >
       {children}
-    </ScrollView>
+    </KeyboardDismissScrollView>
   ) : (
     <DismissKeyboardView style={[styles.flex, contentContainerStyle]}>
       {children}
     </DismissKeyboardView>
   );
 
+  const footerHidden = hideFooterOnKeyboard && keyboardVisible;
+
   const inner = (
     <View style={[styles.inner, containerStyle]}>
       {header}
       {subHeader}
       {scrollArea}
-      {footer ? (
+      {footer && !footerHidden ? (
         <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 16) }]}>{footer}</View>
       ) : null}
     </View>
@@ -197,6 +206,8 @@ export const GlassFullScreenModal = forwardRef<
        * tienen que renderizar acá adentro y NO irse al portal raíz (que queda por debajo).
        */}
       <ModalWindowBoundary>
+        {/* Modal glass: siempre oscuro, la barra "Listo" del teclado acompaña. */}
+        <KeyboardAccessoryAppearanceProvider appearance="dark">
         <View style={styles.host} pointerEvents="box-none">
           <GlassBackdrop />
           <TouchableOpacity
@@ -237,6 +248,7 @@ export const GlassFullScreenModal = forwardRef<
             </View>
           ) : null}
         </View>
+        </KeyboardAccessoryAppearanceProvider>
       </ModalWindowBoundary>
     </Modal>
   );

@@ -9,7 +9,6 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Modal,
-  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
@@ -25,6 +24,7 @@ import {
   isBuyerKycReturnUrl,
   subscribeBuyerKycReturn,
 } from '../../../utils/buyerKycDeepLink';
+import { appAlert } from '../../../alerts';
 
 interface BuyerKycOnboardingScreenProps {
   onBack?: () => void;
@@ -80,9 +80,9 @@ export const BuyerKycOnboardingScreen: React.FC<BuyerKycOnboardingScreenProps> =
       setPhase('declined');
     } catch (e) {
       if (e instanceof ApiError) {
-        Alert.alert(t('common.error'), e.message);
+        appAlert(t('common.error'), e.message);
       } else {
-        Alert.alert(t('common.error'), t('buyerOnboarding.kycPollError'));
+        appAlert(t('common.error'), t('buyerOnboarding.kycPollError'));
       }
       setPhase('offer');
     } finally {
@@ -106,9 +106,9 @@ export const BuyerKycOnboardingScreen: React.FC<BuyerKycOnboardingScreenProps> =
       setPhase('webview');
     } catch (e) {
       if (e instanceof ApiError) {
-        Alert.alert(t('common.error'), e.message);
+        appAlert(t('common.error'), e.message);
       } else {
-        Alert.alert(t('common.error'), t('buyerOnboarding.kycSessionError'));
+        appAlert(t('common.error'), t('buyerOnboarding.kycSessionError'));
       }
       setPhase('offer');
     }

@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Image, Text as RNText, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, Image, Text as RNText, TouchableOpacity, StyleSheet } from 'react-native';
 import { ChevronRight } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { StreamPriceText, formatStreamPrice } from '../../atoms/stream/StreamPriceText';
@@ -12,6 +12,7 @@ import { AuctionStatusRow } from '../../atoms/AuctionStatusRow';
 import { FONT_FAMILY } from '../../../theme/typography';
 import { STREAM_COLORS } from './streamTokens';
 import type { ShippingQuoteState } from '../../../hooks/useProductShippingQuote';
+import { appAlert } from '../../../alerts';
 
 export type StreamAuctionPanelVariant = 'buyer' | 'seller';
 
@@ -67,7 +68,7 @@ export const StreamAuctionPanel: React.FC<StreamAuctionPanelProps> = ({
       onPressItemsRow();
       return;
     }
-    Alert.alert(t('common.appName'), t('stream.comingSoon'));
+    appAlert(t('common.appName'), t('stream.comingSoon'));
   };
 
   const quote = shippingQuote ?? { status: 'idle' as const };
@@ -117,9 +118,6 @@ export const StreamAuctionPanel: React.FC<StreamAuctionPanelProps> = ({
   // Al vendedor le mostramos el próximo producto aunque no haya subasta corriendo:
   // ahí no hay reloj que contar, así que el countdown se oculta.
   const showCountdown = variant === 'buyer' || isAuctionActive;
-  // Figma 890-1401: al vendedor le mostramos la etiqueta de tasa de envío del
-  // producto, sin la cotización por domicilio que solo aplica al comprador.
-  const sellerShippingLabel = variant === 'seller' ? t('stream.shippingRate') : null;
 
   return (
     <View style={styles.panel}>
@@ -136,12 +134,11 @@ export const StreamAuctionPanel: React.FC<StreamAuctionPanelProps> = ({
             <Image source={{ uri: productImageUrl }} style={styles.thumb} resizeMode="cover" />
           ) : null}
           <View style={[styles.details, variant === 'buyer' && styles.detailsBuyer]}>
-            <RNText style={styles.title} numberOfLines={sellerShippingLabel ? 1 : 2}>
+            {/* Tarea 25: al vendedor no se le muestra (ni se le calcula) la tasa
+                de envío — esa fila es exclusiva del comprador, más abajo. */}
+            <RNText style={styles.title} numberOfLines={2}>
               {productTitle}
             </RNText>
-            {sellerShippingLabel ? (
-              <RNText style={styles.shippingLabel}>{sellerShippingLabel}</RNText>
-            ) : null}
             {variant === 'buyer' ? (
               <TouchableOpacity
                 style={styles.itemsRow}

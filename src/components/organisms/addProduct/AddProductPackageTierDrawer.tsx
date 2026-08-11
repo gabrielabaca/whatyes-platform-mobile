@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text as RNText, TextInput, TouchableOpacity } from 'react-native';
+import { View, Text as RNText, TouchableOpacity } from 'react-native';
+import { AppTextInput } from '../../atoms/AppTextInput';
 import { useTranslation } from 'react-i18next';
 import { StreamBottomSheet } from '../stream/StreamBottomSheet';
 import {
@@ -121,7 +122,7 @@ export const AddProductPackageTierDrawer: React.FC<AddProductPackageTierDrawerPr
       <View style={addProductStyles.field}>
         <RNText style={addProductStyles.manualWeightLabel}>{t('addProduct.manualWeight')}</RNText>
         <View style={addProductStyles.manualWeightRow}>
-          <TextInput
+          <AppTextInput
             style={addProductStyles.manualWeightInput}
             value={manualValue}
             onChangeText={setManualValue}

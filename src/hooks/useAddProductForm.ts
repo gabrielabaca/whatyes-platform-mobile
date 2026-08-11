@@ -1,6 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert } from 'react-native';
 import {
   launchPhotoCameraNow,
   launchPhotoLibraryNow,
@@ -16,6 +15,7 @@ import type {
 } from '../constants/productWeightPresets';
 import { PACKAGE_TIER_OPTIONS, SALE_FORMAT_OPTIONS } from '../constants/productWeightPresets';
 import { ApiError } from '../api/authApi';
+import { appAlert } from '../alerts';
 
 export type AddProductDrawer =
   | 'none'
@@ -143,7 +143,7 @@ export function useAddProductForm(options: {
 
   const openCamera = useCallback(() => {
     if (photos.length >= MAX_PRODUCT_PHOTOS) {
-      Alert.alert(t('common.appName'), t('addProduct.maxPhotos', { count: MAX_PRODUCT_PHOTOS }));
+      appAlert(t('common.appName'), t('addProduct.maxPhotos', { count: MAX_PRODUCT_PHOTOS }));
       return;
     }
     launchPhotoCameraNow(
@@ -158,7 +158,7 @@ export function useAddProductForm(options: {
   const openGallery = useCallback(() => {
     const remaining = MAX_PRODUCT_PHOTOS - photos.length;
     if (remaining <= 0) {
-      Alert.alert(t('common.appName'), t('addProduct.maxPhotos', { count: MAX_PRODUCT_PHOTOS }));
+      appAlert(t('common.appName'), t('addProduct.maxPhotos', { count: MAX_PRODUCT_PHOTOS }));
       return;
     }
     launchPhotoLibraryNow(
@@ -205,7 +205,7 @@ export function useAddProductForm(options: {
   const submit = useCallback(async () => {
     const err = validate();
     if (err) {
-      Alert.alert(t('common.appName'), err);
+      appAlert(t('common.appName'), err);
       return;
     }
     const price = parseFloat(minOfferPrice.replace(',', '.'));
@@ -227,7 +227,7 @@ export function useAddProductForm(options: {
       onSuccess();
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : t('addProduct.saveError');
-      Alert.alert(t('common.appName'), msg);
+      appAlert(t('common.appName'), msg);
     } finally {
       setSubmitting(false);
     }

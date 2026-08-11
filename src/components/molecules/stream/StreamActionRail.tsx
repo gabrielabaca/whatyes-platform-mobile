@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, Alert, Text as RNText } from 'react-native';
+import { View, StyleSheet, Text as RNText } from 'react-native';
 import {
   CreditCard,
   Video,
@@ -17,6 +17,7 @@ import CameraSwitchIcon from '../../../../assets/icons/stream/cameraSwitch.svg';
 import { StreamIconButton } from '../../atoms/stream/StreamIconButton';
 import { STREAM_COLORS } from './streamTokens';
 import { FONT_FAMILY } from '../../../theme/typography';
+import { appAlert } from '../../../alerts';
 
 /** Figma 890-1335: los iconos del rail del vendedor son de 32px. */
 const SELLER_ICON = 32;
@@ -48,7 +49,7 @@ export interface StreamActionRailProps {
   /** Viewer: audio del dispositivo silenciado. */
   isAudioMuted?: boolean;
   onToggleAudio?: () => void;
-  /** Muestra un aviso con el look del vivo; sin esto se cae al Alert nativo. */
+  /** Muestra un aviso con el look del vivo; sin esto se cae a `appAlert`. */
   onNotify?: (text: string) => void;
 }
 
@@ -79,11 +80,11 @@ export const StreamActionRail: React.FC<StreamActionRailProps> = ({
       onNotify(text);
       return;
     }
-    Alert.alert(t('common.appName'), text);
+    appAlert(t('common.appName'), text);
   };
 
   const handleBuyerMore = () => {
-    Alert.alert(t('stream.moreTitle'), undefined, [
+    appAlert(t('stream.moreTitle'), undefined, [
       { text: t('stream.exit'), style: 'destructive', onPress: onExit },
       { text: t('common.cancel'), style: 'cancel' },
     ]);

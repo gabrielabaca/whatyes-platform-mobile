@@ -7,7 +7,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   Text as RNText,
-  Alert,
   Switch,
   Platform,
 } from 'react-native';
@@ -29,6 +28,7 @@ import {
   pickRecordingDirectory,
   resetRecordingDirectoryToDefault,
 } from '../../../native/recordingStorage';
+import { appAlert } from '../../../alerts';
 
 const THEME_OPTIONS: ThemePreference[] = ['light', 'dark', 'system'];
 const LANGUAGE_OPTIONS: AppLanguage[] = ['es', 'en'];
@@ -121,7 +121,7 @@ export const PreferencesModal: React.FC<PreferencesModalProps> = ({
 
   const handlePickRecordingFolder = async () => {
     if (Platform.OS !== 'android') {
-      Alert.alert(t('common.appName'), t('account.preferencesModal.recordingFolderIosHint'));
+      appAlert(t('common.appName'), t('account.preferencesModal.recordingFolderIosHint'));
       return;
     }
     try {
@@ -130,7 +130,7 @@ export const PreferencesModal: React.FC<PreferencesModalProps> = ({
         setRecordingFolderPath(prefs.displayPath);
       }
     } catch {
-      Alert.alert(t('common.appName'), t('account.preferencesModal.recordingFolderPickError'));
+      appAlert(t('common.appName'), t('account.preferencesModal.recordingFolderPickError'));
     }
   };
 
@@ -138,7 +138,7 @@ export const PreferencesModal: React.FC<PreferencesModalProps> = ({
     try {
       await openRecordingDirectory();
     } catch {
-      Alert.alert(t('common.appName'), t('account.preferencesModal.recordingFolderOpenError'));
+      appAlert(t('common.appName'), t('account.preferencesModal.recordingFolderOpenError'));
     }
   };
 

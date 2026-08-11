@@ -18,6 +18,8 @@ interface UseStreamChatOptions {
   reconnect?: boolean;
   onLike?: (like: LikeEvent) => void;
   onStreamEnded?: (reason?: string) => void;
+  /** El vendedor canceló la oferta: llega SOLO el código de motivo (el detalle es interno). */
+  onAuctionCancelled?: (info: AuctionCancelledInfo) => void;
 }
 
 interface WsPayloadMessage {
@@ -104,6 +106,18 @@ export interface AuctionWinner {
   saleMode?: LiveOfferSaleMode;
 }
 
+/** Códigos de motivo de `auction_cancelled`; se mapean a mensajes genéricos locales. */
+export type AuctionCancelReasonCode =
+  | 'product_issue'
+  | 'listing_error'
+  | 'technical_issue';
+
+export interface AuctionCancelledInfo {
+  auctionId: string;
+  reasonCode: AuctionCancelReasonCode | string;
+  saleMode: LiveOfferSaleMode;
+}
+
 /**
  * Payload de oferta del WS (`init.auction` / `auction_start`) → estado local.
  * Subasta y compra directa comparten forma: solo cambia cómo se resuelve.
@@ -126,6 +140,7 @@ export function useStreamChat({
   reconnect = true,
   onLike,
   onStreamEnded,
+  onAuctionCancelled,
 }: UseStreamChatOptions) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [viewerCount, setViewerCount] = useState(0);
@@ -136,6 +151,12 @@ export function useStreamChat({
   const [auctionBids, setAuctionBids] = useState<AuctionBid[]>([]);
   const [auctionWinner, setAuctionWinner] = useState<AuctionWinner | null>(null);
   const [lastAuctionExtension, setLastAuctionExtension] = useState<AuctionExtension | null>(null);
+  /**
+   * Restante congelado de la oferta pausada (vendedor decidiendo si cancela).
+   * null = corriendo normal. Mientras está seteado, el countdown muestra este
+   * valor fijo y la oferta NO se auto-baja de pantalla aunque pase `ends_at`.
+   */
+  const [auctionPausedRemaining, setAuctionPausedRemaining] = useState<number | null>(null);
   const [isStreamPaused, setIsStreamPaused] = useState(false);
   const [roomCoverUrl, setRoomCoverUrl] = useState<string | null>(null);
   const [roomIntroVideoUrl, setRoomIntroVideoUrl] = useState<string | null>(null);
@@ -157,6 +178,12 @@ export function useStreamChat({
   useEffect(() => {
     onStreamEndedRef.current = onStreamEnded;
   }, [onStreamEnded]);
+
+  const onAuctionCancelledRef = useRef(onAuctionCancelled);
+
+  useEffect(() => {
+    onAuctionCancelledRef.current = onAuctionCancelled;
+  }, [onAuctionCancelled]);
 
   // Offset (segundos) entre el reloj del servidor y el del dispositivo.
   // serverNow() = reloj local + offset. Imprescindible para que la cuenta regresiva
@@ -295,9 +322,20 @@ export function useStreamChat({
               setRoomNote(typeof note === 'string' && note.trim() ? note : null);
             }
             const a = msg.payload.auction;
-            if (a && a.id && typeof a.ends_at === 'number' && a.ends_at > serverNow()) {
+            // Pausada entra aunque `ends_at` haya quedado atrás en tiempo real:
+            // el reloj está congelado y quien se une tarde ve el panel detenido.
+            const initPaused = a?.status === 'paused';
+            if (
+              a && a.id && typeof a.ends_at === 'number' &&
+              (initPaused || a.ends_at > serverNow())
+            ) {
               if (typeof a.started_at === 'number') syncClock(a.started_at);
               setAuction(toAuctionState(a));
+              setAuctionPausedRemaining(
+                initPaused && typeof a.paused_seconds_remaining === 'number'
+                  ? Math.max(0, a.paused_seconds_remaining)
+                  : null
+              );
               const bids = Array.isArray(a.bids) ? a.bids : [];
               setAuctionBids(bids.map((b: any) => ({
                 id: b.id || `${b.username}-${b.created_at}`,
@@ -308,6 +346,7 @@ export function useStreamChat({
             } else {
               setAuction(null);
               setAuctionBids([]);
+              setAuctionPausedRemaining(null);
             }
             return;
           }
@@ -320,7 +359,41 @@ export function useStreamChat({
               setAuction(toAuctionState(a));
               setAuctionBids([]);
               setLastAuctionExtension(null);
+              setAuctionPausedRemaining(null);
             }
+            return;
+          }
+          if (msg.type === 'auction_paused' && msg.payload) {
+            // El vendedor abrió el flujo de cancelación: reloj congelado, sin pujas.
+            const remaining = msg.payload.seconds_remaining;
+            setAuctionPausedRemaining(
+              typeof remaining === 'number' ? Math.max(0, remaining) : 0
+            );
+            return;
+          }
+          if (msg.type === 'auction_resumed' && msg.payload) {
+            // El vendedor desistió: el countdown retoma desde el ends_at
+            // recalculado por el servidor (misma mecánica que el anti-sniping).
+            const endsAt = msg.payload.ends_at;
+            setAuctionPausedRemaining(null);
+            if (typeof endsAt === 'number') {
+              setAuction(prev => (prev ? { ...prev, endsAt } : prev));
+            }
+            return;
+          }
+          if (msg.type === 'auction_cancelled' && msg.payload) {
+            const info: AuctionCancelledInfo = {
+              auctionId: String(msg.payload.auction_id ?? ''),
+              reasonCode: String(msg.payload.reason_code ?? ''),
+              saleMode: msg.payload.sale_mode === 'buy_now' ? 'buy_now' : 'auction',
+            };
+            // Sin ganador ni festejo: la oferta baja de pantalla y el aviso
+            // genérico lo muestra la pantalla vía onAuctionCancelled.
+            setAuction(null);
+            setAuctionBids([]);
+            setLastAuctionExtension(null);
+            setAuctionPausedRemaining(null);
+            onAuctionCancelledRef.current?.(info);
             return;
           }
           if (msg.type === 'auction_end') {
@@ -338,6 +411,7 @@ export function useStreamChat({
             setAuction(null);
             setAuctionBids([]);
             setLastAuctionExtension(null);
+            setAuctionPausedRemaining(null);
             return;
           }
           if (msg.type === 'auction_bid' && msg.payload) {
@@ -438,8 +512,14 @@ export function useStreamChat({
   const [auctionSecondsRemaining, setAuctionSecondsRemaining] = useState<number | null>(null);
 
   const now = serverNow();
-  /** Hay una oferta corriendo (subasta o compra directa): el temporizador es el mismo. */
-  const isAuctionActive = auction !== null && auction.endsAt > now;
+  /** Oferta congelada por el vendedor (flujo de cancelación): sin reloj ni pujas. */
+  const isAuctionPaused = auction !== null && auctionPausedRemaining !== null;
+  /**
+   * Hay una oferta corriendo (subasta o compra directa): el temporizador es el
+   * mismo. Pausada cuenta como activa —sigue en pantalla con el reloj quieto—
+   * aunque su `ends_at` haya quedado atrás en tiempo real.
+   */
+  const isAuctionActive = auction !== null && (isAuctionPaused || auction.endsAt > now);
   /**
    * Hay una oferta en pantalla, incluida la ventana de gracia posterior al cierre.
    * Se usa para decidir si mostrar el panel: durante la gracia el reloj marca 0
@@ -454,6 +534,11 @@ export function useStreamChat({
       setAuctionSecondsRemaining(null);
       return;
     }
+    // Pausada: el reloj queda clavado en el restante que congeló el servidor.
+    if (auctionPausedRemaining !== null) {
+      setAuctionSecondsRemaining(auctionPausedRemaining);
+      return;
+    }
     // Durante la gracia se muestra 0 (no `null`): el reloj ya llegó al final, pero
     // la oferta sigue en pantalla por si una puja tardía la reabre.
     const update = () => {
@@ -462,7 +547,7 @@ export function useStreamChat({
     update();
     const id = setInterval(update, 1000);
     return () => clearInterval(id);
-  }, [auction?.id, auction?.endsAt, serverNow]);
+  }, [auction?.id, auction?.endsAt, auctionPausedRemaining, serverNow]);
 
   /**
    * Único responsable de bajar la oferta de pantalla. Espera `AUCTION_END_GRACE_MS`
@@ -475,10 +560,14 @@ export function useStreamChat({
    */
   useEffect(() => {
     if (!auction) return;
+    // Pausada: la oferta no se auto-baja aunque el tiempo real pase `ends_at`.
+    // Sale de pantalla por `auction_cancelled`, o el resume re-arma este timer
+    // con el `ends_at` recalculado.
+    if (auctionPausedRemaining !== null) return;
     const delay = Math.max(0, (auction.endsAt - now) * 1000 + AUCTION_END_GRACE_MS);
     const t = setTimeout(() => setAuction(null), delay);
     return () => clearTimeout(t);
-  }, [auction?.id, auction?.endsAt, now]);
+  }, [auction?.id, auction?.endsAt, auctionPausedRemaining, now]);
 
   useEffect(() => {
     if (!auctionWinner) return;
@@ -505,6 +594,7 @@ export function useStreamChat({
     roomNote,
     auction,
     isAuctionActive,
+    isAuctionPaused,
     hasLiveOffer,
     offerSaleMode,
     isBuyNowActive,

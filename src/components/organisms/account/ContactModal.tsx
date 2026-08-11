@@ -7,11 +7,10 @@ import {
   View,
   StyleSheet,
   TouchableOpacity,
-  TextInput,
   Text as RNText,
-  Alert,
   Image,
 } from 'react-native';
+import { AppTextInput } from '../../atoms/AppTextInput';
 import { ImageUp } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { launchPhotoLibraryNow } from '../../../utils/mediaPicker';
@@ -23,6 +22,7 @@ import {
 import { GlassModalHeader } from '../profile/GlassModalHeader';
 import { FONT_FAMILY } from '../../../theme/typography';
 import { themeColors } from '../../../theme/colors';
+import { appAlert } from '../../../alerts';
 
 const MAX_EVIDENCE = 4;
 
@@ -81,10 +81,10 @@ export const ContactModal: React.FC<ContactModalProps> = ({ visible, onClose }) 
 
   const handleSend = () => {
     if (!message.trim()) {
-      Alert.alert(t('common.appName'), t('account.contactModal.messageRequired'));
+      appAlert(t('common.appName'), t('account.contactModal.messageRequired'));
       return;
     }
-    Alert.alert(t('common.appName'), t('account.contactModal.sendNotAvailable'));
+    appAlert(t('common.appName'), t('account.contactModal.sendNotAvailable'));
   };
 
   const canSend = message.trim().length > 0;
@@ -124,7 +124,7 @@ export const ContactModal: React.FC<ContactModalProps> = ({ visible, onClose }) 
                 <RNText style={styles.fieldLabel}>
                   {t('account.contactModal.messageLabel')}
                 </RNText>
-                <TextInput
+                <AppTextInput
                   value={message}
                   onChangeText={setMessage}
                   placeholder={t('account.contactModal.messagePlaceholder')}

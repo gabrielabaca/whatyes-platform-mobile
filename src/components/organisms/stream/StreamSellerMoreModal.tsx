@@ -29,8 +29,8 @@ export interface StreamSellerMoreModalProps {
 
 /**
  * Menú "más" del vendedor: modal centrado con una fila por acción (icono +
- * etiqueta). Reemplaza al `Alert.alert` con botones, que en Android no muestra
- * iconos y en iOS apila las opciones sin jerarquía visual.
+ * etiqueta). Reemplaza al menú de opciones tipo alert con botones, que en
+ * Android no muestra iconos y en iOS apila las opciones sin jerarquía visual.
  */
 export const StreamSellerMoreModal: React.FC<StreamSellerMoreModalProps> = ({
   visible,

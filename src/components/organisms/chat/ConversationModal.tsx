@@ -15,7 +15,6 @@ import {
   Modal,
   View,
   FlatList,
-  TextInput,
   TouchableOpacity,
   Image,
   ScrollView,
@@ -24,11 +23,11 @@ import {
   KeyboardAvoidingView,
   Keyboard,
   Platform,
-  Alert,
   Share,
   Text as RNText,
   useWindowDimensions,
 } from 'react-native';
+import { AppTextInput } from '../../atoms/AppTextInput';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Download, Plus, SendHorizontal, X } from 'lucide-react-native';
@@ -47,6 +46,7 @@ import type { UserMe } from '../../../api/types';
 import { launchPhotoLibraryNow, photosFromPickerResponse, type PickerPhoto } from '../../../utils/mediaPicker';
 import { FONT_FAMILY } from '../../../theme/typography';
 import { themeColors } from '../../../theme/colors';
+import { appAlert } from '../../../alerts';
 
 const PRIMARY = themeColors.primary;
 const G = themeColors.glass;
@@ -237,7 +237,7 @@ export const ConversationModal: React.FC<ConversationModalProps> = ({
         await Share.share({ message: url });
       }
     } catch {
-      Alert.alert(t('common.appName'), t('chat.downloadError'));
+      appAlert(t('common.appName'), t('chat.downloadError'));
     } finally {
       setDownloading(false);
     }
@@ -404,7 +404,7 @@ export const ConversationModal: React.FC<ConversationModalProps> = ({
                 >
                   <Plus size={18} color={PRIMARY} strokeWidth={2.5} />
                 </TouchableOpacity>
-                <TextInput
+                <AppTextInput
                   value={draft}
                   onChangeText={setDraft}
                   placeholder={t('chat.inputPlaceholder')}
@@ -412,6 +412,7 @@ export const ConversationModal: React.FC<ConversationModalProps> = ({
                   style={styles.input}
                   multiline
                   maxLength={4000}
+                  accessoryAppearance="dark"
                 />
                 <TouchableOpacity
                   style={[styles.sendButton, !canSend ? styles.sendButtonDisabled : null]}

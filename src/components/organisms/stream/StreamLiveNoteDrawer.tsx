@@ -1,25 +1,30 @@
 /**
- * Drawer "Notas" del vivo — Figma 698-13095. Se abre desde el botón comment_bank del rail.
+ * Notas del vivo — se abren desde el botón comment_bank del rail.
  *
- * Dos modos sobre el mismo panel:
- * - `mode="edit"` (vendedor): texto libre sobre el glass (sin caja), link dorado
- *   "Pegar notas" y CTA "Publicar". Panel alto fijo: nota arriba, acciones abajo.
- * - `mode="read"` (viewer): solo la nota publicada, sin acciones, ajustado al contenido.
- *
- * El drawer entra desde la base y tapa la barra de navegación por venir de
- * `StreamBottomSheet` (portal raíz), igual que el resto de los drawers del vivo.
+ * Dos presentaciones según el rol:
+ * - `mode="edit"` (vendedor): drawer desde la base (Figma 698-13095) con texto libre
+ *   sobre el glass (sin caja), link dorado "Pegar notas" y CTA "Publicar".
+ * - `mode="read"` (viewer): modal glass CENTRADO, mismo canon que el menú "más" del
+ *   vendedor (StreamSellerMoreModal): fade + GlassBackdrop + panel radio 24 con
+ *   header título/X; tocar el fondo cierra. Solo muestra la nota publicada.
  */
 import React, { useEffect, useState } from 'react';
 import {
   View,
   StyleSheet,
-  TextInput,
   TouchableOpacity,
   ActivityIndicator,
   Text as RNText,
+  Modal,
+  Platform,
+  ScrollView,
 } from 'react-native';
+import { X } from 'lucide-react-native';
+import { AppTextInput } from '../../atoms/AppTextInput';
 import { useTranslation } from 'react-i18next';
 import { StreamBottomSheet, streamBottomPanelStyle, streamSheetStyles } from './StreamBottomSheet';
+import { GlassBackdrop, DrawerPanelGlass, DRAWER_PANEL_FALLBACK } from '../profile/GlassBackdrop';
+import { drawerPanelGlassKey } from '../../../theme/glassTokens';
 import { ROOM_NOTE_MAX_LENGTH } from '../../../api/platformApi';
 import { readClipboardText } from '../../../utils/clipboard';
 import { FONT_FAMILY } from '../../../theme/typography';
@@ -78,20 +83,66 @@ export const StreamLiveNoteDrawer: React.FC<StreamLiveNoteDrawerProps> = ({
   const canPublish = isEdit && isDirty && !publishing;
 
   if (!isEdit) {
+    // Viewer: modal centrado (canon StreamSellerMoreModal), no drawer.
     return (
-      <StreamBottomSheet
+      <Modal
         visible={visible}
-        title={t('stream.noteDrawer.title')}
-        onClose={onClose}
-        panelStyle={streamBottomPanelStyle}
-        contentContainerStyle={styles.contentRead}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={onClose}
       >
-        {note ? (
-          <RNText style={styles.noteBody}>{note}</RNText>
-        ) : (
-          <RNText style={styles.emptyBody}>{t('stream.noteDrawer.viewerEmpty')}</RNText>
-        )}
-      </StreamBottomSheet>
+        <View style={styles.readHost}>
+          <GlassBackdrop />
+          <TouchableOpacity
+            style={StyleSheet.absoluteFill}
+            activeOpacity={1}
+            onPress={onClose}
+            accessibilityRole="button"
+            accessibilityLabel={t('common.cancel')}
+          />
+
+          <View
+            style={styles.readPanel}
+            collapsable={false}
+            {...(Platform.OS === 'ios' ? { needsOffscreenAlphaCompositing: true } : null)}
+          >
+            <DrawerPanelGlass key={drawerPanelGlassKey} />
+
+            <View style={styles.readPanelContent}>
+              <View style={styles.readHeader}>
+                <RNText style={styles.readTitle} numberOfLines={1}>
+                  {t('stream.noteDrawer.title')}
+                </RNText>
+                <TouchableOpacity
+                  onPress={onClose}
+                  hitSlop={12}
+                  style={styles.readCloseBtn}
+                  activeOpacity={0.8}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('common.cancel')}
+                >
+                  <X size={22} color={WHITE} strokeWidth={2.2} />
+                </TouchableOpacity>
+              </View>
+
+              {/* La nota puede ser larga (hasta 4000): el cuerpo scrollea dentro del
+                  panel, que se ajusta al contenido cuando la nota es corta. */}
+              <ScrollView
+                style={styles.readScroll}
+                showsVerticalScrollIndicator={false}
+                bounces={false}
+              >
+                {note ? (
+                  <RNText style={styles.noteBody}>{note}</RNText>
+                ) : (
+                  <RNText style={styles.emptyBody}>{t('stream.noteDrawer.viewerEmpty')}</RNText>
+                )}
+              </ScrollView>
+            </View>
+          </View>
+        </View>
+      </Modal>
     );
   }
 
@@ -141,7 +192,7 @@ export const StreamLiveNoteDrawer: React.FC<StreamLiveNoteDrawerProps> = ({
       {/* Figma 698:13103: texto libre directo sobre el glass, sin caja ni borde.
           Sin nota, el placeholder son las instrucciones; con nota, el campo trae el
           texto real (blanco) y el placeholder (#D9D9D9) nunca se ve. */}
-      <TextInput
+      <AppTextInput
         style={styles.input}
         value={draft}
         onChangeText={setDraft}
@@ -168,10 +219,53 @@ const styles = StyleSheet.create({
     flex: 1,
     width: '100%',
   },
-  contentRead: {
-    gap: 16,
+  /** Modal centrado del viewer — mismo host/panel que StreamSellerMoreModal. */
+  readHost: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
+  readPanel: {
     width: '100%',
-    alignItems: 'stretch',
+    maxWidth: 420,
+    maxHeight: '66%',
+    borderRadius: 24,
+    overflow: 'hidden',
+    // Dentro de un Modal nativo el blur puede no tener nada que difuminar; el
+    // color de fallback garantiza que el panel se lea siempre.
+    backgroundColor: DRAWER_PANEL_FALLBACK,
+  },
+  readPanelContent: {
+    paddingHorizontal: 24,
+    paddingVertical: 24,
+    gap: 16,
+    maxHeight: '100%',
+  },
+  readHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  readTitle: {
+    fontFamily: FONT_FAMILY.bold,
+    fontSize: 16,
+    lineHeight: 20,
+    color: WHITE,
+    flex: 1,
+    marginRight: 8,
+    includeFontPadding: false,
+  },
+  readCloseBtn: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  readScroll: {
+    flexGrow: 0,
+    width: '100%',
   },
   input: {
     flex: 1,

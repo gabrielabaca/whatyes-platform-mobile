@@ -3,11 +3,11 @@ import {
   View,
   TouchableOpacity,
   Text as RNText,
-  TextInput,
   ActivityIndicator,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
+import { AppTextInput } from '../../atoms/AppTextInput';
 import { Check, CreditCard, PieChart } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { CountrySelect } from '../../molecules/CountrySelect';
@@ -136,7 +136,7 @@ export const StartLivePillField: React.FC<{
   <View style={startLiveStyles.field}>
     <RNText style={startLiveStyles.fieldLabel}>{label}</RNText>
     <View style={startLiveStyles.fieldInputWrap}>
-      <TextInput
+      <AppTextInput
         style={startLiveStyles.fieldInput}
         value={value}
         onChangeText={onChangeText}

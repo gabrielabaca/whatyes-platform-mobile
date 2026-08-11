@@ -4,15 +4,14 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { 
-  View, 
-  ScrollView, 
-  StyleSheet, 
+import {
+  View,
+  StyleSheet,
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
-  Alert,
 } from 'react-native';
+import { KeyboardDismissScrollView } from '../../atoms/KeyboardDismissScrollView';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text } from '../../atoms/Text';
 import { Input } from '../../atoms/Input';
@@ -21,6 +20,7 @@ import { ArrowLeft, Plus, Video, Save } from 'lucide-react-native';
 import { storage } from '../../../utils/storage';
 import { useTheme } from '../../../context/ThemeContext';
 import { themeColors } from '../../../theme/colors';
+import { appAlert } from '../../../alerts';
 
 /** Relleno del acento primario: claro `primary.50`, oscuro primario translúcido. */
 const ACCENT_TINT_LIGHT = '#F1F0FE';
@@ -124,28 +124,28 @@ export const StreamConfigScreen: React.FC<StreamConfigScreenProps> = ({
 
     try {
       await storage.saveStreamDraft(draftData);
-      Alert.alert('Éxito', 'Borrador guardado correctamente');
+      appAlert('Éxito', 'Borrador guardado correctamente');
     } catch (error) {
-      Alert.alert('Error', 'No se pudo guardar el borrador');
+      appAlert('Error', 'No se pudo guardar el borrador');
     }
   };
 
   const handleAddProduct = () => {
     // Validaciones
     if (!productName.trim()) {
-      Alert.alert('Error', 'Ingresa el nombre del producto');
+      appAlert('Error', 'Ingresa el nombre del producto');
       return;
     }
     if (!productDescription.trim()) {
-      Alert.alert('Error', 'Ingresa la descripción del producto');
+      appAlert('Error', 'Ingresa la descripción del producto');
       return;
     }
     if (!productPrice || parseFloat(productPrice) <= 0) {
-      Alert.alert('Error', 'Ingresa un precio válido');
+      appAlert('Error', 'Ingresa un precio válido');
       return;
     }
     if (!productQuantity || parseInt(productQuantity) <= 0) {
-      Alert.alert('Error', 'Ingresa una cantidad válida');
+      appAlert('Error', 'Ingresa una cantidad válida');
       return;
     }
 
@@ -170,7 +170,7 @@ export const StreamConfigScreen: React.FC<StreamConfigScreenProps> = ({
   };
 
   const handleDeleteProduct = (productId: string) => {
-    Alert.alert(
+    appAlert(
       'Eliminar Producto',
       '¿Estás seguro de que quieres eliminar este producto?',
       [
@@ -206,7 +206,7 @@ export const StreamConfigScreen: React.FC<StreamConfigScreenProps> = ({
     if (onStartStream) {
       onStartStream(config);
     } else {
-      Alert.alert(
+      appAlert(
         'Stream Configurado',
         `Título: ${title}\nProductos: ${products.length}`,
         [{ text: 'OK' }]
@@ -234,7 +234,7 @@ export const StreamConfigScreen: React.FC<StreamConfigScreenProps> = ({
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.flex}
       >
-        <ScrollView 
+        <KeyboardDismissScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
@@ -465,7 +465,7 @@ export const StreamConfigScreen: React.FC<StreamConfigScreenProps> = ({
 
           {/* Spacer for button */}
           <View style={styles.bottomSpacer} />
-        </ScrollView>
+        </KeyboardDismissScrollView>
 
         {/* Footer Buttons */}
         <View style={[styles.footer, darkFooter]}>

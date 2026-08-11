@@ -19,20 +19,21 @@
 import React, { useCallback, useEffect, useRef } from 'react';
 import {
   View,
-  ScrollView,
   StyleSheet,
   Text as RNText,
-  TextInput,
   TouchableOpacity,
   Image,
   ActivityIndicator,
-  Alert,
-  Platform,
 } from 'react-native';
+import { AppTextInput } from '../../atoms/AppTextInput';
+import { KeyboardDismissScrollView } from '../../atoms/KeyboardDismissScrollView';
 import { useTranslation } from 'react-i18next';
 import { ArrowRight, ChevronRight, ImageUp, Minus, Plus, X } from 'lucide-react-native';
 import { useInterestCategories } from '../../../hooks/useInterestCategories';
-import { useSellerLiveAddProduct } from '../../../hooks/useSellerLiveAddProduct';
+import {
+  AUCTION_DURATION_OPTIONS,
+  useSellerLiveAddProduct,
+} from '../../../hooks/useSellerLiveAddProduct';
 import { MAX_PRODUCT_PHOTOS } from '../../../hooks/useAddProductForm';
 import { SaleModeTabs } from '../../molecules/stream/SaleModeTabs';
 import { AddProductPackageTierDrawer } from '../addProduct/AddProductPackageTierDrawer';
@@ -49,12 +50,16 @@ import { FONT_FAMILY } from '../../../theme/typography';
 import { themeColors } from '../../../theme/colors';
 import type { LiveSaleMode, ProductListScope } from '../../../api/types';
 import type { SaleFormatId } from '../../../constants/productWeightPresets';
+import { appAlert } from '../../../alerts';
 
 const RAFFLE_MODES = [
   { id: 'followers_only', titleKey: 'stream.raffleFollowersOnly', descKey: 'stream.raffleFollowersOnlyDesc' },
   { id: 'everyone', titleKey: 'stream.raffleEveryone', descKey: 'stream.raffleEveryoneDesc' },
   { id: 'buyers', titleKey: 'stream.raffleBuyers', descKey: 'stream.raffleBuyersDesc' },
 ] as const;
+
+/** Marca de campo obligatorio (tarea 23). Sufijo visual, no va a la i18n compartida. */
+const req = (label: string) => `${label} *`;
 
 /** Select glass: la variante clara (`AddProductSelectField`) la usa la pantalla de alta. */
 const GlassSelectField: React.FC<{
@@ -159,7 +164,7 @@ export const SellerAddProductDrawer: React.FC<SellerAddProductDrawerProps> = ({
       modalRef.current?.dismiss();
       return;
     }
-    Alert.alert(
+    appAlert(
       t('stream.addProductDiscardTitle'),
       t('stream.addProductDiscardBody'),
       [
@@ -189,6 +194,8 @@ export const SellerAddProductDrawer: React.FC<SellerAddProductDrawerProps> = ({
       backdropAccessibilityLabel={t('common.close')}
       /** Scroll propio: los sub-drawers van fuera de él, sin sumar gaps al contenido. */
       scrollable={false}
+      /** Tarea 22: con el teclado abierto las CTAs se desmontan en vez de montarse sobre él. */
+      hideFooterOnKeyboard
       /**
        * Los sub-drawers van en el slot `overlay`, que es absoluto a la raíz del modal:
        * como children quedaban dentro del cuerpo y se anclaban arriba del footer en vez
@@ -265,11 +272,9 @@ export const SellerAddProductDrawer: React.FC<SellerAddProductDrawerProps> = ({
         </View>
       }
     >
-      <ScrollView
+      <KeyboardDismissScrollView
         style={styles.scroll}
         contentContainerStyle={addProductGlassStyles.scrollContent}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
         showsVerticalScrollIndicator={false}
         bounces={false}
       >
@@ -301,7 +306,7 @@ export const SellerAddProductDrawer: React.FC<SellerAddProductDrawerProps> = ({
             activeOpacity={0.85}
           >
             <RNText style={[addProductStyles.photoBoxLabel, addProductGlassStyles.photoBoxLabel]}>
-              {t('addProduct.photosLabel')}
+              {req(t('addProduct.photosLabel'))}
             </RNText>
             <ImageUp size={24} color={themeColors.glass.textMuted} />
           </TouchableOpacity>
@@ -333,7 +338,7 @@ export const SellerAddProductDrawer: React.FC<SellerAddProductDrawerProps> = ({
 
         <View style={addProductStyles.fields}>
           <GlassSelectField
-            label={t('addProduct.fieldCategory')}
+            label={req(t('addProduct.fieldCategory'))}
             value={form.categoryLabel}
             placeholder={t('addProduct.fieldCategoryPlaceholder')}
             onPress={() => form.setActiveDrawer('category')}
@@ -341,9 +346,9 @@ export const SellerAddProductDrawer: React.FC<SellerAddProductDrawerProps> = ({
 
           <View style={addProductStyles.field}>
             <RNText style={[addProductStyles.fieldLabel, addProductGlassStyles.fieldLabel]}>
-              {t('addProduct.fieldTitle')}
+              {req(t('addProduct.fieldTitle'))}
             </RNText>
-            <TextInput
+            <AppTextInput
               style={[addProductStyles.pillInput, addProductGlassStyles.surface, addProductGlassStyles.inputText]}
               value={form.title}
               onChangeText={form.setTitle}
@@ -354,9 +359,9 @@ export const SellerAddProductDrawer: React.FC<SellerAddProductDrawerProps> = ({
 
           <View style={addProductStyles.field}>
             <RNText style={[addProductStyles.fieldLabel, addProductGlassStyles.fieldLabel]}>
-              {t('addProduct.fieldDescription')}
+              {req(t('addProduct.fieldDescription'))}
             </RNText>
-            <TextInput
+            <AppTextInput
               style={[
                 addProductStyles.pillInput,
                 addProductStyles.pillInputMultiline,
@@ -373,7 +378,7 @@ export const SellerAddProductDrawer: React.FC<SellerAddProductDrawerProps> = ({
 
           <View style={addProductStyles.field}>
             <RNText style={[addProductStyles.fieldLabel, addProductGlassStyles.fieldLabel]}>
-              {t('addProduct.fieldQuantity')}
+              {req(t('addProduct.fieldQuantity'))}
             </RNText>
             <View style={styles.stepperRow}>
               <TouchableOpacity
@@ -404,11 +409,11 @@ export const SellerAddProductDrawer: React.FC<SellerAddProductDrawerProps> = ({
           {saleMode === 'buy_now' ? (
             <View style={addProductStyles.field}>
               <RNText style={[addProductStyles.fieldLabel, addProductGlassStyles.fieldLabel]}>
-                {t('addProduct.fieldPrice')}
+                {req(t('addProduct.fieldPrice'))}
               </RNText>
               <View style={[addProductStyles.priceInputWrap, addProductGlassStyles.surface]}>
                 <RNText style={[addProductStyles.pricePrefix, addProductGlassStyles.inputText]}>$</RNText>
-                <TextInput
+                <AppTextInput
                   style={[addProductStyles.priceInput, addProductGlassStyles.inputText]}
                   value={form.price}
                   onChangeText={form.setPrice}
@@ -418,43 +423,6 @@ export const SellerAddProductDrawer: React.FC<SellerAddProductDrawerProps> = ({
                 />
               </View>
             </View>
-          ) : null}
-
-          {saleMode === 'auction' ? (
-            <>
-              <View style={addProductStyles.field}>
-                <RNText style={[addProductStyles.fieldLabel, addProductGlassStyles.fieldLabel]}>
-                  {t('stream.addProductMinBid')}
-                </RNText>
-                <View style={[addProductStyles.priceInputWrap, addProductGlassStyles.surface]}>
-                  <RNText style={[addProductStyles.pricePrefix, addProductGlassStyles.inputText]}>$</RNText>
-                  <TextInput
-                    style={[addProductStyles.priceInput, addProductGlassStyles.inputText]}
-                    value={form.minBidPrice}
-                    onChangeText={form.setMinBidPrice}
-                    placeholder={t('addProduct.fieldMinOfferPlaceholder')}
-                    placeholderTextColor={themeColors.glass.placeholder}
-                    keyboardType="decimal-pad"
-                  />
-                </View>
-              </View>
-              <View style={addProductStyles.field}>
-                <RNText style={[addProductStyles.fieldLabel, addProductGlassStyles.fieldLabel]}>
-                  {t('stream.addProductAuctionTime')}
-                </RNText>
-                <View style={[addProductStyles.priceInputWrap, addProductGlassStyles.surface]}>
-                  <TextInput
-                    style={[addProductStyles.priceInput, addProductGlassStyles.inputText]}
-                    value={form.auctionDuration}
-                    onChangeText={form.setAuctionDuration}
-                    keyboardType="number-pad"
-                    placeholder="60"
-                    placeholderTextColor={themeColors.glass.placeholder}
-                  />
-                  <RNText style={styles.durationSuffix}>{t('stream.addProductSeconds')}</RNText>
-                </View>
-              </View>
-            </>
           ) : null}
 
           {saleMode === 'raffle' ? (
@@ -489,18 +457,78 @@ export const SellerAddProductDrawer: React.FC<SellerAddProductDrawerProps> = ({
             </View>
           ) : null}
 
+          {/* Orden Figma 698:11849: Peso antes de los campos de subasta; SKU al final. */}
           <GlassSelectField
-            label={t('addProduct.fieldWeight')}
+            label={req(t('addProduct.fieldWeight'))}
             value={form.weightLabel}
             placeholder={t('addProduct.fieldWeightPlaceholder')}
             onPress={() => form.setActiveDrawer('weight')}
           />
 
+          {saleMode === 'auction' ? (
+            <>
+              <View style={addProductStyles.field}>
+                <RNText style={[addProductStyles.fieldLabel, addProductGlassStyles.fieldLabel]}>
+                  {req(t('stream.addProductMinBid'))}
+                </RNText>
+                <View style={[addProductStyles.priceInputWrap, addProductGlassStyles.surface]}>
+                  <RNText style={[addProductStyles.pricePrefix, addProductGlassStyles.inputText]}>$</RNText>
+                  <AppTextInput
+                    style={[addProductStyles.priceInput, addProductGlassStyles.inputText]}
+                    value={form.minBidPrice}
+                    onChangeText={form.setMinBidPrice}
+                    placeholder={t('addProduct.fieldMinOfferPlaceholder')}
+                    placeholderTextColor={themeColors.glass.placeholder}
+                    keyboardType="decimal-pad"
+                  />
+                </View>
+              </View>
+              <View style={addProductStyles.field}>
+                <RNText style={[addProductStyles.fieldLabel, addProductGlassStyles.fieldLabel]}>
+                  {req(t('stream.addProductAuctionTime'))}
+                </RNText>
+                {/* Cards de selección única (Figma 1094:780): fijan la duración y el tope de extensión. */}
+                <View style={styles.durationRow}>
+                  {AUCTION_DURATION_OPTIONS.map((seconds) => {
+                    const active = form.auctionDuration === seconds;
+                    return (
+                      <TouchableOpacity
+                        key={seconds}
+                        style={[
+                          styles.durationCard,
+                          addProductGlassStyles.surface,
+                          active && styles.durationCardOn,
+                        ]}
+                        onPress={() => form.setAuctionDuration(seconds)}
+                        activeOpacity={0.85}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: active }}
+                      >
+                        <RNText style={styles.durationCardText}>{`${seconds}s`}</RNText>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+                <View style={styles.extensionInfo}>
+                  <RNText style={styles.extensionTitle}>
+                    {t('stream.auctionExtensionTitle')}
+                  </RNText>
+                  <RNText style={styles.extensionSubtitle}>
+                    {t('stream.auctionExtensionSubtitle')}
+                  </RNText>
+                  <RNText style={styles.extensionDesc}>
+                    {t('stream.auctionExtensionDesc', { seconds: form.auctionDuration })}
+                  </RNText>
+                </View>
+              </View>
+            </>
+          ) : null}
+
           <View style={addProductStyles.field}>
             <RNText style={[addProductStyles.fieldLabel, addProductGlassStyles.fieldLabel]}>
               {t('addProduct.fieldSku')}
             </RNText>
-            <TextInput
+            <AppTextInput
               style={[addProductStyles.pillInput, addProductGlassStyles.surface, addProductGlassStyles.inputText]}
               value={form.sku}
               onChangeText={form.setSku}
@@ -510,7 +538,7 @@ export const SellerAddProductDrawer: React.FC<SellerAddProductDrawerProps> = ({
             />
           </View>
         </View>
-      </ScrollView>
+      </KeyboardDismissScrollView>
 
     </GlassFullScreenModal>
   );
@@ -546,12 +574,56 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: themeColors.glass.text,
   },
-  durationSuffix: {
+  /** Cards 10s/7s/5s — geometría Figma 1094:784 (45 de alto, radio 8), skin glass. */
+  durationRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  durationCard: {
+    flex: 1,
+    minHeight: 45,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+  },
+  durationCardOn: {
+    borderColor: themeColors.primary,
+    backgroundColor: 'rgba(104, 92, 240, 0.25)',
+  },
+  durationCardText: {
     fontFamily: FONT_FAMILY.semibold,
-    fontSize: 12,
+    fontSize: 14,
     lineHeight: 20,
     color: themeColors.glass.text,
-    marginLeft: 8,
+  },
+  /**
+   * Bloque informativo de la extensión anti-sniping (Figma 1094:770). Sin el
+   * toggle del diseño: la extensión no es configurable por producto en backend.
+   */
+  extensionInfo: {
+    gap: 8,
+    marginTop: 8,
+  },
+  extensionTitle: {
+    fontFamily: FONT_FAMILY.semibold,
+    fontSize: 16,
+    lineHeight: 20,
+    color: themeColors.glass.text,
+  },
+  extensionSubtitle: {
+    fontFamily: FONT_FAMILY.semibold,
+    fontSize: 14,
+    lineHeight: 20,
+    color: themeColors.glass.textMuted,
+  },
+  extensionDesc: {
+    fontFamily: FONT_FAMILY.regular,
+    fontSize: 12,
+    lineHeight: 20,
+    color: themeColors.glass.textMuted,
   },
   raffleGroup: {
     gap: 24,

@@ -9,7 +9,6 @@ import {
   Image,
   StyleSheet,
   ActivityIndicator,
-  Alert,
   Text as RNText,
   useWindowDimensions,
 } from 'react-native';
@@ -45,6 +44,7 @@ import { FONT_FAMILY } from '../../theme/typography';
 import { themeColors } from '../../theme/colors';
 import { useTheme } from '../../context/ThemeContext';
 import type { UserShowItem } from '../../api/platformApi';
+import { appAlert } from '../../alerts';
 
 const COVER_H = 164;
 const H_PAD = 16;
@@ -105,7 +105,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
     tab === 'reviews'
   );
 
-  const placeholder = () => Alert.alert(t('common.appName'), t('home.placeholderScreen'));
+  const placeholder = () => appAlert(t('common.appName'), t('home.placeholderScreen'));
 
   // El botón de mensajes existe en ambas variantes (Figma 698:10969): en un perfil
   // ajeno inicia el chat con ese usuario; en el propio abre la lista de chats.

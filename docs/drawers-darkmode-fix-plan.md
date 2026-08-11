@@ -222,6 +222,16 @@ salvo los 3 colores unificados.
    del modo bottom-panel (`:273-287`) igual que el full (`:217`), y envolver el panel en
    `KeyboardAvoidingView behavior="height"` SOLO Android cuando hay teclado visible (ya
    trackea el estado en `:114-123`).
+
+   > **RESUELTO (ago 2026), distinto a lo planeado.** No se usan insets de scroll ni KAV: el
+   > panel entero se levanta con `bottom: keyboardOffset`. En iOS el offset es la altura del
+   > teclado. En Android **no alcanza** con el `adjustResize` de la activity —no aplica a
+   > pantallas fullscreen (el vivo oculta la status bar) ni dentro de un `Modal` RN, que es
+   > otra ventana—, así que se mide el solapamiento real entre el teclado (`endCoordinates
+   > .screenY`) y el borde inferior del host (`measureInWindow`, remedido en cada relayout).
+   > Donde el resize sí funcionó ese solapamiento da 0, así que nunca se compensa doble y no
+   > hace falta prop por drawer. El modo full-panel descuenta el mismo valor por `paddingBottom`
+   > para que el footer fijo quede sobre el teclado.
 2. **`maxHeight` ≠ altura fija:** separar los conceptos — `panelStyle.maxHeight` debe volver a
    ser solo tope del hug; agregar prop explícita `fillToMaxHeight?: boolean` para los casos que
    realmente quieren panel fijo (`StreamRoomProductsDrawer` sí; `SellerAddProductTypeDrawer` no).

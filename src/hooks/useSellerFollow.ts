@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Alert } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { followUser, unfollowUser } from '../api/profileApi';
 import { storage } from '../utils/storage';
+import { appAlert } from '../alerts';
 
 export interface UseSellerFollowOptions {
   sellerUserId: string | null | undefined;
@@ -48,7 +48,7 @@ export function useSellerFollow({
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : t('profile.followError');
-      Alert.alert(t('common.appName'), msg);
+      appAlert(t('common.appName'), msg);
     } finally {
       setFollowLoading(false);
     }

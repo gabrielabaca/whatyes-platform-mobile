@@ -1,4 +1,3 @@
-import { Alert } from 'react-native';
 import {
   launchCamera,
   launchImageLibrary,
@@ -7,6 +6,7 @@ import {
   type ImagePickerResponse,
 } from 'react-native-image-picker';
 import { deferMediaPicker } from './deferMediaPicker';
+import { appAlert } from '../alerts';
 
 export interface PickerPhoto {
   uri: string;
@@ -105,5 +105,5 @@ export function runPhotoCameraPicker(
 }
 
 export function showMediaPickerError(title: string, message: string): void {
-  Alert.alert(title, message);
+  appAlert(title, message);
 }

@@ -9,12 +9,11 @@ import {
   View,
   KeyboardAvoidingView,
   Platform,
-  ScrollView,
   ActivityIndicator,
-  Alert,
   TouchableOpacity,
-  TextInput,
 } from 'react-native';
+import { AppTextInput } from '../../atoms/AppTextInput';
+import { KeyboardDismissScrollView } from '../../atoms/KeyboardDismissScrollView';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppDatePickerSheet } from '../../molecules/AppDatePickerSheet';
 import { ArrowLeft, CalendarDays, Check, Eye, EyeOff } from 'lucide-react-native';
@@ -38,6 +37,7 @@ import { themeColors } from '../../../theme/colors';
 import { useTheme } from '../../../context/ThemeContext';
 import { storage } from '../../../utils/storage';
 import { isValidEmail, passwordMeetsPolicy } from '../../../utils/formValidation';
+import { appAlert } from '../../../alerts';
 
 /** Nombre para API cuando el registro comprador solo pide email. */
 function nameFromEmail(email: string): string {
@@ -257,7 +257,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
         setRegisteredUserUuid(response.data.uuid);
         setShowVerification(true);
       } else {
-        Alert.alert(t('common.success'), t('register.createdBuyer'), [
+        appAlert(t('common.success'), t('register.createdBuyer'), [
           {
             text: t('common.ok'),
             onPress: () => {
@@ -268,7 +268,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
         ]);
       }
     } catch (error) {
-      Alert.alert(t('common.error'), registerApiErrorMessage(error));
+      appAlert(t('common.error'), registerApiErrorMessage(error));
     } finally {
       setIsLoading(false);
     }
@@ -280,7 +280,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
       await storage.setBuyerOnboardingUiStep(null);
       await activateSessionFromTokens();
     } catch {
-      Alert.alert(t('common.error'), t('buyerOnboarding.sessionError'));
+      appAlert(t('common.error'), t('buyerOnboarding.sessionError'));
       return;
     }
     setPostVerifyStep(null);
@@ -304,9 +304,9 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
       await saveBuyerInterests(categoryUuids);
     } catch (error) {
       if (error instanceof ApiError) {
-        Alert.alert(t('common.error'), error.message);
+        appAlert(t('common.error'), error.message);
       } else {
-        Alert.alert(t('common.error'), t('buyerOnboarding.interestsSaveError'));
+        appAlert(t('common.error'), t('buyerOnboarding.interestsSaveError'));
       }
       return;
     }
@@ -341,9 +341,9 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
               });
             } catch (error) {
               if (error instanceof ApiError) {
-                Alert.alert(t('common.error'), error.message);
+                appAlert(t('common.error'), error.message);
               } else {
-                Alert.alert(t('common.error'), t('buyerOnboarding.profileSaveError'));
+                appAlert(t('common.error'), t('buyerOnboarding.profileSaveError'));
               }
               return;
             }
@@ -405,9 +405,8 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         className="flex-1"
       >
-        <ScrollView
+        <KeyboardDismissScrollView
           contentContainerStyle={{ flexGrow: 1 }}
-          keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
           <View className="flex-1 px-6 pt-8 pb-6">
@@ -432,7 +431,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                 <Text className="text-[10px] text-[#34363E] dark:text-night-muted mb-2 tracking-[0.05px]">
                   {t('register.email')}
                 </Text>
-                <TextInput
+                <AppTextInput
                   value={email}
                   onChangeText={(v) => {
                     setEmail(v);
@@ -515,7 +514,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                   {t('register.password')}
                 </Text>
                 <View className="relative">
-                  <TextInput
+                  <AppTextInput
                     value={password}
                     onChangeText={(v) => {
                       setPassword(v);
@@ -562,7 +561,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                   {t('register.confirmPassword')}
                 </Text>
                 <View className="relative">
-                  <TextInput
+                  <AppTextInput
                     value={repeatPassword}
                     onChangeText={(v) => {
                       setRepeatPassword(v);
@@ -641,7 +640,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
               </View>
             </View>
           </View>
-        </ScrollView>
+        </KeyboardDismissScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

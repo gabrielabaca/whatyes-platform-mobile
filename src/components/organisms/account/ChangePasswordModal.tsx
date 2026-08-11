@@ -10,8 +10,8 @@ import {
   TextInput,
   Text as RNText,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
+import { AppTextInput } from '../../atoms/AppTextInput';
 import { Eye, EyeOff } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import {
@@ -28,6 +28,7 @@ import {
   changePasswordVerifyCode,
   ApiError,
 } from '../../../api/authApi';
+import { appAlert } from '../../../alerts';
 
 const OTP_LENGTH = 4;
 const RESEND_COOLDOWN_SEC = 60;
@@ -118,7 +119,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
         e instanceof ApiError
           ? e.message
           : t('account.changePasswordModal.sendCodeError');
-      Alert.alert(t('common.error'), msg);
+      appAlert(t('common.error'), msg);
     } finally {
       setLoading(false);
     }
@@ -139,7 +140,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
         e instanceof ApiError
           ? e.message
           : t('account.changePasswordModal.sendCodeError');
-      Alert.alert(t('common.error'), msg);
+      appAlert(t('common.error'), msg);
     } finally {
       setLoading(false);
     }
@@ -185,7 +186,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
         code: code.trim(),
         new_password: newPassword,
       });
-      Alert.alert(
+      appAlert(
         t('account.changePasswordModal.successTitle'),
         t('account.changePasswordModal.successBody'),
         [{ text: t('common.ok'), onPress: handleClose }]
@@ -195,7 +196,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
         e instanceof ApiError
           ? e.message
           : t('account.changePasswordModal.saveError');
-      Alert.alert(t('common.error'), msg);
+      appAlert(t('common.error'), msg);
     } finally {
       setLoading(false);
     }
@@ -350,7 +351,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
                     {t('account.changePasswordModal.codeLabel')}
                   </RNText>
                   <View style={styles.otpRow}>
-                    <TextInput
+                    <AppTextInput
                       ref={otpInputRef}
                       value={code}
                       onChangeText={(value) => {
@@ -400,7 +401,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
                     {t('account.changePasswordModal.newPassword')}
                   </RNText>
                   <View style={styles.passwordWrap}>
-                    <TextInput
+                    <AppTextInput
                       value={newPassword}
                       onChangeText={(v) => {
                         setNewPassword(v);
@@ -435,7 +436,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
                     {t('account.changePasswordModal.confirmPassword')}
                   </RNText>
                   <View style={styles.passwordWrap}>
-                    <TextInput
+                    <AppTextInput
                       value={confirmPassword}
                       onChangeText={(v) => {
                         setConfirmPassword(v);

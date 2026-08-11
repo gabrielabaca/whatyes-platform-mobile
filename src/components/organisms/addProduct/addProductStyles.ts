@@ -218,11 +218,12 @@ export const addProductStyles = StyleSheet.create({
   field: {
     gap: 8,
   },
+  /** Label de campo — Figma 698:11679: Mulish Regular 12/18, tracking 0.06. */
   fieldLabel: {
     fontFamily: FONT_FAMILY.regular,
-    fontSize: 10,
+    fontSize: 12,
     lineHeight: 18,
-    letterSpacing: 0.5,
+    letterSpacing: 0.06,
     color: ADD_PRODUCT_COLORS.text,
   },
   pillInput: {

@@ -8,11 +8,10 @@ import {
   StyleSheet,
   TouchableOpacity,
   Image,
-  TextInput,
   Text as RNText,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
+import { AppTextInput } from '../../atoms/AppTextInput';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import {
   GlassFullScreenModal,
@@ -27,6 +26,7 @@ import { IconUser } from '../../icons';
 import { FONT_FAMILY } from '../../../theme/typography';
 import { themeColors } from '../../../theme/colors';
 import { updateOwnProfile, type UserPublicProfile } from '../../../api/profileApi';
+import { appAlert } from '../../../alerts';
 
 const COVER_H = 164;
 
@@ -82,7 +82,7 @@ export const EditProfileDrawer: React.FC<EditProfileDrawerProps> = ({
   const handleSave = async () => {
     const trimmedName = displayName.trim();
     if (!trimmedName) {
-      Alert.alert(t('common.appName'), t('profile.editNameRequired'));
+      appAlert(t('common.appName'), t('profile.editNameRequired'));
       return;
     }
     setSaving(true);
@@ -95,7 +95,7 @@ export const EditProfileDrawer: React.FC<EditProfileDrawerProps> = ({
       handleClose();
     } catch (e) {
       const msg = e instanceof Error ? e.message : t('profile.editSaveError');
-      Alert.alert(t('common.appName'), msg);
+      appAlert(t('common.appName'), msg);
     } finally {
       setSaving(false);
     }
@@ -204,7 +204,7 @@ const EditField: React.FC<{
   <View style={styles.field}>
     <RNText style={styles.fieldLabel}>{label}</RNText>
     <View style={[styles.fieldInputWrap, multiline && styles.fieldInputWrapMultiline]}>
-      <TextInput
+      <AppTextInput
         value={value}
         onChangeText={onChangeText}
         style={[styles.fieldInput, inputStyle]}

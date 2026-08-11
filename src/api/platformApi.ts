@@ -885,6 +885,77 @@ export function scheduleCatalogProduct(
   });
 }
 
+/** Motivos de cancelación de la oferta en vivo (tarea 18). El viewer solo ve el
+ * mensaje genérico asociado al código; `details` es interno del vendedor. */
+export type AuctionCancelReasonCode =
+  | 'product_issue'
+  | 'listing_error'
+  | 'technical_issue';
+
+/** Tope del backend (`CancelAuctionRequest.details` en seller_room_catalog_schema.py). */
+export const AUCTION_CANCEL_DETAILS_MAX_LENGTH = 500;
+
+export interface AuctionLifecycleResponse {
+  auction_id: string;
+  status: string;
+  /** Restante congelado en pausa; null tras cancelar. */
+  seconds_remaining: number | null;
+  /** Cierre vigente (recalculado al reanudar); null tras cancelar. */
+  ends_at: number | null;
+  server_time: number;
+}
+
+async function postRoomAuctionAction(
+  accessToken: string,
+  roomId: string,
+  action: 'pause' | 'resume' | 'cancel',
+  body?: Record<string, unknown>,
+): Promise<AuctionLifecycleResponse> {
+  const res = await fetch(
+    `${PLATFORM_HTTP_URL}/me/rooms/${encodeURIComponent(roomId)}/auction/${action}`,
+    {
+      method: 'POST',
+      headers: { ...authHeaders(accessToken), 'Content-Type': 'application/json' },
+      body: body ? JSON.stringify(body) : undefined,
+    },
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    const raw = (err as { detail?: unknown }).detail;
+    const msg = formatPlatformErrorDetail(raw) || `auction ${action}: ${res.status}`;
+    throw new Error(msg);
+  }
+  return res.json() as Promise<AuctionLifecycleResponse>;
+}
+
+/** Congela la oferta en vivo (timer detenido, sin pujas) mientras el vendedor decide. */
+export function pauseRoomAuction(
+  accessToken: string,
+  roomId: string,
+): Promise<AuctionLifecycleResponse> {
+  return postRoomAuctionAction(accessToken, roomId, 'pause');
+}
+
+/** Reanuda la oferta pausada desde el tiempo restante en que quedó. */
+export function resumeRoomAuction(
+  accessToken: string,
+  roomId: string,
+): Promise<AuctionLifecycleResponse> {
+  return postRoomAuctionAction(accessToken, roomId, 'resume');
+}
+
+/** Cancela la oferta con motivo. `details` queda en backend; nunca lo ven los viewers. */
+export function cancelRoomAuction(
+  accessToken: string,
+  roomId: string,
+  body: { reasonCode: AuctionCancelReasonCode; details: string },
+): Promise<AuctionLifecycleResponse> {
+  return postRoomAuctionAction(accessToken, roomId, 'cancel', {
+    reason_code: body.reasonCode,
+    details: body.details,
+  });
+}
+
 /** Alias del plan de flujo seller */
 export const setActiveRoomProduct = setActiveCatalogProduct;
 export const pinRoomProduct = pinCatalogProduct;

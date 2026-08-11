@@ -4,7 +4,6 @@ import {
   Image,
   Text as RNText,
   StyleSheet,
-  Alert,
   TouchableOpacity,
 } from 'react-native';
 import { Star, Eye, X } from 'lucide-react-native';
@@ -13,6 +12,7 @@ import { StreamGlassPill } from '../../atoms/stream/StreamGlassPill';
 import { StreamGradientButton } from '../../atoms/stream/StreamGradientButton';
 import { FONT_FAMILY } from '../../../theme/typography';
 import { STREAM_COLORS } from './streamTokens';
+import { appAlert } from '../../../alerts';
 
 export type StreamSellerHeaderVariant = 'buyer' | 'seller';
 
@@ -50,7 +50,7 @@ export const StreamSellerHeader: React.FC<StreamSellerHeaderProps> = ({
       onFollowPress();
       return;
     }
-    Alert.alert(t('common.appName'), t('stream.comingSoon'));
+    appAlert(t('common.appName'), t('stream.comingSoon'));
   };
 
   const identity = (

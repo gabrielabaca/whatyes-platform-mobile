@@ -12,8 +12,6 @@ import {
   Image,
   StyleSheet,
   ActivityIndicator,
-  Alert,
-  TextInput,
   Text as RNText,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -22,6 +20,7 @@ import Video from 'react-native-video';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { IconChevronLeft, IconShare, IconBell, IconChat } from '../../icons';
 import { KeyboardDismissScrollView } from '../../atoms/KeyboardDismissScrollView';
+import { AppTextInput } from '../../atoms/AppTextInput';
 import { StarRatingInput } from '../../molecules/profile/StarRatingInput';
 import { formatStreamPrice } from '../../atoms/stream/StreamPriceText';
 import { useSellerFollow } from '../../../hooks/useSellerFollow';
@@ -42,6 +41,7 @@ import { storage } from '../../../utils/storage';
 import { FONT_FAMILY } from '../../../theme/typography';
 import { themeColors } from '../../../theme/colors';
 import { useTheme } from '../../../context/ThemeContext';
+import { appAlert } from '../../../alerts';
 
 const PRIMARY = themeColors.primary;
 /** Paleta oscura: se aplica inline sobre los estilos estáticos (claro sin cambios). */
@@ -154,7 +154,7 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
   // Sin @react-native-clipboard/clipboard instalado: se muestra el número completo
   // para copiar manualmente (agregar la dependencia habilita copia real).
   const copyToClipboard = (value: string) => {
-    Alert.alert(t('activity.orderNumber'), value);
+    appAlert(t('activity.orderNumber'), value);
   };
 
   const submitReview = async () => {
@@ -172,7 +172,7 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
       setReviewSent(true);
     } catch (e) {
       const msg = e instanceof Error ? e.message : t('common.error');
-      Alert.alert(t('common.appName'), msg);
+      appAlert(t('common.appName'), msg);
     } finally {
       setReviewSending(false);
     }
@@ -222,7 +222,7 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
         </TouchableOpacity>
         <RNText style={[styles.headerTitle, darkText]}>{t('activity.detailTitle')}</RNText>
         <TouchableOpacity
-          onPress={() => Alert.alert(t('common.appName'), t('home.placeholderScreen'))}
+          onPress={() => appAlert(t('common.appName'), t('home.placeholderScreen'))}
           hitSlop={12}
         >
           <IconShare size={22} color={PRIMARY} />
@@ -478,7 +478,7 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
                 onPress={() =>
                   onStartChat
                     ? onStartChat(sellerId)
-                    : Alert.alert(t('common.appName'), t('home.placeholderScreen'))
+                    : appAlert(t('common.appName'), t('home.placeholderScreen'))
                 }
                 accessibilityRole="button"
                 accessibilityLabel={t('profile.messageSeller')}
@@ -559,7 +559,7 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
               <RNText style={[styles.reviewFieldLabel, darkMuted]}>
                 {t('activity.reviewMessage')}
               </RNText>
-              <TextInput
+              <AppTextInput
                 style={[styles.reviewInput, darkHairline, darkRow, darkText]}
                 value={reviewMessage}
                 onChangeText={setReviewMessage}
@@ -631,7 +631,7 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
           <RNText style={[styles.cardTitle, darkText]}>{t('activity.needHelp')}</RNText>
           <TouchableOpacity
             style={styles.followBtn}
-            onPress={() => Alert.alert(t('common.appName'), t('home.placeholderScreen'))}
+            onPress={() => appAlert(t('common.appName'), t('home.placeholderScreen'))}
             activeOpacity={0.85}
           >
             <RNText style={styles.followBtnText}>{t('activity.contactSupport')}</RNText>

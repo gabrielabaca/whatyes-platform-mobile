@@ -2,7 +2,6 @@ import React, { useRef, useState, useEffect } from 'react';
 import {
   View,
   StyleSheet,
-  Alert,
   Animated,
   PanResponder,
   type LayoutChangeEvent,
@@ -27,12 +26,17 @@ import { formatStreamPrice } from '../../atoms/stream/StreamPriceText';
 import { PulpoLogo } from '../../atoms/stream/PulpoLogo';
 import { STREAM_COLORS, STREAM_RADIUS } from './streamTokens';
 import { FONT_FAMILY } from '../../../theme/typography';
+import { appAlert } from '../../../alerts';
 
 /**
  * Slide-to-bid clásico: la perilla arranca en el extremo izquierdo y recorre
  * TODO el track; el relleno degradado la sigue y el texto se desvanece con el
- * arrastre. El pulpo espera a la derecha, crece al acercarse la perilla y
- * celebra (pop + meneo + háptica) al confirmar la oferta.
+ * arrastre. El pulpo espera a la derecha y crece al acercarse la perilla.
+ *
+ * La oferta sale en el mismo instante en que se confirma y la perilla vuelve a
+ * su lugar sin animación de celebración: el festejo son los pulpitos flotantes
+ * (FloatingBids), que llegan por WS y ven todos — vendedor incluido. Así el
+ * comprador puede volver a ofertar sin esperar a que termine ninguna animación.
  */
 const TRACK_HEIGHT = 52;
 const TRACK_PAD = 4;
@@ -70,9 +74,12 @@ export interface StreamBidBarProps {
    * `bid` (default): "Ofertar $X" y el monto es la puja sugerida.
    * `buy_now`: "Comprar ahora $X" y el monto es el precio fijo del producto.
    * El gesto y la animación son los mismos en ambos modos.
+   * `idle`: no hay oferta en curso — la barra se muestra igual, inerte y con
+   * "Esperando subasta..." (no se oculta, para que el comprador sepa dónde va
+   * a aparecer la acción). Ignora `bidAmount` y `onBid`.
    */
-  mode?: 'bid' | 'buy_now';
-  /** Muestra un aviso con el look del vivo; sin esto se cae al Alert nativo. */
+  mode?: 'bid' | 'buy_now' | 'idle';
+  /** Muestra un aviso con el look del vivo; sin esto se cae a `appAlert`. */
   onNotify?: (text: string) => void;
 }
 
@@ -88,22 +95,21 @@ export const StreamBidBar: React.FC<StreamBidBarProps> = ({
   const [trackWidth, setTrackWidth] = useState(0);
   /** Posición X de la perilla dentro del track (0 → maxTravel). */
   const posAnim = useRef(new Animated.Value(0)).current;
-  /** Escala de celebración del pulpo (pop al confirmar la oferta). */
-  const pulpoPop = useRef(new Animated.Value(1)).current;
-  /** Meneo del pulpo (-1..1 → rotación) al confirmar. */
-  const pulpoWiggle = useRef(new Animated.Value(0)).current;
 
-  const isDisabledRef = useRef(!!disabled || !isAuctionActive);
+  const isIdle = mode === 'idle';
+  const isDisabledRef = useRef(isIdle || !!disabled || !isAuctionActive);
   const maxTravelRef = useRef(0);
   const onBidRef = useRef(onBid);
   /** true mientras el drag está por encima del umbral (para el tick háptico). */
   const armedRef = useRef(false);
-  /** Evita doble confirmación entre release y terminate. */
+  /** Una sola confirmación por gesto (se limpia en el siguiente `grant`). */
   const completingRef = useRef(false);
 
-  const isDisabled = !!disabled || !isAuctionActive;
+  const isDisabled = isIdle || !!disabled || !isAuctionActive;
 
-  useEffect(() => { isDisabledRef.current = !!disabled || !isAuctionActive; }, [disabled, isAuctionActive]);
+  useEffect(() => {
+    isDisabledRef.current = isIdle || !!disabled || !isAuctionActive;
+  }, [isIdle, disabled, isAuctionActive]);
   useEffect(() => { onBidRef.current = onBid; }, [onBid]);
 
   const maxTravel = trackWidth > 0 ? trackWidth - TRACK_PAD * 2 - KNOB_W : 0;
@@ -125,56 +131,18 @@ export const StreamBidBar: React.FC<StreamBidBarProps> = ({
     }).start();
   };
 
-  /** Pop + meneo del pulpo al confirmar la oferta. */
-  const celebratePulpo = () => {
-    pulpoPop.setValue(1);
-    pulpoWiggle.setValue(0);
-    Animated.parallel([
-      Animated.sequence([
-        Animated.spring(pulpoPop, {
-          toValue: 1.7,
-          speed: 40,
-          bounciness: 14,
-          useNativeDriver: true,
-        }),
-        Animated.spring(pulpoPop, {
-          toValue: 1,
-          speed: 14,
-          bounciness: 10,
-          useNativeDriver: true,
-        }),
-      ]),
-      Animated.sequence([
-        Animated.timing(pulpoWiggle, { toValue: 1, duration: 80, useNativeDriver: true }),
-        Animated.timing(pulpoWiggle, { toValue: -1, duration: 120, useNativeDriver: true }),
-        Animated.timing(pulpoWiggle, { toValue: 0.6, duration: 100, useNativeDriver: true }),
-        Animated.timing(pulpoWiggle, { toValue: 0, duration: 90, useNativeDriver: true }),
-      ]),
-    ]).start();
-  };
-
+  /**
+   * Confirma la oferta al instante: primero se emite (el feedback visible es el
+   * pulpito flotante que devuelve el WS a todos) y la perilla vuelve enseguida,
+   * sin encadenar animaciones. La barra queda lista para el siguiente deslizar.
+   */
   const completeBid = () => {
     if (completingRef.current) return;
     completingRef.current = true;
     armedRef.current = false;
     HapticFeedback.trigger('notificationSuccess', HAPTIC_OPTIONS);
-    Animated.timing(posAnim, {
-      toValue: maxTravelRef.current,
-      duration: 90,
-      useNativeDriver: false,
-    }).start(() => {
-      celebratePulpo();
-      onBidRef.current();
-      setTimeout(() => {
-        Animated.spring(posAnim, {
-          toValue: 0,
-          bounciness: 8,
-          useNativeDriver: false,
-        }).start(() => {
-          completingRef.current = false;
-        });
-      }, 450);
-    });
+    onBidRef.current();
+    reset();
   };
 
   /** Decide confirmar o volver, tanto en release como si otro gesto interrumpe. */
@@ -201,8 +169,14 @@ export const StreamBidBar: React.FC<StreamBidBarProps> = ({
       onPanResponderTerminationRequest: () => false,
       onShouldBlockNativeResponder: () => true,
       onPanResponderGrant: () => {
-        posAnim.extractOffset();
+        // Nuevo gesto = nueva oferta posible, aunque la anterior recién salga.
+        // Si el usuario agarra la perilla mientras vuelve, se arranca de cero:
+        // cada oferta exige el recorrido completo (evita dobles sin querer).
+        completingRef.current = false;
         armedRef.current = false;
+        posAnim.stopAnimation();
+        posAnim.setOffset(0);
+        posAnim.setValue(0);
         HapticFeedback.trigger('impactLight', HAPTIC_OPTIONS);
       },
       onPanResponderMove: (_, g) => {
@@ -235,7 +209,7 @@ export const StreamBidBar: React.FC<StreamBidBarProps> = ({
       onNotify(text);
       return;
     }
-    Alert.alert(t('common.appName'), text);
+    appAlert(t('common.appName'), text);
   };
 
   const hasLayout = trackWidth > 0 && maxTravel > 0;
@@ -292,8 +266,14 @@ export const StreamBidBar: React.FC<StreamBidBarProps> = ({
               pointerEvents="none"
             >
               <RNText style={styles.label} numberOfLines={1}>
-                {mode === 'buy_now' ? t('stream.buyNow') : t('stream.bid')}{' '}
-                <RNText style={styles.labelPrice}>{formatStreamPrice(bidAmount)}</RNText>
+                {isIdle ? (
+                  t('stream.waitingAuction')
+                ) : (
+                  <>
+                    {mode === 'buy_now' ? t('stream.buyNow') : t('stream.bid')}{' '}
+                    <RNText style={styles.labelPrice}>{formatStreamPrice(bidAmount)}</RNText>
+                  </>
+                )}
               </RNText>
             </Animated.View>
 
@@ -324,7 +304,7 @@ export const StreamBidBar: React.FC<StreamBidBarProps> = ({
 
             {/* Perilla: arranca a la izquierda y recorre todo el track. Al final,
                 la flecha se desvanece y el pulpo aparece centrado en la perilla
-                ("capturado") — ahí celebra con pop + meneo. */}
+                ("capturado"); al soltar sale la oferta y la perilla vuelve. */}
             <Animated.View
               style={[styles.knob, { transform: [{ translateX: posAnim }] }]}
               {...(!isDisabled ? panResponder.panHandlers : {})}
@@ -355,22 +335,7 @@ export const StreamBidBar: React.FC<StreamBidBarProps> = ({
                   },
                 ]}
               >
-                {/* Capa nativa: pop + meneo de celebración. */}
-                <Animated.View
-                  style={{
-                    transform: [
-                      { scale: pulpoPop },
-                      {
-                        rotate: pulpoWiggle.interpolate({
-                          inputRange: [-1, 1],
-                          outputRange: ['-18deg', '18deg'],
-                        }),
-                      },
-                    ],
-                  }}
-                >
-                  <PulpoLogo size={26} />
-                </Animated.View>
+                <PulpoLogo size={26} />
               </Animated.View>
             </Animated.View>
           </>

@@ -9,11 +9,10 @@ import {
   View,
   KeyboardAvoidingView,
   Platform,
-  ScrollView,
-  Alert,
   TouchableOpacity,
-  TextInput,
 } from 'react-native';
+import { AppTextInput } from '../../atoms/AppTextInput';
+import { KeyboardDismissScrollView } from '../../atoms/KeyboardDismissScrollView';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, Eye, EyeOff } from 'lucide-react-native';
 import { Text } from '../../atoms/Text';
@@ -24,6 +23,7 @@ import { themeColors } from '../../../theme/colors';
 import { useTheme } from '../../../context/ThemeContext';
 import { isValidEmail, passwordMeetsPolicy } from '../../../utils/formValidation';
 import { VerificationCodeScreen } from '../VerificationCodeScreen';
+import { appAlert } from '../../../alerts';
 
 /** Mismo largo que `origin="forgotPassword"` en VerificationCodeScreen */
 const FORGOT_PASSWORD_OTP_LENGTH = 4;
@@ -73,9 +73,9 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
       setShowVerification(true);
     } catch (error) {
       if (error instanceof ApiError) {
-        Alert.alert(t('common.error'), error.message);
+        appAlert(t('common.error'), error.message);
       } else {
-        Alert.alert(t('common.error'), t('forgotPassword.sendCodeFailed'));
+        appAlert(t('common.error'), t('forgotPassword.sendCodeFailed'));
       }
     } finally {
       setIsLoading(false);
@@ -88,7 +88,7 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
     setConfirmPasswordError(null);
 
     if (!code || !newPassword || !confirmPassword) {
-      Alert.alert(t('common.error'), t('forgotPassword.fillAll'));
+      appAlert(t('common.error'), t('forgotPassword.fillAll'));
       return;
     }
 
@@ -110,7 +110,7 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
         hash_code: code.trim(),
       });
 
-      Alert.alert(
+      appAlert(
         t('forgotPassword.resetSuccessTitle'),
         t('forgotPassword.resetSuccessBody'),
         [
@@ -124,9 +124,9 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
       );
     } catch (error) {
       if (error instanceof ApiError) {
-        Alert.alert(t('common.error'), error.message);
+        appAlert(t('common.error'), error.message);
       } else {
-        Alert.alert(t('common.error'), t('forgotPassword.resetFailed'));
+        appAlert(t('common.error'), t('forgotPassword.resetFailed'));
       }
     } finally {
       setIsLoading(false);
@@ -166,9 +166,8 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         className="flex-1"
       >
-        <ScrollView
+        <KeyboardDismissScrollView
           contentContainerStyle={{ flexGrow: 1 }}
-          keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
           <View className="flex-1 px-6 pt-4 pb-6">
@@ -196,7 +195,7 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
                   <Text className="text-[10px] text-[#34363E] dark:text-night-muted mb-2">
                     {t('forgotPassword.emailLabel')}
                   </Text>
-                  <TextInput
+                  <AppTextInput
                     value={email}
                     onChangeText={(v) => {
                       setEmail(v);
@@ -266,7 +265,7 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
                 </View>
                 <View className="mb-6">
                   <View className="relative">
-                    <TextInput
+                    <AppTextInput
                       value={newPassword}
                       onChangeText={(v) => {
                         setNewPassword(v);
@@ -300,7 +299,7 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
                     </Text>
                   ) : null}
                   <View className="relative mt-3">
-                    <TextInput
+                    <AppTextInput
                       value={confirmPassword}
                       onChangeText={(v) => {
                         setConfirmPassword(v);
@@ -364,7 +363,7 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
               </Text>
             </View>
           </View>
-        </ScrollView>
+        </KeyboardDismissScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

@@ -1,6 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert } from 'react-native';
 import { createProduct, uploadProductImages } from '../api/productsApi';
 import type {
   InterestCategoryItem,
@@ -18,9 +17,19 @@ import {
   showMediaPickerError,
 } from '../utils/mediaPicker';
 import { MAX_PRODUCT_PHOTOS } from './useAddProductForm';
+import { appAlert } from '../alerts';
 
 /** Drawers que el form in-live puede abrir por encima de la pantalla. */
 export type SellerLiveDrawer = 'none' | 'photos' | 'category' | 'weight';
+
+/**
+ * Opciones de tiempo límite de subasta (Figma 698:11652 / 1094:780). Selección
+ * única en cards, no input libre: el primero es el default de diseño. El valor
+ * también actúa de tope de la extensión anti-sniping (ver auction_service).
+ */
+export const AUCTION_DURATION_OPTIONS = [10, 7, 5] as const;
+export type AuctionDurationOption = (typeof AUCTION_DURATION_OPTIONS)[number];
+const DEFAULT_AUCTION_DURATION: AuctionDurationOption = AUCTION_DURATION_OPTIONS[0];
 
 export interface LocalPhoto {
   uri: string;
@@ -48,10 +57,6 @@ function sanitizePrice(value: string): string {
   const decimals = decimalParts.join('').slice(0, 2);
   const cleanWhole = whole.replace(/^0+(?=\d)/, '').slice(0, 9);
   return decimalParts.length > 0 ? `${cleanWhole || '0'}.${decimals}` : cleanWhole;
-}
-
-function sanitizeDuration(value: string): string {
-  return value.replace(/[^0-9]/g, '').slice(0, 3);
 }
 
 export interface SellerLiveAddProductDefaults {
@@ -86,7 +91,9 @@ export function useSellerLiveAddProduct(
   const [description, setDescription] = useState('');
   const [price, setPrice] = useState('');
   const [minBidPrice, setMinBidPrice] = useState('');
-  const [auctionDuration, setAuctionDuration] = useState('60');
+  const [auctionDuration, setAuctionDuration] = useState<AuctionDurationOption>(
+    DEFAULT_AUCTION_DURATION,
+  );
   const [sku, setSku] = useState('');
   const [quantity, setQuantity] = useState(1);
   const [liveSaleMode, setLiveSaleMode] = useState<LiveSaleMode>(defaultSaleMode);
@@ -118,10 +125,6 @@ export function useSellerLiveAddProduct(
     setSku(sanitizeSku(value));
   }, []);
 
-  const handleDurationChange = useCallback((value: string) => {
-    setAuctionDuration(sanitizeDuration(value));
-  }, []);
-
   const handlePackageTierChange = useCallback((tier: PackageTierId, kg: number | null) => {
     setPackageTier(tier);
     setWeightKg(kg != null ? kg : tierDefaultKg(tier));
@@ -144,7 +147,7 @@ export function useSellerLiveAddProduct(
     setDescription('');
     setPrice('');
     setMinBidPrice('');
-    setAuctionDuration('60');
+    setAuctionDuration(DEFAULT_AUCTION_DURATION);
     setSku('');
     setQuantity(1);
     setLiveSaleMode(defaultSaleMode);
@@ -163,7 +166,7 @@ export function useSellerLiveAddProduct(
       setPhotos((prev) => {
         const room = MAX_PRODUCT_PHOTOS - prev.length;
         if (room <= 0) {
-          Alert.alert(t('common.appName'), t('addProduct.maxPhotos', { count: MAX_PRODUCT_PHOTOS }));
+          appAlert(t('common.appName'), t('addProduct.maxPhotos', { count: MAX_PRODUCT_PHOTOS }));
           return prev;
         }
         return [...prev, ...incoming.slice(0, room)];
@@ -229,8 +232,7 @@ export function useSellerLiveAddProduct(
     if (liveSaleMode === 'auction') {
       const minBid = parseFloat(minBidPrice.replace(',', '.'));
       if (!Number.isFinite(minBid) || minBid <= 0) return t('addProduct.errorPrice');
-      const duration = parseInt(auctionDuration, 10);
-      if (!Number.isFinite(duration) || duration < 5 || duration > 300) {
+      if (!AUCTION_DURATION_OPTIONS.includes(auctionDuration)) {
         return t('stream.addProductAuctionTime');
       }
     }
@@ -259,7 +261,7 @@ export function useSellerLiveAddProduct(
       } else if (liveSaleMode === 'auction') {
         minBidCents = Math.round(parseFloat(minBidPrice.replace(',', '.')) * 100);
         basePriceCents = minBidCents;
-        auctionDurationSeconds = Math.max(5, Math.min(300, parseInt(auctionDuration, 10) || 60));
+        auctionDurationSeconds = auctionDuration;
       }
 
       return {
@@ -306,7 +308,7 @@ export function useSellerLiveAddProduct(
     async (status: 'draft' | 'published') => {
       const err = validate();
       if (err) {
-        Alert.alert(t('common.appName'), err);
+        appAlert(t('common.appName'), err);
         return;
       }
       setSubmitting(true);
@@ -318,7 +320,7 @@ export function useSellerLiveAddProduct(
         reset();
       } catch (e) {
         const msg = e instanceof ApiError ? e.message : t('addProduct.saveError');
-        Alert.alert(t('common.appName'), msg);
+        appAlert(t('common.appName'), msg);
       } finally {
         setSubmitting(false);
       }
@@ -339,7 +341,7 @@ export function useSellerLiveAddProduct(
     minBidPrice,
     setMinBidPrice: handleMinBidChange,
     auctionDuration,
-    setAuctionDuration: handleDurationChange,
+    setAuctionDuration,
     sku,
     setSku: handleSkuChange,
     quantity,

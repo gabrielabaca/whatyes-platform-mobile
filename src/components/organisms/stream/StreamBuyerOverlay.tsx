@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -55,6 +55,8 @@ export interface StreamBuyerOverlayProps {
   /** Muestra panel + barra de acción (solo con una oferta en curso). */
   showAuctionUi?: boolean;
   isAuctionActive: boolean;
+  /** Oferta congelada por el vendedor (flujo de cancelación): no entran ofertas. */
+  isAuctionPaused?: boolean;
   auctionSecondsRemaining: number | null;
   auctionBids: AuctionBid[];
   auctionWinnerUsername?: string | null;
@@ -80,7 +82,7 @@ export interface StreamBuyerOverlayProps {
   shippingQuote?: ShippingQuoteState;
   /** Tocar la fila de envío cuando falta domicilio (abre wallet → shipping). */
   onPressShipping?: () => void;
-  /** Avisos del vivo (píldora con el look de la app en vez del Alert nativo). */
+  /** Avisos del vivo (píldora con el look de la app en vez de un diálogo bloqueante). */
   onNotify?: (text: string) => void;
 }
 
@@ -107,6 +109,7 @@ export const StreamBuyerOverlay: React.FC<StreamBuyerOverlayProps> = ({
   onToggleRecording,
   showAuctionUi = false,
   isAuctionActive,
+  isAuctionPaused = false,
   auctionSecondsRemaining,
   auctionBids,
   auctionWinnerUsername,
@@ -161,15 +164,31 @@ export const StreamBuyerOverlay: React.FC<StreamBuyerOverlayProps> = ({
     ? null
     : (auctionWinnerUsername ?? (lastBid ? lastBid.username : null));
 
+  /**
+   * Piso local de la puja: la barra confirma sin esperar animación ni eco del
+   * WS, así que dos deslizadas seguidas podrían mandar el mismo monto. Cada
+   * envío sube este piso; el eco del servidor lo supera apenas llega.
+   */
+  const [localBidFloor, setLocalBidFloor] = useState(0);
+
+  useEffect(() => {
+    // Cerró la oferta: el piso local no debe filtrarse a la siguiente subasta.
+    if (!showAuctionUi) setLocalBidFloor(0);
+  }, [showAuctionUi]);
+
   const suggestedBid = useMemo(() => {
-    if (lastBid) {
-      return lastBid.amount + BID_INCREMENT;
-    }
-    if (floorMajor > 0) {
-      return floorMajor + BID_INCREMENT;
-    }
-    return DEFAULT_BID;
-  }, [lastBid?.amount, productBasePriceCents]);
+    const derived = lastBid
+      ? lastBid.amount + BID_INCREMENT
+      : floorMajor > 0
+        ? floorMajor + BID_INCREMENT
+        : DEFAULT_BID;
+    return Math.max(derived, localBidFloor);
+  }, [lastBid?.amount, productBasePriceCents, localBidFloor]);
+
+  const handleBid = useCallback(() => {
+    onBid(suggestedBid);
+    setLocalBidFloor(suggestedBid + BID_INCREMENT);
+  }, [onBid, suggestedBid]);
 
   const stackUrls = productImageUrlsProp?.filter(Boolean) ?? [];
   const stackExtra =
@@ -251,26 +270,38 @@ export const StreamBuyerOverlay: React.FC<StreamBuyerOverlayProps> = ({
           />
         ) : null}
 
-        {/* Misma barra deslizable en los dos modos: solo cambia qué confirma. */}
-        {showAuctionUi ? (
-          isBuyNow ? (
-            <StreamBidBar
-              mode="buy_now"
-              bidAmount={buyNowPrice}
-              onBid={() => onBuyNow?.()}
-              isAuctionActive={isAuctionActive}
-              disabled={isBuyNowPending || !onBuyNow}
-              onNotify={onNotify}
-            />
-          ) : (
-            <StreamBidBar
-              bidAmount={suggestedBid}
-              onBid={() => onBid(suggestedBid)}
-              isAuctionActive={isAuctionActive}
-              onNotify={onNotify}
-            />
-          )
-        ) : null}
+        {/* Misma barra deslizable en los dos modos: solo cambia qué confirma.
+            En pausa (vendedor decidiendo si cancela) queda inerte: el servidor
+            rechazaría la oferta igual, pero no invitamos a un gesto muerto.
+            Sin oferta en curso la barra NO se oculta: queda deshabilitada con
+            "Esperando subasta..." y se habilita sola cuando arranca la venta. */}
+        {!showAuctionUi ? (
+          <StreamBidBar
+            mode="idle"
+            bidAmount={0}
+            onBid={() => {}}
+            isAuctionActive={false}
+            disabled
+            onNotify={onNotify}
+          />
+        ) : isBuyNow ? (
+          <StreamBidBar
+            mode="buy_now"
+            bidAmount={buyNowPrice}
+            onBid={() => onBuyNow?.()}
+            isAuctionActive={isAuctionActive}
+            disabled={isBuyNowPending || !onBuyNow || isAuctionPaused}
+            onNotify={onNotify}
+          />
+        ) : (
+          <StreamBidBar
+            bidAmount={suggestedBid}
+            onBid={handleBid}
+            isAuctionActive={isAuctionActive}
+            disabled={isAuctionPaused}
+            onNotify={onNotify}
+          />
+        )}
       </View>
     </View>
   );

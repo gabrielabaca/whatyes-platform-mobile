@@ -6,11 +6,10 @@ import {
   View,
   StyleSheet,
   TouchableOpacity,
-  TextInput,
   Text as RNText,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
+import { AppTextInput } from '../../atoms/AppTextInput';
 import { ChevronDown } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import {
@@ -31,6 +30,7 @@ import {
   detectCurrentAddress,
   LocationPermissionDeniedError,
 } from '../../../services/locationAddress';
+import { appAlert } from '../../../alerts';
 
 export interface ShippingAddressModalProps {
   visible: boolean;
@@ -127,7 +127,7 @@ export const ShippingAddressModal: React.FC<ShippingAddressModalProps> = ({
         e instanceof LocationPermissionDeniedError
           ? 'account.shippingAddress.locationPermissionDenied'
           : 'account.shippingAddress.locationFailed';
-      Alert.alert(t('common.appName'), t(key));
+      appAlert(t('common.appName'), t(key));
     } finally {
       setDetectingLocation(false);
     }
@@ -144,31 +144,31 @@ export const ShippingAddressModal: React.FC<ShippingAddressModalProps> = ({
     };
 
     if (!trimmed.full_name) {
-      Alert.alert(t('common.appName'), t('account.shippingAddress.fullNameRequired'));
+      appAlert(t('common.appName'), t('account.shippingAddress.fullNameRequired'));
       return;
     }
     if (!trimmed.country) {
-      Alert.alert(t('common.appName'), t('account.shippingAddress.countryRequired'));
+      appAlert(t('common.appName'), t('account.shippingAddress.countryRequired'));
       return;
     }
     if (!trimmed.address_line1) {
-      Alert.alert(t('common.appName'), t('account.shippingAddress.addressRequired'));
+      appAlert(t('common.appName'), t('account.shippingAddress.addressRequired'));
       return;
     }
     if (!trimmed.city) {
-      Alert.alert(t('common.appName'), t('account.shippingAddress.cityRequired'));
+      appAlert(t('common.appName'), t('account.shippingAddress.cityRequired'));
       return;
     }
     if (!trimmed.state) {
-      Alert.alert(t('common.appName'), t('account.shippingAddress.stateRequired'));
+      appAlert(t('common.appName'), t('account.shippingAddress.stateRequired'));
       return;
     }
     if (!trimmed.postal_code) {
-      Alert.alert(t('common.appName'), t('account.shippingAddress.postalCodeRequired'));
+      appAlert(t('common.appName'), t('account.shippingAddress.postalCodeRequired'));
       return;
     }
     if (!confirmed) {
-      Alert.alert(t('common.appName'), t('account.shippingAddress.confirmRequired'));
+      appAlert(t('common.appName'), t('account.shippingAddress.confirmRequired'));
       return;
     }
 
@@ -179,7 +179,7 @@ export const ShippingAddressModal: React.FC<ShippingAddressModalProps> = ({
       handleClose();
     } catch (e) {
       const msg = e instanceof Error ? e.message : t('account.shippingAddress.saveError');
-      Alert.alert(t('common.appName'), msg);
+      appAlert(t('common.appName'), msg);
     } finally {
       setSaving(false);
     }
@@ -337,7 +337,7 @@ const FormField: React.FC<{
   <View style={styles.field}>
     <RNText style={styles.fieldLabel}>{label}</RNText>
     <View style={styles.fieldInputWrap}>
-      <TextInput
+      <AppTextInput
         value={value}
         onChangeText={onChangeText}
         style={styles.fieldInput}

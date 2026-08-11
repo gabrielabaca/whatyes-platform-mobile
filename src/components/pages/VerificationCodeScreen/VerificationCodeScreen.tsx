@@ -9,11 +9,10 @@ import {
   View,
   KeyboardAvoidingView,
   Platform,
-  ScrollView,
-  Alert,
   TouchableOpacity,
-  TextInput,
 } from 'react-native';
+import { AppTextInput } from '../../atoms/AppTextInput';
+import { KeyboardDismissScrollView } from '../../atoms/KeyboardDismissScrollView';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft } from 'lucide-react-native';
 import { Text } from '../../atoms/Text';
@@ -24,6 +23,7 @@ import { verifyUser, resendVerificationCode, forgotPasswordRequest, ApiError } f
 import type { VerifyUserResponse } from '../../../api/types';
 import { storage } from '../../../utils/storage';
 import { FONT_FAMILY } from '../../../theme/typography';
+import { appAlert } from '../../../alerts';
 
 export type VerificationOrigin = 'register' | 'forgotPassword';
 
@@ -68,7 +68,7 @@ export const VerificationCodeScreen: React.FC<VerificationCodeScreenProps> = ({
 
   const handleVerify = async () => {
     if (!code || code.trim().length !== otpLength) {
-      Alert.alert(
+      appAlert(
         t('common.error'),
         origin === 'forgotPassword'
           ? t('verification.enterCodeN', { count: otpLength })
@@ -83,7 +83,7 @@ export const VerificationCodeScreen: React.FC<VerificationCodeScreenProps> = ({
     }
 
     if (!userUuid) {
-      Alert.alert(t('common.error'), t('verification.missingUserUuid'));
+      appAlert(t('common.error'), t('verification.missingUserUuid'));
       return;
     }
 
@@ -108,7 +108,7 @@ export const VerificationCodeScreen: React.FC<VerificationCodeScreenProps> = ({
         return;
       }
 
-      Alert.alert(
+      appAlert(
         t('verification.verifiedTitle'),
         t('verification.verifiedBody'),
         [
@@ -120,9 +120,9 @@ export const VerificationCodeScreen: React.FC<VerificationCodeScreenProps> = ({
       );
     } catch (error) {
       if (error instanceof ApiError) {
-        Alert.alert(t('common.error'), error.message);
+        appAlert(t('common.error'), error.message);
       } else {
-        Alert.alert(t('common.error'), t('verification.wrongCode'));
+        appAlert(t('common.error'), t('verification.wrongCode'));
       }
     } finally {
       setIsLoading(false);
@@ -137,13 +137,13 @@ export const VerificationCodeScreen: React.FC<VerificationCodeScreenProps> = ({
       } else {
         await resendVerificationCode(email);
       }
-      Alert.alert(t('verification.resendTitle'), t('verification.resendBody'));
+      appAlert(t('verification.resendTitle'), t('verification.resendBody'));
       setCode('');
     } catch (error) {
       if (error instanceof ApiError) {
-        Alert.alert(t('common.error'), error.message);
+        appAlert(t('common.error'), error.message);
       } else {
-        Alert.alert(t('common.error'), t('verification.resendFailed'));
+        appAlert(t('common.error'), t('verification.resendFailed'));
       }
     } finally {
       setIsResending(false);
@@ -156,9 +156,8 @@ export const VerificationCodeScreen: React.FC<VerificationCodeScreenProps> = ({
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         className="flex-1"
       >
-        <ScrollView
+        <KeyboardDismissScrollView
           contentContainerStyle={{ flexGrow: 1 }}
-          keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
           <View className="flex-1 px-6 pt-4 pb-6">
@@ -181,7 +180,7 @@ export const VerificationCodeScreen: React.FC<VerificationCodeScreenProps> = ({
             </Text>
 
             <View className="items-center mb-10">
-              <TextInput
+              <AppTextInput
                 value={code}
                 onChangeText={(value) => setCode(value.replace(/[^0-9]/g, '').slice(0, otpLength))}
                 keyboardType="number-pad"
@@ -253,7 +252,7 @@ export const VerificationCodeScreen: React.FC<VerificationCodeScreenProps> = ({
               />
             ) : null}
           </View>
-        </ScrollView>
+        </KeyboardDismissScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

@@ -9,7 +9,6 @@ import {
   Text as RNText,
   ActivityIndicator,
   Modal,
-  Alert,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { useTranslation } from 'react-i18next';
@@ -23,6 +22,7 @@ import {
   isBuyerKycReturnUrl,
   subscribeBuyerKycReturn,
 } from '../../../utils/buyerKycDeepLink';
+import { appAlert } from '../../../alerts';
 
 export interface BuyerKycModalProps {
   visible: boolean;
@@ -80,9 +80,9 @@ export const BuyerKycModal: React.FC<BuyerKycModalProps> = ({
       setPhase('declined');
     } catch (e) {
       if (e instanceof ApiError) {
-        Alert.alert(t('common.error'), e.message);
+        appAlert(t('common.error'), e.message);
       } else {
-        Alert.alert(t('common.error'), t('buyerOnboarding.kycPollError'));
+        appAlert(t('common.error'), t('buyerOnboarding.kycPollError'));
       }
       setPhase('offer');
     } finally {
@@ -106,9 +106,9 @@ export const BuyerKycModal: React.FC<BuyerKycModalProps> = ({
       setPhase('webview');
     } catch (e) {
       if (e instanceof ApiError) {
-        Alert.alert(t('common.error'), e.message);
+        appAlert(t('common.error'), e.message);
       } else {
-        Alert.alert(t('common.error'), t('buyerOnboarding.kycSessionError'));
+        appAlert(t('common.error'), t('buyerOnboarding.kycSessionError'));
       }
       setPhase('offer');
     }

@@ -7,7 +7,7 @@
 
 import './global.css';
 import React, { useState, useEffect, useRef } from 'react';
-import { Alert, StatusBar, Linking, View, StyleSheet } from 'react-native';
+import { StatusBar, Linking, View, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
@@ -15,6 +15,7 @@ import { InterestCategoriesProvider } from './src/context/InterestCategoriesCont
 import { OverlayPortalProvider } from './src/context/OverlayPortalContext';
 import { StartLiveWizardProvider, useStartLiveWizard } from './src/hooks/useStartLiveWizard';
 import { StartLiveWizardHost } from './src/components/organisms/startLive/StartLiveWizardHost';
+import { AlertProvider, appAlert } from './src/alerts';
 import { storage } from './src/utils/storage';
 import { isBuyerKycReturnUrl, notifyBuyerKycReturn } from './src/utils/buyerKycDeepLink';
 import { isMpWalletReturnUrl, notifyMpWalletReturn } from './src/utils/mpWalletDeepLink';
@@ -134,7 +135,7 @@ function AuthenticatedAppShell({
         // en lugar de reemplazar la pantalla por el flujo de verificación.
         const message =
           error instanceof ApiError ? error.message : i18n.t('buyerOnboarding.kycPollError');
-        Alert.alert(i18n.t('common.error'), message);
+        appAlert(i18n.t('common.error'), message);
       } finally {
         kycCheckingRef.current = false;
       }
@@ -439,11 +440,13 @@ function App() {
   return (
     <SafeAreaProvider>
       <ThemeProvider>
-        <AuthProvider>
-          <InterestCategoriesProvider>
-            <ThemedStatusBarAndApp />
-          </InterestCategoriesProvider>
-        </AuthProvider>
+        <AlertProvider>
+          <AuthProvider>
+            <InterestCategoriesProvider>
+              <ThemedStatusBarAndApp />
+            </InterestCategoriesProvider>
+          </AuthProvider>
+        </AlertProvider>
       </ThemeProvider>
     </SafeAreaProvider>
   );

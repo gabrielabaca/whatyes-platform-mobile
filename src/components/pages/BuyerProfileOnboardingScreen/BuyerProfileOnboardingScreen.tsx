@@ -6,12 +6,12 @@ import React, { useState } from 'react';
 import {
   View,
   TouchableOpacity,
-  TextInput,
   Image,
-  ScrollView,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { AppTextInput } from '../../atoms/AppTextInput';
+import { KeyboardDismissScrollView } from '../../atoms/KeyboardDismissScrollView';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { ArrowLeft, UserRound } from 'lucide-react-native';
@@ -91,9 +91,8 @@ export const BuyerProfileOnboardingScreen: React.FC<BuyerProfileOnboardingScreen
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         className="flex-1"
       >
-        <ScrollView
+        <KeyboardDismissScrollView
           contentContainerStyle={{ flexGrow: 1 }}
-          keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
           <View className="flex-1 px-6 pt-4 pb-8">
@@ -136,7 +135,7 @@ export const BuyerProfileOnboardingScreen: React.FC<BuyerProfileOnboardingScreen
               <Text className="text-[10px] text-[#34363E] dark:text-night-muted mb-2 tracking-[0.05px]">
                 {t('register.firstName')}
               </Text>
-              <TextInput
+              <AppTextInput
                 value={name}
                 onChangeText={setName}
                 placeholder={t('register.firstNamePh')}
@@ -151,7 +150,7 @@ export const BuyerProfileOnboardingScreen: React.FC<BuyerProfileOnboardingScreen
               <Text className="text-[10px] text-[#34363E] dark:text-night-muted mb-2 tracking-[0.05px]">
                 {t('register.lastName')}
               </Text>
-              <TextInput
+              <AppTextInput
                 value={lastName}
                 onChangeText={setLastName}
                 placeholder={t('register.lastNamePh')}
@@ -194,7 +193,7 @@ export const BuyerProfileOnboardingScreen: React.FC<BuyerProfileOnboardingScreen
               />
             ) : null}
           </View>
-        </ScrollView>
+        </KeyboardDismissScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
