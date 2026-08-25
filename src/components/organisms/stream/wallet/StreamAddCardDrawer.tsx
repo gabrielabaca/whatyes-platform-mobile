@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -7,13 +7,16 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { AppTextInput } from '../../../atoms/AppTextInput';
-import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 import { useTranslation } from 'react-i18next';
 import { Check } from 'lucide-react-native';
 import { StreamBottomSheet, streamSheetStyles } from '../StreamBottomSheet';
 import { FONT_FAMILY } from '../../../../theme/typography';
 import { themeColors } from '../../../../theme/colors';
-import { getMercadoPagoCardFormHtml } from '../../../../utils/mercadoPagoCardFormHtml';
+import {
+  createMpCardToken,
+  detectPaymentMethod,
+  MpCardTokenError,
+} from '../../../../utils/mpCardTokenizer';
 import {
   createSavedCard,
   getPublicPaymentsConfig,
@@ -30,17 +33,30 @@ export interface StreamAddCardDrawerProps {
   onSaved: (card: import('../../../../api/paymentsApi').SavedCard) => void;
 }
 
-type MpTokenMessage = {
-  type: string;
-  token?: string;
-  paymentMethodId?: string;
-  issuerId?: string | null;
-  cardholderName?: string | null;
-  expirationMonth?: number | null;
-  expirationYear?: number | null;
-  lastFour?: string | null;
-  message?: string;
-};
+
+/** "5031755734530604" → "5031 7557 3453 0604" (hasta 19 dígitos). */
+function formatCardNumber(raw: string): string {
+  const digits = raw.replace(/\D/g, '').slice(0, 19);
+  return digits.replace(/(.{4})/g, '$1 ').trim();
+}
+
+/** Dígitos → "MM/AA" con la barra automática. */
+function formatExpiry(raw: string): string {
+  const digits = raw.replace(/\D/g, '').slice(0, 4);
+  if (digits.length <= 2) return digits;
+  return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+}
+
+/** "MM/AA" | "MM/AAAA" → {month, year(4 dígitos)} o null si no es válida. */
+function parseExpiry(value: string): { month: number; year: number } | null {
+  const digits = value.replace(/\D/g, '');
+  if (digits.length !== 4 && digits.length !== 6) return null;
+  const month = parseInt(digits.slice(0, 2), 10);
+  const year =
+    digits.length === 4 ? 2000 + parseInt(digits.slice(2), 10) : parseInt(digits.slice(2), 10);
+  if (!month || month < 1 || month > 12) return null;
+  return { month, year };
+}
 
 export const StreamAddCardDrawer: React.FC<StreamAddCardDrawerProps> = ({
   visible,
@@ -50,28 +66,29 @@ export const StreamAddCardDrawer: React.FC<StreamAddCardDrawerProps> = ({
   onSaved,
 }) => {
   const { t } = useTranslation();
-  const webRef = useRef<WebView>(null);
   const [loadingConfig, setLoadingConfig] = useState(true);
-  const [mpReady, setMpReady] = useState(false);
   const [saving, setSaving] = useState(false);
   const [publicKey, setPublicKey] = useState<string | null>(null);
   const [cardholderName, setCardholderName] = useState('');
   const [identificationNumber, setIdentificationNumber] = useState('');
+  const [cardNumber, setCardNumber] = useState('');
+  const [cardExpiry, setCardExpiry] = useState('');
+  const [cardCvc, setCardCvc] = useState('');
   const [postalCode, setPostalCode] = useState('');
   const [country, setCountry] = useState('Argentina');
   const [termsAccepted, setTermsAccepted] = useState(false);
-  const [webViewActive, setWebViewActive] = useState(false);
 
   useEffect(() => {
     if (!visible) {
       setLoadingConfig(true);
-      setMpReady(false);
       setPublicKey(null);
       setCardholderName('');
       setIdentificationNumber('');
+      setCardNumber('');
+      setCardExpiry('');
+      setCardCvc('');
       setPostalCode('');
       setTermsAccepted(false);
-      setWebViewActive(false);
       return;
     }
     let cancelled = false;
@@ -100,84 +117,117 @@ export const StreamAddCardDrawer: React.FC<StreamAddCardDrawerProps> = ({
     };
   }, [visible, onClose, t]);
 
-  const saveCard = useCallback(
-    async (mp: MpTokenMessage) => {
-      if (!mp.token || !mp.paymentMethodId) {
-        appAlert(t('common.appName'), t('stream.wallet.tokenError'));
-        return;
+  /** Códigos de `cause` de la API de tokenización → mensaje accionable. */
+  const mpCauseMessage = useCallback(
+    (codes: string[]): string | null => {
+      for (const code of codes) {
+        switch (code) {
+          case 'E301':
+            return t('stream.wallet.cardErrorNumber');
+          case 'E302':
+            return t('stream.wallet.cardErrorCvc');
+          case '316':
+            return t('stream.wallet.cardErrorName');
+          case '324':
+            return t('stream.wallet.cardErrorDoc');
+          case '325':
+          case '326':
+            return t('stream.wallet.cardErrorExpiry');
+          default:
+            break;
+        }
       }
-      const payload: CardCreatePayload = {
-        token: mp.token,
-        payment_method_id: mp.paymentMethodId,
-        issuer_id: mp.issuerId ?? undefined,
-        payer_email: payerEmail ?? undefined,
-        cardholder_name: cardholderName.trim() || mp.cardholderName || undefined,
-        expiration_month: mp.expirationMonth ?? undefined,
-        expiration_year: mp.expirationYear ?? undefined,
-        last_four: mp.lastFour ?? undefined,
-        set_default: setAsDefault,
-      };
-      setSaving(true);
-      try {
-        const saved = await createSavedCard(payload);
-        onSaved(saved);
-      } catch (e) {
-        const msg = e instanceof ApiError ? e.message : t('stream.wallet.saveCardError');
-        appAlert(t('common.appName'), msg);
-      } finally {
-        setSaving(false);
-      }
+      return null;
     },
-    [cardholderName, onSaved, payerEmail, setAsDefault, t]
+    [t]
   );
 
-  const onWebMessage = useCallback(
-    (event: WebViewMessageEvent) => {
-      try {
-        const data = JSON.parse(event.nativeEvent.data) as MpTokenMessage;
-        if (data.type === 'ready') {
-          setMpReady(true);
-          return;
-        }
-        if (data.type === 'error') {
-          appAlert(t('common.appName'), data.message || t('stream.wallet.tokenError'));
-          return;
-        }
-        if (data.type === 'token') {
-          void saveCard(data);
-        }
-      } catch {
-        // ignore parse errors
-      }
-    },
-    [saveCard, t]
-  );
-
-  const handleSubmit = () => {
+  const handleSubmit = useCallback(async () => {
+    if (saving || loadingConfig || !publicKey) return;
     if (!cardholderName.trim()) {
       appAlert(t('common.appName'), t('stream.wallet.cardholderRequired'));
-      return;
-    }
-    if (!termsAccepted) {
-      appAlert(t('common.appName'), t('stream.wallet.termsRequired'));
       return;
     }
     if (!identificationNumber.trim()) {
       appAlert(t('common.appName'), t('stream.wallet.docNumberRequired'));
       return;
     }
-    if (!mpReady) {
-      appAlert(t('common.appName'), t('stream.wallet.mpNotReady'));
+    const digits = cardNumber.replace(/\D/g, '');
+    if (digits.length < 13) {
+      appAlert(t('common.appName'), t('stream.wallet.cardNumberInvalid'));
       return;
     }
-    const submitOpts = JSON.stringify({
-      cardholderName: cardholderName.trim(),
-      identificationNumber: identificationNumber.trim(),
-    });
-    webRef.current?.injectJavaScript(
-      `window.submitMpCardForm && window.submitMpCardForm(${submitOpts}); true;`
-    );
-  };
+    const expiry = parseExpiry(cardExpiry);
+    if (!expiry) {
+      appAlert(t('common.appName'), t('stream.wallet.cardExpiryInvalid'));
+      return;
+    }
+    const cvc = cardCvc.replace(/\D/g, '');
+    if (cvc.length < 3) {
+      appAlert(t('common.appName'), t('stream.wallet.cardCvcInvalid'));
+      return;
+    }
+    if (!termsAccepted) {
+      appAlert(t('common.appName'), t('stream.wallet.termsRequired'));
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const paymentMethod = await detectPaymentMethod(publicKey, digits.slice(0, 6));
+      if (!paymentMethod) {
+        appAlert(t('common.appName'), t('stream.wallet.cardBinUnknown'));
+        return;
+      }
+      const mpToken = await createMpCardToken(publicKey, {
+        cardNumber: digits,
+        cardholderName: cardholderName.trim(),
+        expirationMonth: expiry.month,
+        expirationYear: expiry.year,
+        securityCode: cvc,
+        identificationType: 'DNI',
+        identificationNumber: identificationNumber.trim(),
+      });
+      const payload: CardCreatePayload = {
+        token: mpToken.id,
+        payment_method_id: paymentMethod.id,
+        issuer_id: paymentMethod.issuerId ?? undefined,
+        payer_email: payerEmail ?? undefined,
+        cardholder_name: cardholderName.trim(),
+        expiration_month: expiry.month,
+        expiration_year: expiry.year,
+        last_four: mpToken.lastFour ?? digits.slice(-4),
+        set_default: setAsDefault,
+      };
+      const saved = await createSavedCard(payload);
+      onSaved(saved);
+    } catch (e) {
+      if (e instanceof MpCardTokenError) {
+        appAlert(t('common.appName'), mpCauseMessage(e.codes) ?? e.message);
+      } else if (e instanceof ApiError) {
+        appAlert(t('common.appName'), e.message);
+      } else {
+        appAlert(t('common.appName'), t('stream.wallet.saveCardError'));
+      }
+    } finally {
+      setSaving(false);
+    }
+  }, [
+    saving,
+    loadingConfig,
+    publicKey,
+    cardholderName,
+    identificationNumber,
+    cardNumber,
+    cardExpiry,
+    cardCvc,
+    termsAccepted,
+    payerEmail,
+    setAsDefault,
+    onSaved,
+    mpCauseMessage,
+    t,
+  ]);
 
   return (
     <StreamBottomSheet
@@ -186,13 +236,21 @@ export const StreamAddCardDrawer: React.FC<StreamAddCardDrawerProps> = ({
       onClose={onClose}
       dismissOnBackdropPress={false}
       bottomPanel={false}
-      scrollEnabled={!webViewActive}
+      fullHeight
+      /**
+       * Sin Modal RN: dentro de un Modal el BlurView del GlassBackdrop no tiene la
+       * pantalla detrás para difuminar y el fondo queda plano, distinto del resto de
+       * los drawers. Montado en el portal raíz el glass difumina de verdad.
+       */
+      nativeModal={false}
       cancelLabel={t('common.cancel')}
       footer={
         <View style={styles.footer}>
           <TouchableOpacity
             style={[streamSheetStyles.primaryBtn, (saving || loadingConfig) && styles.btnDisabled]}
-            onPress={handleSubmit}
+            onPress={() => {
+              void handleSubmit();
+            }}
             disabled={saving || loadingConfig}
             activeOpacity={0.85}
           >
@@ -232,43 +290,47 @@ export const StreamAddCardDrawer: React.FC<StreamAddCardDrawerProps> = ({
         />
       </Field>
 
-      {loadingConfig || !publicKey ? (
-        <ActivityIndicator color={themeColors.glass.text} style={styles.loader} />
-      ) : (
-        <View
-          style={styles.webviewWrap}
-          collapsable={false}
-          onTouchStart={() => setWebViewActive(true)}
-          onTouchEnd={() => setWebViewActive(false)}
-          onTouchCancel={() => setWebViewActive(false)}
-        >
-          <WebView
-            ref={webRef}
-            source={{ html: getMercadoPagoCardFormHtml(publicKey) }}
-            onMessage={onWebMessage}
-            scrollEnabled={false}
-            nestedScrollEnabled
-            collapsable={false}
-            overScrollMode="never"
-            style={styles.webview}
-            originWhitelist={['*']}
-            javaScriptEnabled
-            domStorageEnabled
-            mixedContentMode="always"
-            sharedCookiesEnabled
-            thirdPartyCookiesEnabled
-            setSupportMultipleWindows={false}
-            allowsInlineMediaPlayback
-            keyboardDisplayRequiresUserAction={false}
-            hideKeyboardAccessoryView={false}
-          />
-          {!mpReady ? (
-            <View style={styles.webviewLoading} pointerEvents="none">
-              <ActivityIndicator color={themeColors.glass.text} size="small" />
-            </View>
-          ) : null}
+      <Field label={t('stream.wallet.cardNumberLabel')}>
+        <AppTextInput
+          style={styles.input}
+          value={cardNumber}
+          onChangeText={(v) => setCardNumber(formatCardNumber(v))}
+          keyboardType="number-pad"
+          autoComplete="cc-number"
+          maxLength={23}
+          placeholderTextColor={themeColors.glass.placeholder}
+          placeholder={t('stream.wallet.cardNumberPlaceholder')}
+        />
+      </Field>
+
+      <View style={styles.inlineRow}>
+        <View style={styles.inlineField}>
+          <Field label={t('stream.wallet.cardExpiryLabel')}>
+            <AppTextInput
+              style={styles.input}
+              value={cardExpiry}
+              onChangeText={(v) => setCardExpiry(formatExpiry(v))}
+              keyboardType="number-pad"
+              maxLength={5}
+              placeholderTextColor={themeColors.glass.placeholder}
+              placeholder="MM/AA"
+            />
+          </Field>
         </View>
-      )}
+        <View style={styles.inlineField}>
+          <Field label={t('stream.wallet.cardCvcLabel')}>
+            <AppTextInput
+              style={styles.input}
+              value={cardCvc}
+              onChangeText={(v) => setCardCvc(v.replace(/\D/g, '').slice(0, 4))}
+              keyboardType="number-pad"
+              maxLength={4}
+              placeholderTextColor={themeColors.glass.placeholder}
+              placeholder="CVC"
+            />
+          </Field>
+        </View>
+      </View>
 
       <RNText style={streamSheetStyles.sectionLabel}>
         {t('stream.wallet.billingSection')}
@@ -339,26 +401,12 @@ const styles = StyleSheet.create({
     color: themeColors.glass.text,
     backgroundColor: themeColors.glass.inputBg,
   },
-  webviewWrap: {
-    height: 260,
-    borderRadius: 8,
-    overflow: 'hidden',
-    marginBottom: 8,
-    backgroundColor: 'rgba(255,255,255,0.04)',
+  inlineRow: {
+    flexDirection: 'row',
+    gap: 12,
   },
-  webview: {
+  inlineField: {
     flex: 1,
-    backgroundColor: 'transparent',
-    opacity: 0.99,
-  },
-  webviewLoading: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(0,0,0,0.35)',
-  },
-  loader: {
-    marginVertical: 16,
   },
   termsRow: {
     flexDirection: 'row',
@@ -390,6 +438,9 @@ const styles = StyleSheet.create({
   },
   footer: {
     paddingBottom: 8,
+    // `footerArea` centra a sus hijos: sin ancho propio este View se encoge al texto
+    // y el botón (width 100%) sale angosto en vez de ocupar el drawer.
+    width: '100%',
   },
   btnDisabled: {
     opacity: themeColors.disabledOpacity,

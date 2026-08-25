@@ -13,7 +13,8 @@ import { themeColors } from '../../../../theme/colors';
 
 export type SuccessPaymentMethod =
   | { type: 'mp_wallet' }
-  | { type: 'card'; network?: string | null; lastFour?: string | null };
+  /** `saved`: la tarjeta se acaba de agregar (confirmación), no solo se seleccionó. */
+  | { type: 'card'; network?: string | null; lastFour?: string | null; saved?: boolean };
 
 export interface StreamWalletSuccessDrawerProps {
   visible: boolean;
@@ -67,6 +68,13 @@ function resolveLabel(
   const parts: string[] = [];
   if (method.network) parts.push(method.network);
   if (method.lastFour) parts.push(`···· ${method.lastFour}`);
+  // Recién agregada: confirmar el alta ("agregada"), no "conectando…" — el usuario
+  // necesita saber que la tarjeta quedó guardada.
+  if (method.saved) {
+    return parts.length
+      ? t('stream.wallet.cardSavedWith').replace('{method}', parts.join(' '))
+      : t('stream.wallet.cardSavedGeneric');
+  }
   const name = parts.length ? parts.join(' ') : t('stream.wallet.connectingCard');
   return t('stream.wallet.connectingWith').replace('{method}', name);
 }

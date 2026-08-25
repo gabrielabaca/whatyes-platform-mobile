@@ -491,6 +491,17 @@ export const storage = {
     }
   },
 
+  /** Olvida el método preferido (ej.: MP_WALLET quedó deshabilitado en el backend). */
+  async clearPreferredPaymentOrigin(): Promise<void> {
+    try {
+      const s = getAsyncStorage();
+      if (!s) return;
+      await s.removeItem(STORAGE_KEYS.PREFERRED_PAYMENT_ORIGIN);
+    } catch {
+      // ignore
+    }
+  },
+
   async getSellerLiveWelcomeStep1Seen(): Promise<boolean> {
     try {
       const s = getAsyncStorage();

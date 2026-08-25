@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { getShippingAddress } from '../api/shippingAddressApi';
 import {
   createMpWalletConnectSession,
+  deleteSavedCard,
+  getPublicPaymentsConfig,
   listSavedCards,
   type MpWalletConnectSession,
   type SavedCard,
@@ -55,42 +57,62 @@ export function useStreamWalletFlow() {
   const [mpConnectVisible, setMpConnectVisible] = useState(false);
   const [mpConnectSession, setMpConnectSession] = useState<MpWalletConnectSession | null>(null);
   const [mpConnectLoading, setMpConnectLoading] = useState(false);
+  const [walletLinkEnabled, setWalletLinkEnabled] = useState(false);
+
+  /**
+   * Vincular MP solo cuenta como método de pago si el backend lo tiene habilitado:
+   * mientras esté apagado no deja nada cobrable y el saga rebota con
+   * NO_PAYMENT_METHOD (docs/plan-cobro-tarjeta-y-wallet.md, fase 0).
+   */
+  const resolveWalletLink = useCallback(async (): Promise<boolean> => {
+    const enabled = await getPublicPaymentsConfig()
+      .then((cfg) => cfg.wallet_link_enabled === true)
+      .catch(() => false);
+    setWalletLinkEnabled(enabled);
+    if (!enabled && (await storage.getPreferredPaymentOrigin()) === 'MP_WALLET') {
+      await storage.clearPreferredPaymentOrigin();
+      setPreferredOrigin(null);
+    }
+    return enabled;
+  }, []);
 
   const refreshHubState = useCallback(async () => {
     setHubLoading(true);
     try {
+      const mpEnabled = await resolveWalletLink();
       const [shipping, cardList, pref] = await Promise.all([
         getShippingAddress().catch(() => ({})),
         listSavedCards().catch(() => [] as SavedCard[]),
         storage.getPreferredPaymentOrigin(),
       ]);
       setHasShipping(hasShippingData(shipping));
-      setHasPayment(cardList.length > 0 || pref === 'MP_WALLET');
+      setHasPayment(cardList.length > 0 || (mpEnabled && pref === 'MP_WALLET'));
       setCards(cardList);
       setPreferredOrigin(pref);
     } finally {
       setHubLoading(false);
     }
-  }, []);
+  }, [resolveWalletLink]);
 
   /**
    * Chequea (sin abrir el hub) si el usuario ya configuró domicilio de envío y
    * método de pago. Actualiza el estado del hub como efecto secundario.
    */
   const isWalletConfigured = useCallback(async (): Promise<boolean> => {
+    const mpEnabled = await resolveWalletLink();
     const [shipping, cardList, pref] = await Promise.all([
       getShippingAddress().catch(() => ({})),
       listSavedCards().catch(() => [] as SavedCard[]),
       storage.getPreferredPaymentOrigin(),
     ]);
     const okShipping = hasShippingData(shipping);
-    const okPayment = cardList.length > 0 || pref === 'MP_WALLET';
+    const okPayment = cardList.length > 0 || (mpEnabled && pref === 'MP_WALLET');
     setHasShipping(okShipping);
     setHasPayment(okPayment);
     setCards(cardList);
     setPreferredOrigin(pref);
     return okShipping && okPayment;
-  }, []);
+  }, [resolveWalletLink]);
 
   const isKycVerified = useCallback(async (): Promise<boolean> => {
     const me = user as UserMe | null;
@@ -168,6 +190,7 @@ export function useStreamWalletFlow() {
       type: 'card',
       network: card?.payment_method_id ?? null,
       lastFour: card?.last_four ?? null,
+      saved: true,
     });
     setSuccessMessage(t('stream.wallet.successCardMessage'));
     setStep('success');
@@ -195,6 +218,10 @@ export function useStreamWalletFlow() {
    * un VC que ya está presentando. En ese caso hay que cerrar el paso antes de abrir MP.
    */
   const selectMpWallet = useCallback(async () => {
+    if (!(await resolveWalletLink())) {
+      appAlert(t('common.appName'), t('stream.wallet.mpWalletUnavailable'));
+      return;
+    }
     setMpConnectLoading(true);
     setMpConnectVisible(true);
     setMpConnectSession(null);
@@ -213,7 +240,7 @@ export function useStreamWalletFlow() {
     } finally {
       setMpConnectLoading(false);
     }
-  }, [t, user?.email]);
+  }, [resolveWalletLink, t, user?.email]);
 
   const onMpWalletConnectReturn = useCallback(
     (status: MpWalletReturnStatus) => {
@@ -244,6 +271,35 @@ export function useStreamWalletFlow() {
   const confirmMpWalletTestAck = useCallback(() => {
     void finishMpWalletLink();
   }, [finishMpWalletLink]);
+
+  /** Baja de una tarjeta guardada, con confirmación destructiva. */
+  const deleteCard = useCallback(
+    (card: SavedCard) => {
+      const name = [card.payment_method_id, card.last_four ? `···· ${card.last_four}` : '']
+        .filter(Boolean)
+        .join(' ');
+      appAlert.confirm({
+        title: t('stream.wallet.deleteCardTitle'),
+        message: t('stream.wallet.deleteCardMessage').replace('{method}', name),
+        cancelText: t('common.cancel'),
+        confirmText: t('stream.wallet.deleteCardConfirm'),
+        destructive: true,
+        onConfirm: () => {
+          void (async () => {
+            try {
+              await deleteSavedCard(card.uuid);
+              // Si era la predeterminada, el estado de "método configurado" cambia.
+              await refreshHubState();
+            } catch (e) {
+              const msg = e instanceof ApiError ? e.message : t('stream.wallet.deleteCardError');
+              appAlert(t('common.appName'), msg);
+            }
+          })();
+        },
+      });
+    },
+    [refreshHubState, t]
+  );
 
   const selectCard = useCallback(async (card: SavedCard) => {
     await storage.setPreferredPaymentOrigin('PLATFORM_CARD');
@@ -277,6 +333,7 @@ export function useStreamWalletFlow() {
     hasPayment,
     cards,
     preferredOrigin,
+    walletLinkEnabled,
     successMessage,
     shippingActionLabel,
     paymentActionLabel,
@@ -293,6 +350,7 @@ export function useStreamWalletFlow() {
     onCardSaved,
     selectMpWallet,
     selectCard,
+    deleteCard,
     successPaymentMethod,
     mpConnectVisible,
     mpConnectSession,

@@ -72,12 +72,14 @@ export const WalletFlowDrawers: React.FC<WalletFlowDrawersProps> = ({
       loading={wallet.hubLoading}
       cards={wallet.cards}
       preferredOrigin={wallet.preferredOrigin}
+      showMpWallet={wallet.walletLinkEnabled}
       onSelectMpWallet={() => {
         void wallet.selectMpWallet();
       }}
       onSelectCard={(card) => {
         void wallet.selectCard(card);
       }}
+      onDeleteCard={wallet.deleteCard}
       onAddCard={wallet.openCardForm}
     />
     <StreamMpWalletConnectModal

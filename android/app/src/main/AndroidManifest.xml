@@ -50,6 +50,13 @@
             <category android:name="android.intent.category.BROWSABLE" />
             <data android:scheme="pulpolive" android:host="wallet" android:pathPrefix="/mp-complete" />
         </intent-filter>
+        <!-- Retorno del checkout de MP (landing "Volver a PulpoLive") -->
+        <intent-filter>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.DEFAULT" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="pulpolive" android:host="checkout" />
+        </intent-filter>
       </activity>
     </application>
 </manifest>

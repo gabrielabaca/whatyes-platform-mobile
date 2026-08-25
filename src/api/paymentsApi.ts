@@ -8,6 +8,8 @@ import { storage } from '../utils/storage';
 export interface PublicPaymentsConfig {
   public_key: string;
   environment_hint: string;
+  /** Falso mientras vincular MP no habilite cobros: se oculta la opción. */
+  wallet_link_enabled?: boolean;
 }
 
 export interface SavedCard {
@@ -19,6 +21,10 @@ export interface SavedCard {
   expiration_year: number | null;
   cardholder_name: string | null;
   is_default: boolean;
+  /** Card-on-file: cobrable siempre. Si es false, sirve hasta token_expires_at. */
+  reusable?: boolean;
+  token_expires_at?: number | null;
+  card_on_file_error?: string | null;
 }
 
 export interface CardCreatePayload {
@@ -92,6 +98,48 @@ export async function createSavedCard(
   return data as SavedCard;
 }
 
+export interface PaymentIntent {
+  uuid: string;
+  auction_external_ref: string;
+  amount_minor: number;
+  currency: string;
+  status:
+    | 'PENDING'
+    | 'REQUIRES_CLIENT_ACTION'
+    | 'PROCESSING'
+    | 'SUCCEEDED'
+    | 'FAILED'
+    | 'CANCELLED'
+    | string;
+  payment_origin: string | null;
+  provider_payment_id: string | null;
+  wallet_init_point: string | null;
+  wallet_sandbox_init_point: string | null;
+  wallet_preference_id: string | null;
+  created_at: number;
+  updated_at: number;
+}
+
+/**
+ * Intent de una compra propia. 404 cuando la venta todavía no generó cobro:
+ * el llamador lo trata como "sin pago pendiente", no como error.
+ */
+export async function getPaymentIntentBySaleUuid(
+  saleUuid: string,
+  accessToken?: string
+): Promise<PaymentIntent | null> {
+  const headers = await authHeaders(accessToken);
+  const res = await fetch(`${PAYMENTS_HTTP_URL}/api/payment-intents/by-ref/${saleUuid}`, {
+    headers,
+  });
+  if (res.status === 404) return null;
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new ApiError(res.status, data.detail || 'Error al consultar el pago', data);
+  }
+  return data as PaymentIntent;
+}
+
 export interface MpWalletConnectSession {
   preference_id: string;
   public_key: string;
@@ -123,9 +171,13 @@ export async function createMpWalletConnectSession(
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
+    // El backend usa detail como objeto ({code, message}) para los casos de negocio
+    // (ej. WALLET_LINK_DISABLED); sin desarmarlo el alert muestra "[object Object]".
+    const detail =
+      data.detail && typeof data.detail === 'object' ? data.detail.message : data.detail;
     throw new ApiError(
       res.status,
-      data.detail || data.message || 'Error al vincular Mercado Pago',
+      detail || data.message || 'Error al vincular Mercado Pago',
       data
     );
   }

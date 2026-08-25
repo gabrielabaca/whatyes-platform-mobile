@@ -7,7 +7,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { Plus, Check, CreditCard, Wallet } from 'lucide-react-native';
+import { Plus, Check, CreditCard, Trash2, Wallet } from 'lucide-react-native';
 import { StreamBottomSheet, streamBottomPanelStyle, streamSheetStyles } from '../StreamBottomSheet';
 import { FONT_FAMILY } from '../../../../theme/typography';
 import { themeColors } from '../../../../theme/colors';
@@ -20,9 +20,24 @@ export interface StreamPaymentMethodsDrawerProps {
   loading?: boolean;
   cards: SavedCard[];
   preferredOrigin: PreferredPaymentOrigin | null;
+  /** Vincular MP se oculta mientras el backend no lo habilite (no deja nada cobrable). */
+  showMpWallet?: boolean;
   onSelectMpWallet: () => void;
   onSelectCard: (card: SavedCard) => void;
+  onDeleteCard: (card: SavedCard) => void;
   onAddCard: () => void;
+}
+
+/**
+ * Aviso de caducidad para tarjetas que no quedaron card-on-file: su token vence a los
+ * 7 días y, pasado ese punto, el cobro automático de la compra falla.
+ */
+function cardTokenWarning(card: SavedCard): { expired: boolean; days: number } | undefined {
+  if (card.reusable !== false || !card.token_expires_at) return undefined;
+  const days = Math.ceil((card.token_expires_at * 1000 - Date.now()) / 86_400_000);
+  if (days <= 0) return { expired: true, days: 0 };
+  if (days <= 3) return { expired: false, days };
+  return undefined;
 }
 
 function cardBrandLabel(paymentMethodId: string): string {
@@ -39,8 +54,10 @@ export const StreamPaymentMethodsDrawer: React.FC<StreamPaymentMethodsDrawerProp
   loading = false,
   cards,
   preferredOrigin,
+  showMpWallet = false,
   onSelectMpWallet,
   onSelectCard,
+  onDeleteCard,
   onAddCard,
 }) => {
   const { t } = useTranslation();
@@ -57,13 +74,15 @@ export const StreamPaymentMethodsDrawer: React.FC<StreamPaymentMethodsDrawerProp
         <ActivityIndicator color={themeColors.glass.text} style={styles.loader} />
       ) : (
         <View style={styles.configSection}>
-          <MethodPillRow
-            icon={<Wallet size={24} color={themeColors.glass.text} strokeWidth={2} />}
-            title={t('stream.wallet.mpWalletTitle')}
-            subtitle={t('stream.wallet.mpWalletSubtitle')}
-            selected={preferredOrigin === 'MP_WALLET'}
-            onPress={onSelectMpWallet}
-          />
+          {showMpWallet ? (
+            <MethodPillRow
+              icon={<Wallet size={24} color={themeColors.glass.text} strokeWidth={2} />}
+              title={t('stream.wallet.mpWalletTitle')}
+              subtitle={t('stream.wallet.mpWalletSubtitle')}
+              selected={preferredOrigin === 'MP_WALLET'}
+              onPress={onSelectMpWallet}
+            />
+          ) : null}
 
           {cards.length === 0 ? (
             <RNText style={styles.empty}>{t('stream.wallet.noCards')}</RNText>
@@ -78,10 +97,19 @@ export const StreamPaymentMethodsDrawer: React.FC<StreamPaymentMethodsDrawerProp
               ]
                 .filter(Boolean)
                 .join(' ');
-              const subtitle =
+              const expiry =
                 card.expiration_month && card.expiration_year
                   ? `${String(card.expiration_month).padStart(2, '0')}/${String(card.expiration_year).slice(-2)}`
                   : undefined;
+              // Sin card-on-file la tarjeta deja de ser cobrable a los 7 días: se avisa
+              // antes de que el cobro automático falle (plan-cobro-tarjeta-y-wallet.md).
+              const tokenWarning = cardTokenWarning(card);
+              let subtitle = expiry;
+              if (tokenWarning?.expired) {
+                subtitle = t('stream.wallet.cardExpired');
+              } else if (tokenWarning) {
+                subtitle = t('stream.wallet.cardExpiringSoon', { count: tokenWarning.days });
+              }
 
               return (
                 <MethodPillRow
@@ -91,6 +119,7 @@ export const StreamPaymentMethodsDrawer: React.FC<StreamPaymentMethodsDrawerProp
                   subtitle={subtitle}
                   selected={isSelected}
                   onPress={() => onSelectCard(card)}
+                  onDelete={() => onDeleteCard(card)}
                 />
               );
             })
@@ -122,12 +151,14 @@ function MethodPillRow({
   subtitle,
   selected,
   onPress,
+  onDelete,
 }: {
   icon: React.ReactNode;
   title: string;
   subtitle?: string;
   selected: boolean;
   onPress: () => void;
+  onDelete?: () => void;
 }) {
   return (
     <TouchableOpacity
@@ -150,6 +181,16 @@ function MethodPillRow({
         </View>
       </View>
       {selected ? <Check size={22} color={themeColors.primary} strokeWidth={2.5} /> : null}
+      {onDelete ? (
+        <TouchableOpacity
+          onPress={onDelete}
+          hitSlop={10}
+          style={styles.deleteBtn}
+          accessibilityRole="button"
+        >
+          <Trash2 size={18} color={themeColors.glass.textSoft} strokeWidth={2} />
+        </TouchableOpacity>
+      ) : null}
     </TouchableOpacity>
   );
 }
@@ -209,6 +250,11 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     color: themeColors.glass.textSoft,
     includeFontPadding: false,
+  },
+  /** Tocable aparte dentro de la fila: eliminar no puede confundirse con seleccionar. */
+  deleteBtn: {
+    marginLeft: 8,
+    padding: 6,
   },
   /** Acción dentro de la píldora: mismo botón primario, ancho al contenido. */
   actionBtn: {

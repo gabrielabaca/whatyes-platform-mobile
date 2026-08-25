@@ -12,6 +12,7 @@ import {
   Image,
   StyleSheet,
   ActivityIndicator,
+  Linking,
   Text as RNText,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -36,6 +37,8 @@ import {
   type PurchaseItem,
   type UserProfileProductItem,
 } from '../../../api/platformApi';
+import { getPaymentIntentBySaleUuid, getPublicPaymentsConfig } from '../../../api/paymentsApi';
+import { resolveMpWalletCheckoutUrl } from '../../../utils/mpWalletDeepLink';
 import { formatCompactCount } from '../../../utils/formatCount';
 import { storage } from '../../../utils/storage';
 import { FONT_FAMILY } from '../../../theme/typography';
@@ -107,6 +110,8 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
   const [clipDuration, setClipDuration] = useState<number | null>(null);
   const [clipError, setClipError] = useState(false);
   const [clipViewerOpen, setClipViewerOpen] = useState(false);
+  /** Checkout de MP pendiente: aparece cuando el cobro automático no pudo hacerse. */
+  const [pendingCheckoutUrl, setPendingCheckoutUrl] = useState<string | null>(null);
 
   const sellerName =
     sellerProfile?.display_name?.trim() ||
@@ -150,6 +155,57 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
       cancelled = true;
     };
   }, [sellerId, purchase.product_title]);
+
+  /**
+   * Si el cobro automático no salió, el saga deja el intent en REQUIRES_CLIENT_ACTION
+   * con un checkout de Mercado Pago para pagar a mano
+   * (docs/plan-cobro-tarjeta-y-wallet.md, fase 2).
+   */
+  useEffect(() => {
+    let cancelled = false;
+    if (purchase.payment_status === 'paid' || purchase.payment_status === 'cancelled') {
+      setPendingCheckoutUrl(null);
+      return;
+    }
+    void (async () => {
+      try {
+        const [intent, config] = await Promise.all([
+          getPaymentIntentBySaleUuid(purchase.sale_uuid),
+          getPublicPaymentsConfig().catch(() => null),
+        ]);
+        if (cancelled) return;
+        if (intent?.status !== 'REQUIRES_CLIENT_ACTION') {
+          setPendingCheckoutUrl(null);
+          return;
+        }
+        // Con credenciales TEST el init_point productivo no sirve: hay que mandar al
+        // checkout de sandbox. Misma resolución que la vinculación de MP.
+        setPendingCheckoutUrl(
+          resolveMpWalletCheckoutUrl({
+            preference_id: intent.wallet_preference_id ?? undefined,
+            init_point: intent.wallet_init_point,
+            sandbox_init_point: intent.wallet_sandbox_init_point,
+            environment_hint: config?.environment_hint,
+            public_key: config?.public_key,
+          })
+        );
+      } catch {
+        // El bloque de pago simplemente no se muestra.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [purchase.sale_uuid, purchase.payment_status]);
+
+  const openCheckout = async () => {
+    if (!pendingCheckoutUrl) return;
+    try {
+      await Linking.openURL(pendingCheckoutUrl);
+    } catch {
+      appAlert(t('common.appName'), t('activity.paymentCheckoutError'));
+    }
+  };
 
   // Sin @react-native-clipboard/clipboard instalado: se muestra el número completo
   // para copiar manualmente (agregar la dependencia habilita copia real).
@@ -209,10 +265,22 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
           ? t('activity.conditionUsed')
           : '—';
 
-  const priceLabel = formatStreamPrice(
+  const productPriceLabel = formatStreamPrice(
     Math.round(purchase.amount_cents / 100),
     purchase.currency
   );
+  // Ventas viejas o aún sin cotizar: sin desglose, el total es el producto solo.
+  const shippingCents = purchase.shipping_cost_cents;
+  const totalLabel = formatStreamPrice(
+    Math.round((purchase.total_cents ?? purchase.amount_cents) / 100),
+    purchase.currency
+  );
+  const shippingLabel =
+    shippingCents == null
+      ? null
+      : shippingCents === 0
+        ? t('activity.shippingFree')
+        : formatStreamPrice(Math.round(shippingCents / 100), purchase.currency);
 
   return (
     <View style={styles.root}>
@@ -233,6 +301,28 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 32 }]}
       >
+        {/* Pago pendiente: el cobro automático falló y hay checkout de MP disponible. */}
+        {pendingCheckoutUrl ? (
+          <View style={[styles.payBanner, darkCard]}>
+            <RNText style={[styles.payBannerTitle, darkText]}>
+              {t('activity.paymentPendingTitle')}
+            </RNText>
+            <RNText style={[styles.payBannerBody, darkMuted]}>
+              {t('activity.paymentPendingBody')}
+            </RNText>
+            <TouchableOpacity
+              style={styles.payBannerBtn}
+              onPress={() => {
+                void openCheckout();
+              }}
+              activeOpacity={0.85}
+              accessibilityRole="button"
+            >
+              <RNText style={styles.payBannerBtnText}>{t('activity.paymentPendingCta')}</RNText>
+            </TouchableOpacity>
+          </View>
+        ) : null}
+
         {/* Resumen del producto */}
         <View style={[styles.summaryRow, darkHairline]}>
           {purchase.product_image_url ? (
@@ -262,7 +352,7 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
             </TouchableOpacity>
             <View style={styles.wonRow}>
               <RNText style={[styles.wonText, darkText]}>🏆 {t('activity.wonAuction')}</RNText>
-              <RNText style={styles.wonPrice}>{priceLabel}</RNText>
+              <RNText style={styles.wonPrice}>{productPriceLabel}</RNText>
             </View>
           </View>
         </View>
@@ -428,9 +518,13 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
             label={t('activity.orderId')}
             value={`#PL-${purchase.order_number}`}
           />
+          <DetailRow label={t('activity.paymentProduct')} value={productPriceLabel} />
+          {shippingLabel != null ? (
+            <DetailRow label={t('activity.paymentShipping')} value={shippingLabel} />
+          ) : null}
           <View style={[styles.totalRow, darkHairline]}>
             <RNText style={[styles.totalLabel, darkText]}>{t('activity.totalPaid')}</RNText>
-            <RNText style={[styles.totalValue, darkText]}>{priceLabel}</RNText>
+            <RNText style={[styles.totalValue, darkText]}>{totalLabel}</RNText>
           </View>
         </View>
 
@@ -700,6 +794,43 @@ const DetailRow: React.FC<{
 const styles = StyleSheet.create({
   root: {
     flex: 1,
+  },
+  payBanner: {
+    backgroundColor: CARD_BG,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: PRIMARY,
+    padding: 16,
+    marginBottom: 16,
+    gap: 8,
+  },
+  payBannerTitle: {
+    fontFamily: FONT_FAMILY.semibold,
+    fontSize: 16,
+    lineHeight: 22,
+    color: TEXT,
+    includeFontPadding: false,
+  },
+  payBannerBody: {
+    fontFamily: FONT_FAMILY.regular,
+    fontSize: 13,
+    lineHeight: 18,
+    color: MUTED,
+    includeFontPadding: false,
+  },
+  payBannerBtn: {
+    backgroundColor: PRIMARY,
+    borderRadius: 1000,
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  payBannerBtnText: {
+    fontFamily: FONT_FAMILY.semibold,
+    fontSize: 15,
+    lineHeight: 20,
+    color: '#FFFFFF',
+    includeFontPadding: false,
   },
   header: {
     flexDirection: 'row',

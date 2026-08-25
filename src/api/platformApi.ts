@@ -1087,6 +1087,10 @@ export interface PurchaseItem {
   category_name?: string | null;
   quantity: number;
   amount_cents: number;
+  /** Envío cobrado junto al producto; null = venta aún sin cotizar. */
+  shipping_cost_cents?: number | null;
+  /** amount_cents + envío: lo que efectivamente paga el comprador. */
+  total_cents?: number;
   currency: string;
   payment_status: 'pending' | 'paid' | 'cancelled' | string;
   /** Vendedor (en compras) o comprador (en ventas). */
