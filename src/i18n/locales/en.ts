@@ -502,6 +502,7 @@ export default {
     "shippingAddAddress": "Add your address to see shipping",
     "itemsCount": "{{count}} items",
     "winning": "{{username}} is winning...",
+    "winningYou": "You're winning the auction",
     "noBidsYet": "No bids yet....",
     "muteMic": "Mute microphone",
     "unmuteMic": "Unmute microphone",

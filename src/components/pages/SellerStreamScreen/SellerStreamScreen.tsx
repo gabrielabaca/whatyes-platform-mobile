@@ -492,8 +492,12 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
           // producto. Gana el primero que compra (se resuelve en el backend).
           await startRoomProductBuyNow(token, roomId, productId);
         } else {
+          // El modo de participación se define al cargar el producto. Si el
+          // catálogo lo devuelve lo mandamos explícito; si no, se omite y el
+          // backend usa el guardado (mismo criterio que la duración de subasta).
+          const item = catalogItems.find((it) => it.uuid === productId);
           await startRoomProductRaffle(token, roomId, productId, {
-            participationMode: 'everyone',
+            participationMode: item?.raffle_participation_mode ?? undefined,
           });
         }
         // Con la oferta abierta el backend ya marcó el producto activo: la
@@ -512,6 +516,7 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
       token,
       roomId,
       isStreamPaused,
+      catalogItems,
       refreshCatalog,
       refreshLiveCommerce,
       showToast,

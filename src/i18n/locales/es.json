@@ -501,6 +501,7 @@
     "shippingAddAddress": "Agregá tu domicilio para ver el envío",
     "itemsCount": "{{count}} artículos",
     "winning": "{{username}} está ganando...",
+    "winningYou": "Estás ganando la subasta",
     "noBidsYet": "Nadie ofertó hasta ahora....",
     "muteMic": "Silenciar micrófono",
     "unmuteMic": "Activar micrófono",

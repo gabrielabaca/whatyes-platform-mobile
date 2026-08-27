@@ -20,6 +20,12 @@ export interface StreamAuctionPanelProps {
   productTitle: string;
   itemCount?: number;
   winningUsername?: string | null;
+  /**
+   * Nombre con el que el usuario logueado aparece en el chat/pujas. Cuando
+   * coincide con `winningUsername` la fila de estado pasa a segunda persona
+   * ("Estás ganando la subasta") en vez de nombrarlo en tercera.
+   */
+  currentUsername?: string | null;
   currentPrice: number;
   secondsRemaining: number | null;
   isAuctionActive: boolean;
@@ -49,6 +55,7 @@ export const StreamAuctionPanel: React.FC<StreamAuctionPanelProps> = ({
   productTitle,
   itemCount = 1,
   winningUsername,
+  currentUsername,
   currentPrice,
   secondsRemaining,
   isAuctionActive,
@@ -98,6 +105,18 @@ export const StreamAuctionPanel: React.FC<StreamAuctionPanelProps> = ({
   }
 
   const isBuyNow = saleMode === 'buy_now';
+  /**
+   * ¿Voy ganando yo? Las pujas del WS solo traen el nombre para mostrar (no el
+   * uuid), así que la comparación es por nombre, insensible a mayúsculas — el
+   * mismo criterio de respaldo que usa `StreamScreen` para la celebración.
+   */
+  const myUsername = (currentUsername ?? '').trim().toLowerCase();
+  const isWinningMe =
+    !isBuyNow &&
+    !!winningUsername &&
+    !!myUsername &&
+    winningUsername.trim().toLowerCase() === myUsername;
+
   // En compra directa no hay pujas: la fila de estado anuncia el precio fijo en
   // vez de "quién está ganando", y solo hasta que alguien se lo lleva.
   const statusLabel = isBuyNow
@@ -105,16 +124,17 @@ export const StreamAuctionPanel: React.FC<StreamAuctionPanelProps> = ({
       ? t('stream.buyNowAvailable')
       : null
     : winningUsername
-      ? t('stream.winning', { username: winningUsername })
+      ? isWinningMe
+        ? t('stream.winningYou')
+        : t('stream.winning', { username: winningUsername })
       : isAuctionActive
         ? t('stream.noBidsYet')
         : null;
 
-  const showStatusRow = isBuyNow
-    ? statusLabel != null
-    : variant === 'seller'
-      ? statusLabel != null
-      : winningUsername != null;
+  // La fila se muestra siempre que haya algo que decir, en las dos variantes.
+  // (Antes el comprador la veía solo con un líder cargado, así que nunca leía
+  // "Nadie ofertó hasta ahora" al abrirse una subasta sin pujas.)
+  const showStatusRow = statusLabel != null;
   // Al vendedor le mostramos el próximo producto aunque no haya subasta corriendo:
   // ahí no hay reloj que contar, así que el countdown se oculta.
   const showCountdown = variant === 'buyer' || isAuctionActive;

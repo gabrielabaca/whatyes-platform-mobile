@@ -761,6 +761,8 @@ export interface RoomCatalogProductItem {
   is_pinned?: boolean;
   is_active?: boolean;
   live_sale_mode?: 'buy_now' | 'auction' | 'raffle' | string | null;
+  /** Modo de participación elegido al cargar el producto (sorteo). */
+  raffle_participation_mode?: 'followers_only' | 'everyone' | 'buyers' | null;
 }
 
 export interface RoomCatalogActionResponse {
@@ -863,14 +865,21 @@ export function startCatalogProductBuyNow(
   });
 }
 
+/**
+ * Abre el sorteo de un producto. `participationMode` es opcional: omitirlo deja
+ * que el backend use el `raffle_participation_mode` guardado al cargar el
+ * producto, igual que `start-auction` hace con la duración.
+ */
 export function startCatalogProductRaffle(
   accessToken: string,
   roomId: string,
   productId: string,
-  body: { participationMode: 'followers_only' | 'everyone' | 'buyers' },
+  body: { participationMode?: 'followers_only' | 'everyone' | 'buyers' } = {},
 ): Promise<RoomCatalogActionResponse> {
   return postRoomCatalogAction(accessToken, roomId, productId, 'start-raffle', {
-    participation_mode: body.participationMode,
+    ...(body.participationMode != null
+      ? { participation_mode: body.participationMode }
+      : {}),
   });
 }
 

@@ -60,6 +60,8 @@ export interface StreamBuyerOverlayProps {
   auctionSecondsRemaining: number | null;
   auctionBids: AuctionBid[];
   auctionWinnerUsername?: string | null;
+  /** Nombre del usuario logueado en el chat: habilita el "Estás ganando..." */
+  currentUsername?: string | null;
   /** Segundos que la última puja le sumó al reloj (anti-sniping). */
   auctionExtension?: AuctionExtension | null;
   /** Modo de la oferta en curso: define si se puja o se compra a precio fijo. */
@@ -113,6 +115,7 @@ export const StreamBuyerOverlay: React.FC<StreamBuyerOverlayProps> = ({
   auctionSecondsRemaining,
   auctionBids,
   auctionWinnerUsername,
+  currentUsername,
   auctionExtension,
   saleMode = 'auction',
   buyNowPriceCents,
@@ -259,6 +262,7 @@ export const StreamBuyerOverlay: React.FC<StreamBuyerOverlayProps> = ({
             productTitle={productTitle}
             itemCount={itemCount}
             winningUsername={winningUsername}
+            currentUsername={currentUsername}
             currentPrice={currentPrice}
             secondsRemaining={auctionSecondsRemaining}
             isAuctionActive={isAuctionActive}

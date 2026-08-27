@@ -1092,6 +1092,7 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({
         auctionSecondsRemaining={auctionSecondsRemaining}
         auctionBids={auctionBids}
         auctionWinnerUsername={auctionWinner?.username ?? null}
+        currentUsername={user?.name ?? null}
         auctionExtension={lastAuctionExtension}
         saleMode={effectiveSaleMode}
         buyNowPriceCents={buyNowPriceCents}
