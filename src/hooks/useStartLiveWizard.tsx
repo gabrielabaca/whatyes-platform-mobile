@@ -24,7 +24,7 @@ import {
   type UpgradeToSellerPayload,
 } from '../api/sellerOnboardingApi';
 import { getShippingAddress } from '../api/shippingAddressApi';
-import type { StreamConfig } from '../components/pages/StreamConfigScreen';
+import type { StreamConfig } from '../components/organisms/startLive/types';
 import type { StartLiveSetupPayload } from '../components/organisms/startLive/StartLiveSetupDrawer';
 import { storage } from '../utils/storage';
 import { withTimeout } from '../utils/withTimeout';
@@ -224,7 +224,6 @@ export const StartLiveWizardProvider: React.FC<{ children: ReactNode }> = ({ chi
     const config: StreamConfig = {
       title: displayName,
       description: '',
-      products: [],
       interestCategoryUuids: categoryUuids,
     };
     setStep('closed');

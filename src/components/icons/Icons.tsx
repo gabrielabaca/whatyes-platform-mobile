@@ -73,28 +73,6 @@ export function IconUser({ size = 24, color = '#000', strokeWidth = 2 }: SvgIcon
   );
 }
 
-export function IconShoppingBag({ size = 24, color = '#000', strokeWidth = 2 }: SvgIconProps) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"
-        stroke={color}
-        strokeWidth={strokeWidth}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path d="M3 6h18" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" />
-      <Path
-        d="M16 10a4 4 0 0 1-8 0"
-        stroke={color}
-        strokeWidth={strokeWidth}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
 export function IconSun({ size = 24, color = '#000', strokeWidth = 2 }: SvgIconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -212,18 +190,6 @@ export function IconStar({ size = 24, color = '#fbbf24' }: SvgIconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
       <Path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-    </Svg>
-  );
-}
-
-/** Filter Icon */
-export function IconFilter({ size = 24, color = '#000' }: SvgIconProps) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M13 9V7H16V3H18V7H21V9H13ZM16 21V11H18V21H16ZM6 21V17H3V15H11V17H8V21H6ZM6 13V3H8V13H6Z"
-        fill={color}
-      />
     </Svg>
   );
 }

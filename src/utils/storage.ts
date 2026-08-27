@@ -50,7 +50,6 @@ const STORAGE_KEYS = {
   ACCESS_TOKEN: 'access_token',
   REFRESH_TOKEN: 'refresh_token',
   USER_DATA: 'user_data',
-  STREAM_DRAFT: 'stream_draft',
   /** Registro comprador: hay JWT pero el onboarding (perfil/intereses/pantalla final) aún no terminó */
   PENDING_BUYER_ONBOARDING: 'pending_buyer_onboarding',
   /** Paso UI del onboarding: profile | interests | kyc | complete */
@@ -320,47 +319,6 @@ export const storage = {
     }
   },
 
-  /**
-   * Guardar borrador de stream
-   */
-  async saveStreamDraft(draft: any): Promise<void> {
-    try {
-      const storage = getAsyncStorage();
-      if (!storage) {
-        return;
-      }
-      await storage.setItem(STORAGE_KEYS.STREAM_DRAFT, JSON.stringify(draft));
-    } catch (error: any) {
-      const errorMessage = error?.message || String(error);
-      if (!errorMessage.includes('NativeModule') && !errorMessage.includes('null')) {
-        console.error('Error al guardar borrador de stream:', error);
-      }
-    }
-  },
-
-  /**
-   * Obtener borrador de stream
-   */
-  async getStreamDraft(): Promise<any | null> {
-    try {
-      const storage = getAsyncStorage();
-      if (!storage) {
-        return null;
-      }
-      const data = await storage.getItem(STORAGE_KEYS.STREAM_DRAFT);
-      return data ? JSON.parse(data) : null;
-    } catch (error: any) {
-      const errorMessage = error?.message || String(error);
-      if (!errorMessage.includes('NativeModule') && !errorMessage.includes('null')) {
-        console.error('Error al obtener borrador de stream:', error);
-      }
-      return null;
-    }
-  },
-
-  /**
-   * Eliminar borrador de stream
-   */
   async getWalletIntroSeen(): Promise<boolean> {
     try {
       const s = getAsyncStorage();
@@ -544,18 +502,4 @@ export const storage = {
     }
   },
 
-  async deleteStreamDraft(): Promise<void> {
-    try {
-      const storage = getAsyncStorage();
-      if (!storage) {
-        return;
-      }
-      await storage.removeItem(STORAGE_KEYS.STREAM_DRAFT);
-    } catch (error: any) {
-      const errorMessage = error?.message || String(error);
-      if (!errorMessage.includes('NativeModule') && !errorMessage.includes('null')) {
-        console.error('Error al eliminar borrador de stream:', error);
-      }
-    }
-  },
 };

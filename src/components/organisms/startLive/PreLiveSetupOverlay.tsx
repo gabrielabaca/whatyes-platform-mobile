@@ -31,7 +31,7 @@ import {
   Video,
   X,
 } from 'lucide-react-native';
-import type { StreamConfig } from '../../pages/StreamConfigScreen';
+import type { StreamConfig } from './types';
 import { uploadRoomCover } from '../../../api/platformApi';
 import { ApiError } from '../../../api/authApi';
 import { useInterestCategories } from '../../../hooks/useInterestCategories';

@@ -6,8 +6,6 @@ export { Input } from './Input';
 export type { InputProps } from './Input';
 export { AppTextInput, KeyboardAccessoryAppearanceProvider } from './AppTextInput';
 export type { AppTextInputProps, KeyboardAccessoryAppearance } from './AppTextInput';
-export { StopLiveButton } from './StopLiveButton';
-export type { StopLiveButtonProps } from './StopLiveButton';
 export { AuctionStatusRow } from './AuctionStatusRow';
 export type { AuctionStatusRowProps } from './AuctionStatusRow';
 export { DismissKeyboardView } from './DismissKeyboardView';

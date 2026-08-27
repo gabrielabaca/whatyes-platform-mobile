@@ -32,13 +32,12 @@ import { HomeScreen } from './src/components/pages/HomeScreen';
 import { LoadingScreen } from './src/components/pages/LoadingScreen';
 import { StreamScreen } from './src/components/pages/StreamScreen';
 import { StreamSwipeScreen } from './src/components/pages/StreamSwipeScreen';
-import { StreamConfigScreen } from './src/components/pages/StreamConfigScreen';
 import { SellerStreamScreen } from './src/components/pages/SellerStreamScreen';
 import type { StreamData } from './src/components/molecules/StreamCard';
-import type { StreamConfig } from './src/components/pages/StreamConfigScreen';
+import type { StreamConfig } from './src/components/organisms/startLive/types';
 
 type AuthScreen = 'onboarding' | 'login' | 'register' | 'forgot-password';
-type AppScreen = AuthScreen | 'home' | 'stream' | 'stream-swipe' | 'stream-config' | 'seller-stream';
+type AppScreen = AuthScreen | 'home' | 'stream' | 'stream-swipe' | 'seller-stream';
 
 /**
  * Tope de espera del gate de KYC. Es la puerta de entrada a "Hacer un live" y a entrar
@@ -67,8 +66,6 @@ function AuthenticatedAppShell({
   setSwipeStreams,
   setSwipeInitialIndex,
   setSwipeCategoryUuid,
-  streamDraft,
-  setStreamDraft,
   activeStreamConfig,
   setActiveStreamConfig,
 }: {
@@ -82,8 +79,6 @@ function AuthenticatedAppShell({
   setSwipeStreams: (streams: StreamData[] | null) => void;
   setSwipeInitialIndex: (i: number) => void;
   setSwipeCategoryUuid: (c: string | undefined) => void;
-  streamDraft: StreamConfig | null;
-  setStreamDraft: (d: StreamConfig | null) => void;
   activeStreamConfig: StreamConfig | null;
   setActiveStreamConfig: (c: StreamConfig | null) => void;
 }) {
@@ -206,25 +201,6 @@ function AuthenticatedAppShell({
     );
   }
 
-  if (currentScreen === 'stream-config') {
-    return (
-      <StreamConfigScreen
-        draft={streamDraft}
-        onBack={() => {
-          setCurrentScreen('home');
-          setStreamDraft(null);
-        }}
-        onStartStream={(config) => {
-          requireKycVerified(() => {
-            setActiveStreamConfig(config);
-            setCurrentScreen('seller-stream');
-            setStreamDraft(null);
-          });
-        }}
-      />
-    );
-  }
-
   return (
     <View style={homeShellStyles.root}>
       <HomeScreen
@@ -243,10 +219,6 @@ function AuthenticatedAppShell({
           });
         }}
         onStartNewStream={openStartLiveWizard}
-        onEditDraft={(draft) => {
-          setStreamDraft(draft);
-          setCurrentScreen('stream-config');
-        }}
       />
       <StartLiveWizardHost
         onStartLive={(config) => {
@@ -341,7 +313,6 @@ function AppNavigator() {
   const [swipeStreams, setSwipeStreams] = useState<StreamData[] | null>(null);
   const [swipeInitialIndex, setSwipeInitialIndex] = useState(0);
   const [swipeCategoryUuid, setSwipeCategoryUuid] = useState<string | undefined>(undefined);
-  const [streamDraft, setStreamDraft] = useState<StreamConfig | null>(null);
   const [activeStreamConfig, setActiveStreamConfig] = useState<StreamConfig | null>(null);
 
   if (isBootstrapping || !minSplashElapsed) {
@@ -362,8 +333,6 @@ function AppNavigator() {
               setSwipeStreams={setSwipeStreams}
               setSwipeInitialIndex={setSwipeInitialIndex}
               setSwipeCategoryUuid={setSwipeCategoryUuid}
-              streamDraft={streamDraft}
-              setStreamDraft={setStreamDraft}
               activeStreamConfig={activeStreamConfig}
               setActiveStreamConfig={setActiveStreamConfig}
             />

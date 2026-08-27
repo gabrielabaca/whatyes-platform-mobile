@@ -5,7 +5,7 @@
  */
 import React, { useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
-import type { StreamConfig } from '../../pages/StreamConfigScreen';
+import type { StreamConfig } from './types';
 import { useStartLiveWizard } from '../../../hooks/useStartLiveWizard';
 import { StartLiveIntroDrawer } from './StartLiveIntroDrawer';
 import { StartLiveSetupDrawer } from './StartLiveSetupDrawer';

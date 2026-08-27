@@ -26,7 +26,7 @@ import type { MediaStream } from 'react-native-webrtc';
 import { ArrowLeft } from 'lucide-react-native';
 import HeaderLogo from '../../../../assets/images/header_logo.svg';
 import { Text } from '../../atoms/Text';
-import type { StreamConfig } from '../StreamConfigScreen';
+import type { StreamConfig } from '../../organisms/startLive/types';
 import { useAuth } from '../../../hooks/useAuth';
 import { storage } from '../../../utils/storage';
 import {

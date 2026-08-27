@@ -12,7 +12,6 @@ import { StreamData } from '../../molecules/StreamCard';
 import { BuyerExploreScreen } from '../BuyerExploreScreen';
 import { BuyerCategoryStreamsScreen } from '../BuyerCategoryStreamsScreen';
 import { BuyerAccountScreen } from '../BuyerAccountScreen';
-import { BuyerPurchasesScreen } from '../BuyerPurchasesScreen';
 import { UserProfileScreen } from '../UserProfileScreen';
 import { BuyerKycModal } from '../../organisms/account/BuyerKycModal';
 import {
@@ -81,7 +80,6 @@ interface HomeScreenProps {
     categoryUuid?: string
   ) => void;
   onStartNewStream?: () => void;
-  onEditDraft?: (draft: any) => void;
 }
 
 const GRID_GAP = 12;
@@ -96,7 +94,6 @@ type HomePath =
   | { name: 'category'; category: InterestCategoryItem }
   | { name: 'sellerHub' }
   | { name: 'account' }
-  | { name: 'purchases' }
   | { name: 'activity'; initialTab?: 'purchases' | 'sales' }
   | { name: 'purchaseDetail'; purchase: PurchaseItem; returnTab?: 'purchases' | 'sales' }
   | { name: 'profile'; userId?: string; returnTo?: 'account' | 'activity' | 'notifications' }
@@ -442,7 +439,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         ? 'explore'
         : homePath.name === 'activity' || homePath.name === 'purchaseDetail'
           ? 'activity'
-          : homePath.name === 'purchases' || homePath.name === 'account' || homePath.name === 'profile'
+          : homePath.name === 'account' || homePath.name === 'profile'
             ? 'account'
             : bottomTab;
 
@@ -591,10 +588,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               onBack={() => setHomePath({ name: 'explore' })}
               onStreamPress={handleStreamPress}
             />
-          ) : null}
-
-          {homePath.name === 'purchases' ? (
-            <BuyerPurchasesScreen onOpenAccount={() => setHomePath({ name: 'account' })} />
           ) : null}
 
           {homePath.name === 'activity' ? (

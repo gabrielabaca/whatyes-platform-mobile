@@ -1,12 +1,3 @@
-export const PRODUCT_WEIGHT_PRESETS = [
-  { id: '250g', labelKey: 'addProduct.weight250g', kg: 0.25 },
-  { id: '500g', labelKey: 'addProduct.weight500g', kg: 0.5 },
-  { id: '750g', labelKey: 'addProduct.weight750g', kg: 0.75 },
-  { id: '1kg', labelKey: 'addProduct.weight1kg', kg: 1.0 },
-] as const;
-
-export type ProductWeightPresetId = (typeof PRODUCT_WEIGHT_PRESETS)[number]['id'];
-
 export const PACKAGE_TIER_OPTIONS = [
   {
     id: 'light' as const,
