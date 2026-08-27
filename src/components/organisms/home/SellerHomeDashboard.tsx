@@ -72,7 +72,6 @@ export interface SellerHomeDashboardProps {
   showVerifyBanner: boolean;
   showFirstLiveCta: boolean;
   onPressVerify?: () => void;
-  onPressPayments?: () => void;
   onPressSold?: () => void;
   onPressGoLive: () => void;
   onPressAddProduct?: () => void;
@@ -162,7 +161,6 @@ export const SellerHomeDashboard: React.FC<SellerHomeDashboardProps> = ({
   showVerifyBanner,
   showFirstLiveCta,
   onPressVerify,
-  onPressPayments,
   onPressSold,
   onPressGoLive,
   onPressAddProduct,
@@ -213,11 +211,9 @@ export const SellerHomeDashboard: React.FC<SellerHomeDashboardProps> = ({
           <BorderedCard
             style={styles.statCard}
             shadow={cardShadowSoft}
-            onPress={onPressPayments}
           >
             <View style={styles.statTop}>
               <RNText style={[styles.statLabel, darkMuted]}>{t('sellerHome.payments')}</RNText>
-              <ArrowRight size={20} color={arrowMuted} strokeWidth={2} />
             </View>
             <RNText style={[styles.statValue, darkText]}>{paymentsAmount}</RNText>
           </BorderedCard>

@@ -37,7 +37,7 @@ export interface StreamActionRailProps {
    * en el viewer, la nota publicada en solo lectura.
    */
   onOpenNote?: () => void;
-  /** Seller: compartir deep link del live (stub). */
+  /** Buyer y seller: compartir el vivo. Si falta, cae a comingSoon. */
   onShare?: () => void;
   /** Seller: abre el menú de opciones (lo monta el overlay). */
   onMore?: () => void;
@@ -180,7 +180,7 @@ export const StreamActionRail: React.FC<StreamActionRailProps> = ({
         ) : null}
       </View>
 
-      <StreamIconButton onPress={comingSoon} accessibilityLabel={t('stream.share')}>
+      <StreamIconButton onPress={onShare ?? comingSoon} accessibilityLabel={t('stream.share')}>
         <Share2 size={24} color={STREAM_COLORS.white} />
       </StreamIconButton>
       {/* Nota del vivo en solo lectura. Mismo glifo que el vendedor (comment_bank),

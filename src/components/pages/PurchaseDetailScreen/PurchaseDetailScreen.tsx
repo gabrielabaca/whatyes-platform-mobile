@@ -13,6 +13,8 @@ import {
   StyleSheet,
   ActivityIndicator,
   Linking,
+  Platform,
+  Share,
   Text as RNText,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -44,6 +46,7 @@ import { storage } from '../../../utils/storage';
 import { FONT_FAMILY } from '../../../theme/typography';
 import { themeColors } from '../../../theme/colors';
 import { useTheme } from '../../../context/ThemeContext';
+import { APP_DOWNLOAD_URL } from '../../../constants/externalLinks';
 import { appAlert } from '../../../alerts';
 
 const PRIMARY = themeColors.primary;
@@ -290,7 +293,26 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
         </TouchableOpacity>
         <RNText style={[styles.headerTitle, darkText]}>{t('activity.detailTitle')}</RNText>
         <TouchableOpacity
-          onPress={() => appAlert(t('common.appName'), t('home.placeholderScreen'))}
+          onPress={() => {
+            // Sin precio: es información que el usuario puede no querer publicar.
+            const product = purchase.product_title;
+            void (async () => {
+              try {
+                // Android solo acepta texto; en iOS el `url` viaja aparte (habilita
+                // Guardar / Abrir enlace), así que se interpola vacío para no duplicarlo.
+                if (Platform.OS === 'ios') {
+                  const message = t('activity.sharePurchase', { product, url: '' }).trimEnd();
+                  await Share.share({ message, url: APP_DOWNLOAD_URL });
+                } else {
+                  await Share.share({
+                    message: t('activity.sharePurchase', { product, url: APP_DOWNLOAD_URL }),
+                  });
+                }
+              } catch {
+                // Cancelar la hoja de compartir no es un error.
+              }
+            })();
+          }}
           hitSlop={12}
         >
           <IconShare size={22} color={PRIMARY} />

@@ -4,7 +4,7 @@
  */
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity, Text as RNText } from 'react-native';
-import { CalendarCheck, CloudUpload, Timer } from 'lucide-react-native';
+import { CalendarCheck, Timer } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { StreamBottomSheet, streamBottomPanelStyle } from './StreamBottomSheet';
 import { FONT_FAMILY } from '../../../theme/typography';
@@ -35,21 +35,12 @@ export const SellerAddProductTypeDrawer: React.FC<SellerAddProductTypeDrawerProp
       icon: <Timer size={18} color={ICON_CHIP_TINT} strokeWidth={2} />,
       titleKey: 'stream.addProductTypeTemporary',
       descKey: 'stream.addProductTypeTemporaryDesc',
-      disabled: false,
     },
     {
       key: 'permanent',
       icon: <CalendarCheck size={18} color={ICON_CHIP_TINT} strokeWidth={2} />,
       titleKey: 'stream.addProductTypePermanent',
       descKey: 'stream.addProductTypePermanentDesc',
-      disabled: false,
-    },
-    {
-      key: 'import',
-      icon: <CloudUpload size={18} color={ICON_CHIP_TINT} strokeWidth={2} />,
-      titleKey: 'stream.addProductTypeImport',
-      descKey: 'stream.addProductTypeImportDesc',
-      disabled: true,
     },
   ] as const;
 
@@ -65,22 +56,17 @@ export const SellerAddProductTypeDrawer: React.FC<SellerAddProductTypeDrawerProp
       {rows.map((row) => (
         <TouchableOpacity
           key={row.key}
-          style={[styles.row, row.disabled && styles.rowDisabled]}
+          style={styles.row}
           onPress={() => {
-            if (row.disabled) return;
             onSelectType(row.key);
           }}
-          activeOpacity={row.disabled ? 1 : 0.85}
-          disabled={row.disabled}
+          activeOpacity={0.85}
           accessibilityRole="button"
         >
           <View style={styles.iconCircle}>{row.icon}</View>
           <View style={styles.rowText}>
             <RNText style={styles.rowTitle}>{t(row.titleKey)}</RNText>
             <RNText style={styles.rowDesc}>{t(row.descKey)}</RNText>
-            {row.disabled ? (
-              <RNText style={styles.comingSoon}>{t('stream.comingSoon')}</RNText>
-            ) : null}
           </View>
         </TouchableOpacity>
       ))}
@@ -100,9 +86,6 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(221, 221, 221, 0.35)',
-  },
-  rowDisabled: {
-    opacity: themeColors.disabledOpacity,
   },
   iconCircle: {
     width: 32,
@@ -127,11 +110,5 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 18,
     color: themeColors.glass.textMuted,
-  },
-  comingSoon: {
-    fontFamily: FONT_FAMILY.semibold,
-    fontSize: 11,
-    color: themeColors.glass.textSoft,
-    marginTop: 2,
   },
 });

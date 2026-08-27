@@ -4,6 +4,7 @@ import { PreferencesModal } from '../organisms/account/PreferencesModal';
 import { NotificationsModal } from '../organisms/account/NotificationsModal';
 import { ChangePasswordModal } from '../organisms/account/ChangePasswordModal';
 import { ContactModal } from '../organisms/account/ContactModal';
+import { LegalWebViewModal } from '../organisms/account/LegalWebViewModal';
 import { WalletFlowDrawers } from '../organisms/stream/wallet';
 import { useStreamWalletFlow } from '../../hooks/useStreamWalletFlow';
 import {
@@ -32,7 +33,7 @@ import HelpIcon from '../../../assets/icons/account/help.svg';
 import { FONT_FAMILY } from '../../theme/typography';
 import { themeColors } from '../../theme/colors';
 import { useTheme } from '../../context/ThemeContext';
-import { appAlert } from '../../alerts';
+import { TERMS_URL, PRIVACY_URL, FAQ_URL } from '../../constants/externalLinks';
 
 /** Figma 536:16099 — Main Content */
 const H_PADDING = 16;
@@ -80,12 +81,9 @@ export const BuyerAccountScreen: React.FC<BuyerAccountScreenProps> = ({
   const [notificationsModalVisible, setNotificationsModalVisible] = useState(false);
   const [changePasswordVisible, setChangePasswordVisible] = useState(false);
   const [contactModalVisible, setContactModalVisible] = useState(false);
+  const [legalModal, setLegalModal] = useState<{ title: string; url: string } | null>(null);
   /** Mismo flujo de drawers que el vivo; acá se entra directo al hub. */
   const wallet = useStreamWalletFlow();
-
-  const showPlaceholder = () => {
-    appAlert(t('common.appName'), t('home.placeholderScreen'));
-  };
 
   return (
     <View style={styles.screen}>
@@ -143,9 +141,21 @@ export const BuyerAccountScreen: React.FC<BuyerAccountScreenProps> = ({
             icon={ChatIcon}
             onPress={() => setContactModalVisible(true)}
           />
-          <AccountMenuRow label={t('account.terms')} icon={ArticleIcon} onPress={showPlaceholder} />
-          <AccountMenuRow label={t('account.privacy')} icon={ArticleIcon} onPress={showPlaceholder} />
-          <AccountMenuRow label={t('account.faq')} icon={HelpIcon} onPress={showPlaceholder} />
+          <AccountMenuRow
+            label={t('account.terms')}
+            icon={ArticleIcon}
+            onPress={() => setLegalModal({ title: t('account.terms'), url: TERMS_URL })}
+          />
+          <AccountMenuRow
+            label={t('account.privacy')}
+            icon={ArticleIcon}
+            onPress={() => setLegalModal({ title: t('account.privacy'), url: PRIVACY_URL })}
+          />
+          <AccountMenuRow
+            label={t('account.faq')}
+            icon={HelpIcon}
+            onPress={() => setLegalModal({ title: t('account.faq'), url: FAQ_URL })}
+          />
           <AccountMenuRow
             label={t('account.logout')}
             icon={IconLogOut}
@@ -185,6 +195,13 @@ export const BuyerAccountScreen: React.FC<BuyerAccountScreenProps> = ({
     <ContactModal
       visible={contactModalVisible}
       onClose={() => setContactModalVisible(false)}
+    />
+
+    <LegalWebViewModal
+      visible={legalModal != null}
+      title={legalModal?.title ?? ''}
+      url={legalModal?.url ?? ''}
+      onClose={() => setLegalModal(null)}
     />
 
     <WalletFlowDrawers wallet={wallet} defaultFullName={displayName} />

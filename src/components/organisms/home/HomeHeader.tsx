@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Text } from '../../atoms/Text';
 import HeaderLogo from '../../../../assets/images/header_logo.svg';
 import ForumIcon from '../../../../assets/icons/header/forum.svg';
-import { IconSearch, IconBell } from '../../icons';
+import { IconBell } from '../../icons';
 import { FONT_FAMILY } from '../../../theme/typography';
 import { themeColors } from '../../../theme/colors';
 import { useTheme } from '../../../context/ThemeContext';
@@ -29,7 +29,6 @@ const HEADER_METRICS = {
 } as const;
 
 interface HomeHeaderProps {
-  onPressSearch?: () => void;
   onPressNotifications?: () => void;
   /** Chat entre usuarios: reemplaza al antiguo botón de perfil (Figma 961:742). */
   onPressChat?: () => void;
@@ -41,7 +40,6 @@ interface HomeHeaderProps {
 }
 
 export const HomeHeader: React.FC<HomeHeaderProps> = ({
-  onPressSearch,
   onPressNotifications,
   onPressChat,
   hasNotificationDot = false,
@@ -78,17 +76,6 @@ export const HomeHeader: React.FC<HomeHeaderProps> = ({
       </View>
 
       <View style={styles.actions} className="flex-row items-center justify-end shrink-0">
-        <TouchableOpacity
-          onPress={onPressSearch}
-          style={styles.hit}
-          activeOpacity={0.7}
-          hitSlop={4}
-          accessibilityRole="button"
-          accessibilityLabel="Buscar"
-        >
-          <IconSearch size={HEADER_METRICS.iconSearchBell} color={iconMuted} strokeWidth={2} />
-        </TouchableOpacity>
-
         <TouchableOpacity
           onPress={onPressNotifications}
           style={styles.hit}

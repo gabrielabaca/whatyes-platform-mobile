@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -6,9 +6,11 @@ import {
   Keyboard,
   Platform,
   Pressable,
+  Share,
+  Animated,
   Text as RNText,
 } from 'react-native';
-import { CreditCard, Mic, MicOff, Pause } from 'lucide-react-native';
+import { Mic, MicOff, Pause } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -32,7 +34,7 @@ import type {
   AuctionExtension,
   LiveOfferSaleMode,
 } from '../../../hooks/useStreamChat';
-import { appAlert } from '../../../alerts';
+import { APP_DOWNLOAD_URL } from '../../../constants/externalLinks';
 
 export interface StreamSellerOverlayProps {
   sellerName: string;
@@ -80,13 +82,13 @@ export interface StreamSellerOverlayProps {
   onPrimaryAction?: () => void;
   primaryActionDisabled?: boolean;
   primaryActionVariant?: 'start' | 'cancel';
-  onAddPaymentMethod?: () => void;
   /** Botón comment_bank: abre el drawer de la nota del vivo (edición). */
   onOpenNote?: () => void;
   onShare?: () => void;
   onMore?: () => void;
   isMicMuted?: boolean;
-  onToggleMic?: () => void;
+  /** Requerido: silenciar el mic es una acción real del vendedor, sin fallback. */
+  onToggleMic: () => void;
 }
 
 export const StreamSellerOverlay: React.FC<StreamSellerOverlayProps> = ({
@@ -127,7 +129,6 @@ export const StreamSellerOverlay: React.FC<StreamSellerOverlayProps> = ({
   onPrimaryAction,
   primaryActionDisabled,
   primaryActionVariant,
-  onAddPaymentMethod,
   onOpenNote,
   onShare,
   onMore,
@@ -168,13 +169,12 @@ export const StreamSellerOverlay: React.FC<StreamSellerOverlayProps> = ({
 
   /**
    * Acciones del menú "más". Figma 890-1336 deja un único icono para las acciones
-   * secundarias, así que micrófono, pausa y métodos de cobro —que antes tenían
-   * botón propio en el rail— se agrupan acá. Iniciar la subasta ya no vive acá:
-   * es la CTA central de la barra inferior (Figma 890-1384).
+   * secundarias, así que micrófono y pausa —que antes tenían botón propio en el
+   * rail— se agrupan acá. Iniciar la subasta ya no vive acá: es la CTA central
+   * de la barra inferior (Figma 890-1384).
    * Finalizar el vivo tampoco: está en la X del header, que confirma con el drawer.
    */
   const moreActions = useMemo<StreamSellerMoreAction[]>(() => {
-    const comingSoon = () => appAlert(t('common.appName'), t('stream.comingSoon'));
     const actions: StreamSellerMoreAction[] = [];
 
     actions.push({
@@ -185,7 +185,7 @@ export const StreamSellerOverlay: React.FC<StreamSellerOverlayProps> = ({
       ) : (
         <Mic size={24} color={STREAM_COLORS.white} />
       ),
-      onPress: onToggleMic ?? comingSoon,
+      onPress: onToggleMic,
     });
 
     // Estando pausado, quien reanuda es la CTA "Reanudar Live" de la barra inferior.
@@ -198,13 +198,6 @@ export const StreamSellerOverlay: React.FC<StreamSellerOverlayProps> = ({
       });
     }
 
-    actions.push({
-      key: 'payment',
-      label: t('stream.payment'),
-      icon: <CreditCard size={24} color={STREAM_COLORS.white} />,
-      onPress: onAddPaymentMethod ?? comingSoon,
-    });
-
     return actions;
   }, [
     t,
@@ -212,7 +205,6 @@ export const StreamSellerOverlay: React.FC<StreamSellerOverlayProps> = ({
     onToggleMic,
     isStreamPaused,
     onTogglePause,
-    onAddPaymentMethod,
   ]);
 
   const stackUrls = productImageUrlsProp?.filter(Boolean) ?? [];
@@ -226,6 +218,59 @@ export const StreamSellerOverlay: React.FC<StreamSellerOverlayProps> = ({
           message: 'Se unió 👋',
           timestamp: '',
         }];
+
+  /**
+   * Confirmación transitoria al togglear el micrófono. Solo con el CAMBIO de
+   * estado (el ref arranca en null para no disparar al montar) y se desvanece
+   * sola a los ~2s. Mientras está visible, el readyHint cede el centro.
+   */
+  const [micNotice, setMicNotice] = useState<'muted' | 'active' | null>(null);
+  const micNoticeAnim = useRef(new Animated.Value(0)).current;
+  const prevMicMutedRef = useRef<boolean | null>(null);
+
+  useEffect(() => {
+    const muted = Boolean(isMicMuted);
+    if (prevMicMutedRef.current === null) {
+      prevMicMutedRef.current = muted;
+      return;
+    }
+    if (prevMicMutedRef.current === muted) return;
+    prevMicMutedRef.current = muted;
+    setMicNotice(muted ? 'muted' : 'active');
+    micNoticeAnim.setValue(1);
+    const anim = Animated.sequence([
+      Animated.delay(1800),
+      Animated.timing(micNoticeAnim, {
+        toValue: 0,
+        duration: 250,
+        useNativeDriver: true,
+      }),
+    ]);
+    anim.start(({ finished }) => {
+      if (finished) setMicNotice(null);
+    });
+    return () => anim.stop();
+  }, [isMicMuted, micNoticeAnim]);
+
+  const handleShare = () => {
+    // Primera persona: el vendedor invita a su propio vivo, sin mencionar el lote.
+    void (async () => {
+      try {
+        // Android solo acepta texto; en iOS el `url` viaja aparte (habilita
+        // Guardar / Abrir enlace), así que se interpola vacío para no duplicarlo.
+        if (Platform.OS === 'ios') {
+          const message = t('stream.shareLiveSeller', { url: '' }).trimEnd();
+          await Share.share({ message, url: APP_DOWNLOAD_URL });
+        } else {
+          await Share.share({
+            message: t('stream.shareLiveSeller', { url: APP_DOWNLOAD_URL }),
+          });
+        }
+      } catch {
+        // Cancelar la hoja de compartir no es un error.
+      }
+    })();
+  };
 
   return (
     <KeyboardAvoidingView
@@ -260,7 +305,22 @@ export const StreamSellerOverlay: React.FC<StreamSellerOverlayProps> = ({
         onExitPress={() => setEndDrawerVisible(true)}
       />
 
-      {isStreamPaused ? (
+      {/* Alarma persistente: el vendedor puede hablar sin ser escuchado, así que
+          gana en rojo bajo el header, sin taparlo ni desplazarlo. */}
+      {isMicMuted ? (
+        <View style={styles.micMutedRow} pointerEvents="none" accessibilityLiveRegion="polite">
+          <View style={styles.micMutedPill}>
+            <MicOff size={15} color={STREAM_COLORS.white} strokeWidth={2.4} />
+            <RNText style={styles.micMutedPillText} maxFontSizeMultiplier={1.2}>
+              {t('stream.micMutedPill')}
+            </RNText>
+          </View>
+        </View>
+      ) : null}
+
+      {/* Mientras el aviso de mic ocupa el centro, el readyHint cede el lugar:
+          el aviso dura ~2s y responde a una acción recién hecha por el vendedor. */}
+      {isStreamPaused && !micNotice ? (
         <View style={styles.readyHint} pointerEvents="none" accessibilityLiveRegion="polite">
           <RNText style={styles.readyHintTitle} maxFontSizeMultiplier={1.2}>
             {hasStartedLive
@@ -275,6 +335,18 @@ export const StreamSellerOverlay: React.FC<StreamSellerOverlayProps> = ({
         </View>
       ) : null}
 
+      {micNotice ? (
+        <Animated.View
+          style={[styles.readyHint, { opacity: micNoticeAnim }]}
+          pointerEvents="none"
+          accessibilityLiveRegion="polite"
+        >
+          <RNText style={styles.readyHintTitle} maxFontSizeMultiplier={1.2}>
+            {t(micNotice === 'muted' ? 'stream.micMutedPill' : 'stream.micActiveNotice')}
+          </RNText>
+        </Animated.View>
+      ) : null}
+
       <View
         style={[styles.contentBlock, { paddingBottom: contentPaddingBottom }]}
         pointerEvents="box-none"
@@ -285,7 +357,7 @@ export const StreamSellerOverlay: React.FC<StreamSellerOverlayProps> = ({
             <StreamActionRail
               variant="seller"
               onOpenNote={onOpenNote}
-              onShare={onShare}
+              onShare={onShare ?? handleShare}
               onMore={onMore ?? (() => setMoreVisible(true))}
               onAddProduct={onAddPress}
               onFlipCamera={onFlipCamera}
@@ -391,6 +463,27 @@ const styles = StyleSheet.create({
   },
   keyboardDismissBackdrop: {
     ...StyleSheet.absoluteFillObject,
+  },
+  /** Fila propia bajo el header: no tapa ni desplaza la pill del vendedor. */
+  micMutedRow: {
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  micMutedPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: STREAM_COLORS.liveStop,
+    borderRadius: 1000,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  micMutedPillText: {
+    fontFamily: FONT_FAMILY.semibold,
+    fontSize: 13,
+    lineHeight: 18,
+    color: STREAM_COLORS.white,
+    includeFontPadding: false,
   },
   /**
    * Hint centrado mientras el vivo está pausado / por comenzar: guía al CTA

@@ -20,8 +20,6 @@ import { recordInterestCategoryVisit } from '../../api/platformApi';
 import type { InterestCategoryItem } from '../../api/types';
 import type { LiveStreamPreviewModel } from '../organisms/home/types';
 import { displayInterestCategoryIcon } from '../../utils/interestCategoryEmoji';
-import { IconFilter } from '../icons';
-import { appAlert } from '../../alerts';
 
 export type CategorySortMode = 'recommended' | 'bestSellers';
 
@@ -95,14 +93,9 @@ export const BuyerCategoryStreamsScreen: React.FC<BuyerCategoryStreamsScreenProp
     );
   };
 
-  const sectionHeader = (title: string, actionLabel?: string) => (
+  const sectionHeader = (title: string) => (
     <View style={styles.sectionHeader}>
       <Text style={[styles.sectionTitle, darkText]}>{title}</Text>
-      {actionLabel ? (
-        <TouchableOpacity activeOpacity={0.7}>
-          <Text style={styles.sectionAction}>{actionLabel}</Text>
-        </TouchableOpacity>
-      ) : null}
     </View>
   );
 
@@ -154,15 +147,6 @@ export const BuyerCategoryStreamsScreen: React.FC<BuyerCategoryStreamsScreenProp
       </View>
 
       <View style={styles.filtersRow}>
-        <TouchableOpacity
-          onPress={() => appAlert(t('common.appName'), t('explore.filtersComingSoon'))}
-          activeOpacity={0.85}
-          style={[styles.filterButton, darkSurfaceAlt]}
-          accessibilityLabel={t('explore.filters')}
-          accessibilityRole="button"
-        >
-          <IconFilter size={24} color="#FFFFFF" />
-        </TouchableOpacity>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -179,7 +163,7 @@ export const BuyerCategoryStreamsScreen: React.FC<BuyerCategoryStreamsScreenProp
 
       {!loading && popularPreviews.length > 0 ? (
         <>
-          {sectionHeader(t('explore.popularSection'), t('home.seeAll'))}
+          {sectionHeader(t('explore.popularSection'))}
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -282,15 +266,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 32,
   },
-  filterButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#515154',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 8,
-  },
   filterChipsContent: {
     alignItems: 'center',
     paddingRight: 16,
@@ -322,12 +297,6 @@ const styles = StyleSheet.create({
     fontSize: 20,
     lineHeight: 28,
     color: '#27272a',
-  },
-  sectionAction: {
-    fontFamily: FONT_FAMILY.semibold,
-    fontSize: 14,
-    lineHeight: 20,
-    color: '#685CF0',
   },
   popularScroll: {
     marginBottom: 18,

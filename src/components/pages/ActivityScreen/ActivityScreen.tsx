@@ -36,18 +36,24 @@ const RECENT_WINDOW_S = 7 * 24 * 60 * 60;
 export interface ActivityScreenProps {
   /** Ventas habilitado solo para vendedores. */
   isSeller: boolean;
-  onOpenPurchase: (purchase: PurchaseItem) => void;
+  /** `tab` es la pestaña activa, para que volver del detalle la restituya. */
+  onOpenPurchase: (purchase: PurchaseItem, tab: 'purchases' | 'sales') => void;
+  /** Tab inicial; el home del vendedor entra por "Ventas". */
+  initialTab?: 'purchases' | 'sales';
 }
 
 
 export const ActivityScreen: React.FC<ActivityScreenProps> = ({
   isSeller,
   onOpenPurchase,
+  initialTab,
 }) => {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const d = themeColors.dark;
-  const [role, setRole] = useState<ActivityRole>('purchases');
+  const [role, setRole] = useState<ActivityRole>(
+    initialTab === 'sales' && isSeller ? 'sales' : 'purchases'
+  );
   const [filter, setFilter] = useState<ActivityFilter>('all');
   const { items, loading, reload } = useMyActivity(role);
 
@@ -167,7 +173,7 @@ export const ActivityScreen: React.FC<ActivityScreenProps> = ({
               key={item.sale_uuid}
               item={item}
               role={role}
-              onPress={() => onOpenPurchase(item)}
+              onPress={() => onOpenPurchase(item, role)}
             />
           ))}
         </ScrollView>

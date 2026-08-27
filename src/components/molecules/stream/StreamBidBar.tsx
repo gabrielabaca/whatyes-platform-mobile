@@ -18,15 +18,12 @@ import Svg, {
   G,
   Mask,
 } from 'react-native-svg';
-import { SlidersHorizontal } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import HapticFeedback from 'react-native-haptic-feedback';
-import { StreamIconButton } from '../../atoms/stream/StreamIconButton';
 import { formatStreamPrice } from '../../atoms/stream/StreamPriceText';
 import { PulpoLogo } from '../../atoms/stream/PulpoLogo';
 import { STREAM_COLORS, STREAM_RADIUS } from './streamTokens';
 import { FONT_FAMILY } from '../../../theme/typography';
-import { appAlert } from '../../../alerts';
 
 /**
  * Slide-to-bid clásico: la perilla arranca en el extremo izquierdo y recorre
@@ -79,8 +76,6 @@ export interface StreamBidBarProps {
    * a aparecer la acción). Ignora `bidAmount` y `onBid`.
    */
   mode?: 'bid' | 'buy_now' | 'idle';
-  /** Muestra un aviso con el look del vivo; sin esto se cae a `appAlert`. */
-  onNotify?: (text: string) => void;
 }
 
 export const StreamBidBar: React.FC<StreamBidBarProps> = ({
@@ -89,7 +84,6 @@ export const StreamBidBar: React.FC<StreamBidBarProps> = ({
   disabled,
   isAuctionActive = true,
   mode = 'bid',
-  onNotify,
 }) => {
   const { t } = useTranslation();
   const [trackWidth, setTrackWidth] = useState(0);
@@ -203,26 +197,10 @@ export const StreamBidBar: React.FC<StreamBidBarProps> = ({
     if (w > 0) setTrackWidth(w);
   };
 
-  const handleFilter = () => {
-    const text = t('stream.comingSoon');
-    if (onNotify) {
-      onNotify(text);
-      return;
-    }
-    appAlert(t('common.appName'), text);
-  };
-
   const hasLayout = trackWidth > 0 && maxTravel > 0;
 
   return (
     <View style={styles.bar}>
-      {/* Botón de filtros */}
-      <View style={[styles.filterBtn, isDisabled && styles.dimmed]}>
-        <StreamIconButton onPress={handleFilter} accessibilityLabel={t('stream.filters')}>
-          <SlidersHorizontal size={24} color={STREAM_COLORS.white} />
-        </StreamIconButton>
-      </View>
-
       {/* Track */}
       <View style={[styles.track, isDisabled && styles.dimmed]} onLayout={onTrackLayout}>
         {hasLayout && (
@@ -352,14 +330,6 @@ const styles = StyleSheet.create({
     gap: 8,
     height: TRACK_HEIGHT,
     width: '100%',
-  },
-  filterBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: STREAM_RADIUS.pill,
-    backgroundColor: STREAM_COLORS.filterButton,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   dimmed: {
     opacity: 0.45,

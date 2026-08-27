@@ -176,6 +176,7 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
     sendLike,
     sendStreamPause,
     sendStreamResume,
+    sendSellerAudioMuted,
     disconnectPermanently,
     isConnected,
     isStreamPaused,
@@ -667,10 +668,13 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
         await setKinesisWebRTCMasterMicMuted(nextMuted);
       }
       setIsMicMuted(nextMuted);
+      // Recién después de que el transporte lo aplicó: lo que ve el comprador
+      // es el estado real del mic, no un booleano optimista.
+      sendSellerAudioMuted(nextMuted);
     } catch {
       appAlert(t('common.appName'), t('stream.muteMicError'));
     }
-  }, [isMicMuted, ivsPublishing, t]);
+  }, [isMicMuted, ivsPublishing, sendSellerAudioMuted, t]);
 
   const handleTogglePause = useCallback(async () => {
     const nextPaused = !isStreamPaused;

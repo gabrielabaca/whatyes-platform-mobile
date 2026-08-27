@@ -68,7 +68,6 @@ import {
   type HomeBottomTab,
 } from '../../organisms/home';
 import { AddProductScreen } from '../AddProductScreen';
-import { appAlert } from '../../../alerts';
 
 interface HomeScreenProps {
   onStreamPress?: (stream: StreamData | any) => void;
@@ -98,8 +97,8 @@ type HomePath =
   | { name: 'sellerHub' }
   | { name: 'account' }
   | { name: 'purchases' }
-  | { name: 'activity' }
-  | { name: 'purchaseDetail'; purchase: PurchaseItem }
+  | { name: 'activity'; initialTab?: 'purchases' | 'sales' }
+  | { name: 'purchaseDetail'; purchase: PurchaseItem; returnTab?: 'purchases' | 'sales' }
   | { name: 'profile'; userId?: string; returnTo?: 'account' | 'activity' | 'notifications' }
   | { name: 'addProduct'; returnTo?: 'home' | 'sellerHub' }
   /** returnTo: la campana está en varias pantallas; volver regresa a la de origen. */
@@ -479,7 +478,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
           {showHomeHeader ? (
             <HomeHeader
-              onPressSearch={() => appAlert(t('common.appName'), t('home.searchPlaceholder'))}
               onPressNotifications={() =>
                 setHomePath((prev) =>
                   prev.name === 'notifications' ? prev : { name: 'notifications', returnTo: prev }
@@ -502,11 +500,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               showVerifyBanner={!(user as UserMe).identity_kyc_verified}
               showFirstLiveCta={showFirstLiveCta}
               onPressVerify={() => setKycVisible(true)}
-              onPressPayments={() =>
-                appAlert(t('common.appName'), t('home.placeholderScreen'))
-              }
               onPressSold={() =>
-                appAlert(t('common.appName'), t('home.placeholderScreen'))
+                setHomePath({ name: 'activity', initialTab: 'sales' })
               }
               onPressGoLive={() => onStartNewStream?.()}
               onPressAddProduct={() => setHomePath({ name: 'addProduct', returnTo: 'sellerHub' })}
@@ -573,22 +568,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                 peekHintFirstCard={!peekHintUsed}
                 emptyLabel={t('home.noLiveStreams')}
                 emptySubtitle={t('home.noLiveStreamsSubtitle')}
-                emptyActionLabel={t('home.notifyWhenLive')}
-                // TODO: cablear la suscripción a notificaciones de lives.
-                onEmptyActionPress={() =>
-                  appAlert(t('common.appName'), t('home.placeholderNotifyWhenLive'))
-                }
                 gap={GRID_GAP}
                 previewWithCategory={previewWithCategory}
                 sectionHeader={
                   !loading && filteredPreviews.length > 0 ? (
-                    <SectionHeader
-                      title={t('home.forYou')}
-                      actionLabel={t('home.seeAll')}
-                      onActionPress={() =>
-                        appAlert(t('common.appName'), t('home.placeholderSeeAll'))
-                      }
-                    />
+                    <SectionHeader title={t('home.forYou')} />
                   ) : undefined
                 }
               />
@@ -616,8 +600,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           {homePath.name === 'activity' ? (
             <ActivityScreen
               isSeller={isSeller}
-              onOpenPurchase={(purchase) =>
-                setHomePath({ name: 'purchaseDetail', purchase })
+              initialTab={homePath.initialTab}
+              onOpenPurchase={(purchase, tab) =>
+                setHomePath({ name: 'purchaseDetail', purchase, returnTab: tab })
               }
             />
           ) : null}
@@ -625,7 +610,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           {homePath.name === 'purchaseDetail' ? (
             <PurchaseDetailScreen
               purchase={homePath.purchase}
-              onBack={() => setHomePath({ name: 'activity' })}
+              onBack={() => setHomePath({ name: 'activity', initialTab: homePath.returnTab })}
               onOpenSellerProfile={(sellerUserId) =>
                 setHomePath({ name: 'profile', userId: sellerUserId, returnTo: 'activity' })
               }

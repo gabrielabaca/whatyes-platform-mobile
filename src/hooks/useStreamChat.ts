@@ -158,6 +158,14 @@ export function useStreamChat({
    */
   const [auctionPausedRemaining, setAuctionPausedRemaining] = useState<number | null>(null);
   const [isStreamPaused, setIsStreamPaused] = useState(false);
+  /** Mic del vendedor silenciado. El init lo trae para quien entra tarde. */
+  const [isSellerAudioMuted, setIsSellerAudioMuted] = useState(false);
+  /**
+   * Último CAMBIO de mic recibido por broadcast (no por init): permite mostrar
+   * un toast solo cuando el toggle ocurre con el viewer ya adentro, sin que la
+   * foto inicial —o una reconexión— dispare avisos.
+   */
+  const [sellerAudioEvent, setSellerAudioEvent] = useState<{ muted: boolean; id: number } | null>(null);
   const [roomCoverUrl, setRoomCoverUrl] = useState<string | null>(null);
   const [roomIntroVideoUrl, setRoomIntroVideoUrl] = useState<string | null>(null);
   /**
@@ -256,6 +264,14 @@ export function useStreamChat({
     send({ type: 'stream_resume' });
   }, [send]);
 
+  /** Seller: publica el estado real del mic después de aplicarlo en el transporte. */
+  const sendSellerAudioMuted = useCallback(
+    (muted: boolean) => {
+      send({ type: muted ? 'seller_audio_mute' : 'seller_audio_unmute' });
+    },
+    [send]
+  );
+
   const disconnectPermanently = useCallback(() => {
     reconnectEnabledRef.current = false;
     if (reconnectTimer.current) {
@@ -308,6 +324,9 @@ export function useStreamChat({
             }
             if (typeof msg.payload.stream_paused === 'boolean') {
               setIsStreamPaused(msg.payload.stream_paused);
+            }
+            if (typeof msg.payload.seller_audio_muted === 'boolean') {
+              setIsSellerAudioMuted(msg.payload.seller_audio_muted);
             }
             if (typeof msg.payload.cover_url === 'string' && msg.payload.cover_url.trim()) {
               setRoomCoverUrl(msg.payload.cover_url.trim());
@@ -450,6 +469,12 @@ export function useStreamChat({
             setIsStreamPaused(Boolean(msg.payload.paused));
             return;
           }
+          if (msg.type === 'seller_audio_status' && msg.payload) {
+            const muted = Boolean(msg.payload.muted);
+            setIsSellerAudioMuted(muted);
+            setSellerAudioEvent((prev) => ({ muted, id: (prev?.id ?? 0) + 1 }));
+            return;
+          }
           if (msg.type === 'stream_ended') {
             const reason =
               typeof msg.payload?.reason === 'string' ? msg.payload.reason : undefined;
@@ -587,8 +612,11 @@ export function useStreamChat({
     sendBid,
     sendStreamPause,
     sendStreamResume,
+    sendSellerAudioMuted,
     disconnectPermanently,
     isStreamPaused,
+    isSellerAudioMuted,
+    sellerAudioEvent,
     roomCoverUrl,
     roomIntroVideoUrl,
     roomNote,

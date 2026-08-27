@@ -18,8 +18,6 @@ import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   IconChevronLeft,
-  IconShare,
-  IconMoreVertical,
   IconUser,
   IconStar,
   IconTag,
@@ -277,14 +275,6 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
               <TouchableOpacity onPress={onBack} hitSlop={12} accessibilityRole="button">
                 <IconChevronLeft size={24} color="#FFFFFF" />
               </TouchableOpacity>
-              <View style={styles.coverActions}>
-                <TouchableOpacity onPress={placeholder} hitSlop={8} accessibilityRole="button">
-                  <IconShare size={24} color="#FFFFFF" />
-                </TouchableOpacity>
-                <TouchableOpacity onPress={placeholder} hitSlop={8} accessibilityRole="button">
-                  <IconMoreVertical size={24} color="#FFFFFF" />
-                </TouchableOpacity>
-              </View>
             </View>
             <View style={styles.coverProfileRow}>
               {avatarUri ? (
@@ -713,11 +703,6 @@ const styles = StyleSheet.create({
   coverTopBar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  coverActions: {
-    flexDirection: 'row',
-    gap: 12,
     alignItems: 'center',
   },
   coverProfileRow: {

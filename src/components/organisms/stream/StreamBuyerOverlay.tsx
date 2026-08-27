@@ -5,9 +5,13 @@ import {
   Keyboard,
   Platform,
   Pressable,
+  Share,
+  Text as RNText,
   type KeyboardEvent,
 } from 'react-native';
+import { MicOff } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 import {
   StreamSellerHeader,
   StreamChatOverlay,
@@ -23,6 +27,10 @@ import type {
   LiveOfferSaleMode,
 } from '../../../hooks/useStreamChat';
 import type { ShippingQuoteState } from '../../../hooks/useProductShippingQuote';
+import { StreamGlassPill } from '../../atoms/stream/StreamGlassPill';
+import { STREAM_COLORS } from '../../molecules/stream/streamTokens';
+import { FONT_FAMILY } from '../../../theme/typography';
+import { APP_DOWNLOAD_URL } from '../../../constants/externalLinks';
 
 const BID_INCREMENT = 1000;
 const DEFAULT_BID = 10000;
@@ -86,6 +94,8 @@ export interface StreamBuyerOverlayProps {
   onPressShipping?: () => void;
   /** Avisos del vivo (píldora con el look de la app en vez de un diálogo bloqueante). */
   onNotify?: (text: string) => void;
+  /** El vendedor silenció su micrófono (estado real, vía WS). */
+  isSellerAudioMuted?: boolean;
 }
 
 export const StreamBuyerOverlay: React.FC<StreamBuyerOverlayProps> = ({
@@ -130,8 +140,10 @@ export const StreamBuyerOverlay: React.FC<StreamBuyerOverlayProps> = ({
   shippingQuote,
   onPressShipping,
   onNotify,
+  isSellerAudioMuted = false,
 }) => {
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   useEffect(() => {
@@ -193,6 +205,28 @@ export const StreamBuyerOverlay: React.FC<StreamBuyerOverlayProps> = ({
     setLocalBidFloor(suggestedBid + BID_INCREMENT);
   }, [onBid, suggestedBid]);
 
+  const handleShare = useCallback(() => {
+    // El mensaje habla del vivo y la app, no del lote en pantalla (rota durante
+    // el vivo y el receptor puede llegar cuando ya se vendió).
+    const seller = sellerName?.trim() || t('home.defaultRoomName');
+    void (async () => {
+      try {
+        // Android solo acepta texto; en iOS el `url` viaja aparte (habilita
+        // Guardar / Abrir enlace), así que se interpola vacío para no duplicarlo.
+        if (Platform.OS === 'ios') {
+          const message = t('stream.shareLiveViewer', { seller, url: '' }).trimEnd();
+          await Share.share({ message, url: APP_DOWNLOAD_URL });
+        } else {
+          await Share.share({
+            message: t('stream.shareLiveViewer', { seller, url: APP_DOWNLOAD_URL }),
+          });
+        }
+      } catch {
+        // Cancelar la hoja de compartir no es un error.
+      }
+    })();
+  }, [sellerName, t]);
+
   const stackUrls = productImageUrlsProp?.filter(Boolean) ?? [];
   const stackExtra =
     stackUrls.length > 3 ? stackUrls.length - 3 : 0;
@@ -228,6 +262,21 @@ export const StreamBuyerOverlay: React.FC<StreamBuyerOverlayProps> = ({
         onExitPress={onExit}
       />
 
+      {/* Informativo, no alarma: explica por qué no se escucha nada. Mismo glass
+          neutro del resto del overlay, cerca del header del vendedor. */}
+      {isSellerAudioMuted ? (
+        <View style={styles.micMutedRow} pointerEvents="none" accessibilityLiveRegion="polite">
+          <StreamGlassPill style={styles.micMutedPill}>
+            <View style={styles.micMutedContent}>
+              <MicOff size={14} color={STREAM_COLORS.white} strokeWidth={2.2} />
+              <RNText style={styles.micMutedText} maxFontSizeMultiplier={1.2}>
+                {t('stream.sellerMicMuted')}
+              </RNText>
+            </View>
+          </StreamGlassPill>
+        </View>
+      ) : null}
+
       <View
         style={[styles.contentBlock, { paddingBottom: contentPaddingBottom }]}
         pointerEvents="box-none"
@@ -243,6 +292,7 @@ export const StreamBuyerOverlay: React.FC<StreamBuyerOverlayProps> = ({
             isAudioMuted={isAudioMuted}
             onToggleAudio={onToggleAudio}
             onOpenNote={onOpenNote}
+            onShare={handleShare}
             onNotify={onNotify}
           />
         </View>
@@ -286,7 +336,6 @@ export const StreamBuyerOverlay: React.FC<StreamBuyerOverlayProps> = ({
             onBid={() => {}}
             isAuctionActive={false}
             disabled
-            onNotify={onNotify}
           />
         ) : isBuyNow ? (
           <StreamBidBar
@@ -295,7 +344,6 @@ export const StreamBuyerOverlay: React.FC<StreamBuyerOverlayProps> = ({
             onBid={() => onBuyNow?.()}
             isAuctionActive={isAuctionActive}
             disabled={isBuyNowPending || !onBuyNow || isAuctionPaused}
-            onNotify={onNotify}
           />
         ) : (
           <StreamBidBar
@@ -303,7 +351,6 @@ export const StreamBuyerOverlay: React.FC<StreamBuyerOverlayProps> = ({
             onBid={handleBid}
             isAuctionActive={isAuctionActive}
             disabled={isAuctionPaused}
-            onNotify={onNotify}
           />
         )}
       </View>
@@ -340,5 +387,26 @@ const styles = StyleSheet.create({
   },
   keyboardDismissBackdrop: {
     ...StyleSheet.absoluteFillObject,
+  },
+  /** Fila propia bajo el header del vendedor: no tapa ni desplaza nada. */
+  micMutedRow: {
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  micMutedPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  micMutedContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  micMutedText: {
+    fontFamily: FONT_FAMILY.semibold,
+    fontSize: 12,
+    lineHeight: 16,
+    color: STREAM_COLORS.white,
+    includeFontPadding: false,
   },
 });

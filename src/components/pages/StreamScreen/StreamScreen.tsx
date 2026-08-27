@@ -232,6 +232,8 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({
     auctionWinner,
     lastAuctionExtension,
     isStreamPaused,
+    isSellerAudioMuted,
+    sellerAudioEvent,
     roomCoverUrl: wsCoverUrl,
     roomIntroVideoUrl: wsIntroVideoUrl,
     roomNote,
@@ -243,6 +245,17 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({
     onStreamEnded: onStreamEndedFromWs,
     onAuctionCancelled: handleAuctionCancelled,
   });
+
+  // Toast solo cuando el toggle del mic ocurre con el viewer ya adentro:
+  // `sellerAudioEvent` viene únicamente del broadcast (nunca del init), así que
+  // quien entra con el mic ya silenciado ve la píldora persistente y ningún toast.
+  useEffect(() => {
+    if (!sellerAudioEvent) return;
+    showToast(
+      t(sellerAudioEvent.muted ? 'stream.sellerMicMuted' : 'stream.sellerMicActive'),
+      'info'
+    );
+  }, [sellerAudioEvent, showToast, t]);
 
   // Nota del vivo en solo lectura: el viewer nunca es dueño de la sala (canEdit false).
   const liveNote = useLiveRoomNote({
@@ -1111,6 +1124,7 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({
         shippingQuote={shippingQuote}
         onPressShipping={handlePressShippingRate}
         onNotify={showToast}
+        isSellerAudioMuted={isSellerAudioMuted}
       />
 
       {/* La nota es solo lectura para el viewer: acá no hay edición ni "Publicar". */}
