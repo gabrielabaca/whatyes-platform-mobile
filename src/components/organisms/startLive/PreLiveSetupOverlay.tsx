@@ -53,19 +53,6 @@ type SaleFormat = NonNullable<StreamConfig['saleFormat']>;
 type Privacy = NonNullable<StreamConfig['privacy']>;
 type Drawer = 'none' | 'frequency' | 'moderators' | 'categories' | 'saleFormat' | 'blockedWords' | 'coverSource';
 
-const FREQUENCY_OPTIONS: Array<{ id: Frequency; label: string }> = [
-  { id: 'none', label: 'No repetir' },
-  { id: 'daily', label: 'Diariamente' },
-  { id: 'weekly', label: 'Semanalmente' },
-  { id: 'monthly', label: 'Mensualmente' },
-];
-
-const SALE_FORMAT_OPTIONS: Array<{ id: SaleFormat; label: string; body: string }> = [
-  { id: 'individual', label: 'Productos individuales', body: 'Vende artículos uno por uno de forma directa.' },
-  { id: 'auction_breaks', label: 'Subastas o breaks', body: 'Los compradores participan por productos o paquetes cerrados en dinámicas en vivo.' },
-  { id: 'surprise_boxes', label: 'Cajas sorpresa', body: 'Vende bundles sorpresa donde el comprador descubre el contenido al recibirlo.' },
-];
-
 const preLiveSheetPanelExtra: ViewStyle = {
   paddingTop: 28,
 };
@@ -268,7 +255,7 @@ const BlockedWordsDrawer: React.FC<{
   return (
     <StreamBottomSheet
       visible={visible}
-      title="Bloquear palabras"
+      title={t('startLive.setupBlockedWords')}
       onClose={onClose}
       bottomPanel
       panelStyle={panelStyle}
@@ -284,15 +271,13 @@ const BlockedWordsDrawer: React.FC<{
       /** Tiene input + chips en borrador: tocar el fondo no puede descartarlos. */
       dismissOnBackdropPress={false}
     >
-          <RNText style={styles.drawerText}>
-            Permite filtrar términos específicos para evitar que aparezcan en el chat o comentarios para mantener un ambiente respetuoso y libre de contenido inapropiado durante la transmisión.
-          </RNText>
+          <RNText style={styles.drawerText}>{t('startLive.setupBlockedWordsIntro')}</RNText>
           <View style={styles.searchPill}>
             <AppTextInput
               style={styles.searchInput}
               value={input}
               onChangeText={setInput}
-              placeholder="Agregar palabras"
+              placeholder={t('startLive.setupBlockedWordsAdd')}
               placeholderTextColor={themeColors.glass.placeholder}
               returnKeyType="done"
               onSubmitEditing={addWord}
@@ -354,7 +339,7 @@ const ModeratorsDrawer: React.FC<{
   return (
     <StreamBottomSheet
       visible={visible}
-      title="Seleccionar moderadores"
+      title={t('startLive.setupModeratorsPlaceholder')}
       onClose={onClose}
       bottomPanel={false}
       fullHeight
@@ -374,7 +359,7 @@ const ModeratorsDrawer: React.FC<{
                 setInput(v);
                 if (moderatorEmailInvalid) setModeratorEmailInvalid(false);
               }}
-              placeholder="Buscar por email"
+              placeholder={t('startLive.setupModeratorsSearch')}
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
@@ -402,9 +387,7 @@ const ModeratorsDrawer: React.FC<{
                 <RadioMark selected square />
               </TouchableOpacity>
             )) : (
-              <RNText style={styles.drawerText}>
-                Agregá moderadores solo con correo electrónico (nombre@ejemplo.com). Quedarán guardados para esta sala.
-              </RNText>
+              <RNText style={styles.drawerText}>{t('startLive.setupModeratorsHint')}</RNText>
             )}
           </View>
     </StreamBottomSheet>
@@ -500,13 +483,44 @@ export const PreLiveSetupOverlay: React.FC<{
     const labels = categoryUuids
       .map((uuid) => categories.find((cat) => cat.uuid === uuid)?.label)
       .filter(Boolean);
-    if (!labels.length) return `${categoryUuids.length} seleccionadas`;
+    if (!labels.length) return t('startLive.setupCategoriesSelected', { count: categoryUuids.length });
     if (labels.length <= 2) return labels.join(', ');
     return `${labels.slice(0, 2).join(', ')} +${labels.length - 2}`;
-  }, [categories, categoryUuids]);
+  }, [categories, categoryUuids, t]);
 
-  const frequencyLabel = FREQUENCY_OPTIONS.find((opt) => opt.id === frequency)?.label ?? 'No repetir';
-  const saleFormatLabel = SALE_FORMAT_OPTIONS.find((opt) => opt.id === saleFormat)?.label ?? 'Productos individuales';
+  const frequencyOptions = useMemo(
+    () => [
+      { id: 'none' as Frequency, label: t('startLive.setupFrequencyNone') },
+      { id: 'daily' as Frequency, label: t('startLive.setupFrequencyDaily') },
+      { id: 'weekly' as Frequency, label: t('startLive.setupFrequencyWeekly') },
+      { id: 'monthly' as Frequency, label: t('startLive.setupFrequencyMonthly') },
+    ],
+    [t],
+  );
+
+  const saleFormatOptions = useMemo(
+    () => [
+      {
+        id: 'individual' as SaleFormat,
+        label: t('startLive.setupSaleFormatIndividual'),
+        body: t('startLive.setupSaleFormatIndividualBody'),
+      },
+      {
+        id: 'auction_breaks' as SaleFormat,
+        label: t('startLive.setupSaleFormatAuction'),
+        body: t('startLive.setupSaleFormatAuctionBody'),
+      },
+      {
+        id: 'surprise_boxes' as SaleFormat,
+        label: t('startLive.setupSaleFormatBoxes'),
+        body: t('startLive.setupSaleFormatBoxesBody'),
+      },
+    ],
+    [t],
+  );
+
+  const frequencyLabel = frequencyOptions.find((opt) => opt.id === frequency)?.label ?? frequencyOptions[0].label;
+  const saleFormatLabel = saleFormatOptions.find((opt) => opt.id === saleFormat)?.label ?? saleFormatOptions[0].label;
 
   const scheduleEpochSeconds = Math.floor(scheduleAt.getTime() / 1000);
   const scheduledDateDisplay = formatDate(scheduleEpochSeconds);
@@ -527,7 +541,7 @@ export const PreLiveSetupOverlay: React.FC<{
             ? e.message
             : e instanceof Error
               ? e.message
-              : 'No se pudo subir la imagen.';
+              : t('startLive.setupCoverUploadError');
         appAlert(t('common.error'), msg);
       } finally {
         setCoverUploading(false);
@@ -625,7 +639,7 @@ export const PreLiveSetupOverlay: React.FC<{
               showsVerticalScrollIndicator={false}
             >
               <View style={styles.header}>
-                <RNText style={styles.title}>Configura tu live</RNText>
+                <RNText style={styles.title}>{t('startLive.configTitle')}</RNText>
                 <TouchableOpacity onPress={handleLeavePreLive} hitSlop={12}>
                   <X size={22} color={themeColors.glass.text} />
                 </TouchableOpacity>
@@ -633,19 +647,19 @@ export const PreLiveSetupOverlay: React.FC<{
 
               <View style={styles.section}>
                 <View style={styles.field}>
-                  <FieldLabel>Nombre del live</FieldLabel>
+                  <FieldLabel>{t('startLive.setupFieldName')}</FieldLabel>
                   <View style={styles.inputPill}>
                     <AppTextInput
                       style={styles.input}
                       value={title}
                       onChangeText={(v) => setTitle(v.replace(/^\s/, '').slice(0, 80))}
-                      placeholder="Nombre"
+                      placeholder={t('startLive.setupFieldNamePlaceholder')}
                       placeholderTextColor={themeColors.glass.placeholder}
                     />
                   </View>
                 </View>
                 <View style={styles.field}>
-                  <FieldLabel>Fecha</FieldLabel>
+                  <FieldLabel>{t('startLive.setupFieldDate')}</FieldLabel>
                   <TouchableOpacity
                     style={styles.inputPill}
                     onPress={() => setShowScheduleDatePicker(true)}
@@ -656,31 +670,46 @@ export const PreLiveSetupOverlay: React.FC<{
                   </TouchableOpacity>
                 </View>
                 <View style={styles.field}>
-                  <FieldLabel>Hora</FieldLabel>
+                  <FieldLabel>{t('startLive.setupFieldTime')}</FieldLabel>
                   <TouchableOpacity style={styles.inputPill} onPress={() => setShowScheduleTimePicker(true)} activeOpacity={0.85}>
                     <RNText style={[styles.input, styles.inputTouchableText]}>{scheduledTimeDisplay}</RNText>
                     <Clock size={18} color={themeColors.glass.textMuted} />
                   </TouchableOpacity>
                 </View>
-                <SelectField label="Frecuencia" value={frequencyLabel} placeholder="No repetir" onPress={() => setDrawer('frequency')} />
                 <SelectField
-                  label="Agregar moderadores"
-                  value={moderatorIds.length ? `${moderatorIds.length} moderador(es)` : null}
-                  placeholder="Seleccionar moderadores"
+                  label={t('startLive.setupFrequency')}
+                  value={frequencyLabel}
+                  placeholder={t('startLive.setupFrequencyNone')}
+                  onPress={() => setDrawer('frequency')}
+                />
+                <SelectField
+                  label={t('startLive.setupModerators')}
+                  value={moderatorIds.length ? t('startLive.setupModeratorsCount', { count: moderatorIds.length }) : null}
+                  placeholder={t('startLive.setupModeratorsPlaceholder')}
                   icon={<UserRound size={22} color={themeColors.glass.placeholder} />}
                   onPress={() => setDrawer('moderators')}
                 />
               </View>
 
               <View style={styles.section}>
-                <SelectField label="Categoría" value={categoryLabel} placeholder="Selecciona una categoría" onPress={() => setDrawer('categories')} />
-                <SelectField label="Formato de venta" value={saleFormatLabel} placeholder="Selecciona un formato" onPress={() => setDrawer('saleFormat')} />
+                <SelectField
+                  label={t('startLive.setupCategory')}
+                  value={categoryLabel}
+                  placeholder={t('startLive.setupCategoryPlaceholder')}
+                  onPress={() => setDrawer('categories')}
+                />
+                <SelectField
+                  label={t('startLive.setupSaleFormat')}
+                  value={saleFormatLabel}
+                  placeholder={t('startLive.setupSaleFormatPlaceholder')}
+                  onPress={() => setDrawer('saleFormat')}
+                />
               </View>
 
               <View style={styles.section}>
                 <View style={styles.sectionHeading}>
-                  <RNText style={styles.sectionTitle}>Multimedia</RNText>
-                  <RNText style={styles.sectionBody}>Agrega contenido multimedia para que tu live sea mas atractivo</RNText>
+                  <RNText style={styles.sectionTitle}>{t('startLive.setupMediaTitle')}</RNText>
+                  <RNText style={styles.sectionBody}>{t('startLive.setupMediaBody')}</RNText>
                 </View>
                 <View style={styles.mediaRow}>
                   <View style={[styles.mediaCard, !!(liveCoverUrl || coverStagingUri) && styles.mediaCardHasCover]}>
@@ -690,7 +719,7 @@ export const PreLiveSetupOverlay: React.FC<{
                       activeOpacity={0.85}
                       disabled={coverUploading}
                       accessibilityRole="button"
-                      accessibilityLabel="Agregar cover del live"
+                      accessibilityLabel={t('startLive.setupAddCoverA11y')}
                     >
                       {liveCoverUrl || coverStagingUri ? (
                         <Image
@@ -701,7 +730,7 @@ export const PreLiveSetupOverlay: React.FC<{
                       ) : (
                         <>
                           <ImagePlus size={24} color={START_LIVE_COLORS.border} />
-                          <RNText style={styles.mediaText}>Agregar un Cover</RNText>
+                          <RNText style={styles.mediaText}>{t('startLive.setupAddCover')}</RNText>
                         </>
                       )}
                       {coverUploading ? (
@@ -719,7 +748,7 @@ export const PreLiveSetupOverlay: React.FC<{
                         }}
                         hitSlop={10}
                         accessibilityRole="button"
-                        accessibilityLabel="Quitar imagen de cover"
+                        accessibilityLabel={t('startLive.setupRemoveCoverA11y')}
                       >
                         <X size={16} color={themeColors.glass.text} strokeWidth={2.5} />
                       </TouchableOpacity>
@@ -727,16 +756,25 @@ export const PreLiveSetupOverlay: React.FC<{
                   </View>
                   <TouchableOpacity style={styles.mediaCard} activeOpacity={0.85}>
                     <Video size={24} color={START_LIVE_COLORS.border} />
-                    <RNText style={styles.mediaText}>Agregar un video</RNText>
+                    <RNText style={styles.mediaText}>{t('startLive.setupAddVideo')}</RNText>
                   </TouchableOpacity>
                 </View>
               </View>
 
               <View style={styles.section}>
-                <ToggleRow title="Contenido explicito" body="Activalo si tu live contiene contenido explicito" value={explicitContent} onValueChange={setExplicitContent} />
                 <ToggleRow
-                  title="Bloquear palabras"
-                  body={blockedWords.length ? `${blockedWords.length} palabras bloqueadas` : 'Bloquea las palabras de tu chat en vivo'}
+                  title={t('startLive.setupExplicit')}
+                  body={t('startLive.setupExplicitBody')}
+                  value={explicitContent}
+                  onValueChange={setExplicitContent}
+                />
+                <ToggleRow
+                  title={t('startLive.setupBlockedWords')}
+                  body={
+                    blockedWords.length
+                      ? t('startLive.setupBlockedWordsCount', { count: blockedWords.length })
+                      : t('startLive.setupBlockedWordsBody')
+                  }
                   value={blockedWordsEnabled}
                   onValueChange={(value) => {
                     setBlockedWordsEnabled(value);
@@ -747,14 +785,16 @@ export const PreLiveSetupOverlay: React.FC<{
 
               <View style={styles.section}>
                 <View style={styles.sectionHeading}>
-                  <RNText style={styles.sectionTitle}>Privacidad</RNText>
-                  <RNText style={styles.sectionBody}>¿Cómo quieres mostrar tus live?</RNText>
+                  <RNText style={styles.sectionTitle}>{t('startLive.setupPrivacy')}</RNText>
+                  <RNText style={styles.sectionBody}>{t('startLive.setupPrivacyBody')}</RNText>
                 </View>
                 {(['public', 'private'] as Privacy[]).map((item) => (
                   <TouchableOpacity key={item} style={styles.privacyRow} onPress={() => setPrivacy(item)} activeOpacity={0.85}>
                     <View style={styles.selectLeft}>
                       <UserRound size={20} color={themeColors.glass.placeholder} />
-                      <RNText style={styles.selectText}>{item === 'public' ? 'Publica' : 'Privado'}</RNText>
+                      <RNText style={styles.selectText}>
+                        {item === 'public' ? t('startLive.setupPrivacyPublic') : t('startLive.setupPrivacyPrivate')}
+                      </RNText>
                     </View>
                     {privacy === item ? <CheckCircle2 size={22} color={themeColors.glass.text} /> : <RadioMark selected={false} />}
                   </TouchableOpacity>
@@ -778,16 +818,16 @@ export const PreLiveSetupOverlay: React.FC<{
 
           <ChoiceDrawer
             visible={drawer === 'frequency'}
-            title="Frecuencia"
-            options={FREQUENCY_OPTIONS}
+            title={t('startLive.setupFrequency')}
+            options={frequencyOptions}
             value={frequency}
             onClose={() => setDrawer('none')}
             onSelect={(value) => setFrequency(value as Frequency)}
           />
           <ChoiceDrawer
             visible={drawer === 'saleFormat'}
-            title="Formato de venta"
-            options={SALE_FORMAT_OPTIONS}
+            title={t('startLive.setupSaleFormat')}
+            options={saleFormatOptions}
             value={saleFormat}
             onClose={() => setDrawer('none')}
             onSelect={(value) => setSaleFormat(value as SaleFormat)}
@@ -838,7 +878,7 @@ export const PreLiveSetupOverlay: React.FC<{
               para presentarse encadenados sobre esta ventana, no en el portal raíz. */}
           <AppDatePickerSheet
             visible={showScheduleDatePicker}
-            title="Fecha"
+            title={t('startLive.setupFieldDate')}
             mode="date"
             value={scheduleAt}
             onChange={(d) => setScheduleAt((prev) => mergeCalendarDatePreserveTime(prev, d))}
@@ -847,7 +887,7 @@ export const PreLiveSetupOverlay: React.FC<{
 
           <AppDatePickerSheet
             visible={showScheduleTimePicker}
-            title="Hora"
+            title={t('startLive.setupFieldTime')}
             mode="time"
             value={scheduleAt}
             onChange={(d) => setScheduleAt((prev) => mergeClockTimePreserveDate(prev, d))}

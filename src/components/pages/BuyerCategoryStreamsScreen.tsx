@@ -67,6 +67,12 @@ export const BuyerCategoryStreamsScreen: React.FC<BuyerCategoryStreamsScreenProp
     return [...previews].sort((a, b) => b.viewerCount - a.viewerCount).slice(0, 6);
   }, [previews]);
 
+  /**
+   * Misma fuente de verdad que decide el estado vacío de la rejilla: sin resultados no
+   * hay nada que filtrar, así que la fila de chips tampoco se monta (Figma 1215:5206).
+   */
+  const hasResults = !loading && sortedPreviews.length > 0;
+
   const filterChip = (
     mode: CategorySortMode,
     labelKey: 'explore.recommended' | 'explore.bestSellers',
@@ -130,14 +136,14 @@ export const BuyerCategoryStreamsScreen: React.FC<BuyerCategoryStreamsScreenProp
           style={styles.followButtonTouchable}
         >
           <View style={styles.followButton}>
-            <Svg pointerEvents="none" style={styles.followButtonGradient} width={58} height={26}>
+            <Svg pointerEvents="none" style={styles.followButtonGradient} width="100%" height="100%">
               <Defs>
                 <LinearGradient id="follow-button-gradient" x1="0" y1="0" x2="1" y2="0">
                   <Stop offset="0" stopColor="#685CF0" />
                   <Stop offset="1" stopColor="#454087" />
                 </LinearGradient>
               </Defs>
-              <Rect width={58} height={26} fill="url(#follow-button-gradient)" />
+              <Rect width="100%" height="100%" fill="url(#follow-button-gradient)" />
             </Svg>
             <Text style={styles.followButtonText}>
               {following ? t('explore.following') : t('explore.follow')}
@@ -146,16 +152,18 @@ export const BuyerCategoryStreamsScreen: React.FC<BuyerCategoryStreamsScreenProp
         </TouchableOpacity>
       </View>
 
-      <View style={styles.filtersRow}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filterChipsContent}
-        >
-          {filterChip('recommended', 'explore.recommended', '⚡')}
-          {filterChip('bestSellers', 'explore.bestSellers', '📊')}
-        </ScrollView>
-      </View>
+      {hasResults ? (
+        <View style={styles.filtersRow}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filterChipsContent}
+          >
+            {filterChip('recommended', 'explore.recommended', '⚡')}
+            {filterChip('bestSellers', 'explore.bestSellers', '📊')}
+          </ScrollView>
+        </View>
+      ) : null}
 
       {loading && previews.length === 0 ? (
         <Text className="text-[#4C4E55] dark:text-night-muted mb-4">{t('common.loading')}</Text>
@@ -188,11 +196,7 @@ export const BuyerCategoryStreamsScreen: React.FC<BuyerCategoryStreamsScreenProp
         onStreamPress={onStreamPress}
         emptyLabel={t('explore.noLivesInCategory')}
         emptySubtitle={t('explore.noLivesInCategorySubtitle')}
-        sectionHeader={
-          !loading && sortedPreviews.length > 0
-            ? sectionHeader(t('explore.livesSection'))
-            : undefined
-        }
+        sectionHeader={hasResults ? sectionHeader(t('explore.livesSection')) : undefined}
       />
     </ScrollView>
   );
@@ -244,8 +248,9 @@ const styles = StyleSheet.create({
     marginLeft: 12,
   },
   followButton: {
-    width: 58,
+    minWidth: 58,
     height: 26,
+    paddingHorizontal: 12,
     borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',

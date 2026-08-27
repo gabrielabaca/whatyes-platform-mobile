@@ -1083,6 +1083,17 @@ export interface PurchaseCounterpart {
   profile_picture?: string | null;
 }
 
+/** Máquina de estados del envío en service-platform (SaleFulfillmentStatus). */
+export type FulfillmentStatus =
+  | 'none'
+  | 'shipment_created'
+  | 'in_transit'
+  | 'out_for_delivery'
+  | 'delivered'
+  | 'failed_delivery'
+  | 'returned'
+  | 'shipment_failed';
+
 export interface PurchaseItem {
   sale_uuid: string;
   order_number: string;
@@ -1102,6 +1113,14 @@ export interface PurchaseItem {
   total_cents?: number;
   currency: string;
   payment_status: 'pending' | 'paid' | 'cancelled' | string;
+  /** Estado del envío espejado desde service_delivery. */
+  fulfillment_status?: FulfillmentStatus | string | null;
+  /** N° de seguimiento del transportista (guía); null hasta que se crea el envío. */
+  delivery_guide_id?: string | null;
+  /** Fecha pactada de entrega (epoch s) informada por el transportista. */
+  estimated_delivery_at?: number | null;
+  /** Fecha de entrega efectiva (epoch s). */
+  delivered_at?: number | null;
   /** Vendedor (en compras) o comprador (en ventas). */
   counterpart: PurchaseCounterpart;
   won_at_ms?: number | null;
@@ -1145,6 +1164,49 @@ export async function getMyPurchase(
   );
   if (!res.ok) throw new Error(`getMyPurchase: ${res.status}`);
   return res.json() as Promise<PurchaseItem>;
+}
+
+/** Un paso del historial del envío, tal como lo informa el transportista. */
+export interface PurchaseTrackingEvent {
+  /** Estado legible del proveedor ("En Transito A Destino"). */
+  label: string;
+  /** Estado normalizado (CREATED, IN_TRANSIT, DELIVERED, …). */
+  state_code?: string | null;
+  /** Fecha cruda del proveedor (dd/mm/YYYY). */
+  date?: string | null;
+  /** Hora cruda del proveedor (HH:MM:SS). */
+  hour?: string | null;
+  /** date + hour parseados a epoch s por el backend; null si no se pudo. */
+  occurred_at?: number | null;
+}
+
+export interface PurchaseTracking {
+  sale_uuid: string;
+  /** false = la venta todavía no tiene envío (o no genera uno): sin eventos. */
+  has_shipment: boolean;
+  fulfillment_status: FulfillmentStatus | string;
+  guide_id?: string | null;
+  /** Estado normalizado del envío en service_delivery. */
+  status?: string | null;
+  estimated_delivery_at?: number | null;
+  delivered_at?: number | null;
+  events: PurchaseTrackingEvent[];
+}
+
+/**
+ * Historial del envío de una compra propia (o de una venta propia).
+ * Sin envío responde 200 con `has_shipment: false`, no un error.
+ */
+export async function getMyPurchaseTracking(
+  accessToken: string,
+  saleUuid: string
+): Promise<PurchaseTracking> {
+  const res = await fetch(
+    `${PLATFORM_HTTP_URL}/me/purchases/${encodeURIComponent(saleUuid)}/tracking`,
+    { headers: authHeaders(accessToken) }
+  );
+  if (!res.ok) throw new Error(`getMyPurchaseTracking: ${res.status}`);
+  return res.json() as Promise<PurchaseTracking>;
 }
 
 /** Ventas del vendedor autenticado (tab Ventas de Actividad). */

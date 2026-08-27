@@ -2,7 +2,7 @@
  * Detalle de una compra — Figma 698-3403.
  * Secciones: resumen del producto, detalles de la compra, clip de la compra
  * (video de la subasta grabado por platform_livestream), estado del envío
- * (derivado del estado de pago hasta integrar shipments), detalle de pago,
+ * (fulfillment_status + historial de service_delivery), detalle de pago,
  * información del vendedor, reseña y productos similares.
  */
 import React, { useEffect, useState } from 'react';
@@ -35,13 +35,21 @@ import {
   type UserPublicProfile,
 } from '../../../api/profileApi';
 import {
+  getMyPurchaseTracking,
   getUserProfileProducts,
   type PurchaseItem,
+  type PurchaseTracking,
   type UserProfileProductItem,
 } from '../../../api/platformApi';
+import {
+  fulfillmentProgress,
+  isFulfillmentFailure,
+  normalizeFulfillmentStatus,
+} from '../../../utils/fulfillment';
 import { getPaymentIntentBySaleUuid, getPublicPaymentsConfig } from '../../../api/paymentsApi';
 import { resolveMpWalletCheckoutUrl } from '../../../utils/mpWalletDeepLink';
 import { formatCompactCount } from '../../../utils/formatCount';
+import { writeClipboardText } from '../../../utils/clipboard';
 import { storage } from '../../../utils/storage';
 import { FONT_FAMILY } from '../../../theme/typography';
 import { themeColors } from '../../../theme/colors';
@@ -55,6 +63,7 @@ const D = themeColors.dark;
 const TEXT = '#18181B';
 const MUTED = '#6B7280';
 const GOLD = '#EAB308';
+const DANGER = themeColors.danger;
 const CARD_BG = '#FAFAFF';
 const ROW_BG = '#EFEFFA';
 
@@ -70,6 +79,13 @@ function formatDateTime(epochSec: number, locale: string): string {
     minute: '2-digit',
   }).format(d);
   return `${date}, ${time}h`;
+}
+
+/** "15 mayo" — formato corto del Figma para la fecha estimada de entrega. */
+function formatDayMonth(epochSec: number, locale: string): string {
+  return new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'long' }).format(
+    new Date(epochSec * 1000)
+  );
 }
 
 function formatClipDuration(totalSeconds: number): string {
@@ -115,6 +131,8 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
   const [clipViewerOpen, setClipViewerOpen] = useState(false);
   /** Checkout de MP pendiente: aparece cuando el cobro automático no pudo hacerse. */
   const [pendingCheckoutUrl, setPendingCheckoutUrl] = useState<string | null>(null);
+  /** Historial del envío; null mientras carga o si la venta no tiene envío. */
+  const [tracking, setTracking] = useState<PurchaseTracking | null>(null);
 
   const sellerName =
     sellerProfile?.display_name?.trim() ||
@@ -158,6 +176,28 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
       cancelled = true;
     };
   }, [sellerId, purchase.product_title]);
+
+  /**
+   * Historial del envío: cada paso con su fecha. No se denormaliza en la compra,
+   * así que el detalle lo pide aparte. Sin envío el backend responde
+   * `has_shipment: false` y el timeline se arma solo con lo que trae la venta.
+   */
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const token = await storage.getAccessToken();
+        if (!token) return;
+        const data = await getMyPurchaseTracking(token, purchase.sale_uuid);
+        if (!cancelled) setTracking(data);
+      } catch {
+        // El timeline funciona sin el historial: solo pierde las fechas.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [purchase.sale_uuid]);
 
   /**
    * Si el cobro automático no salió, el saga deja el intent en REQUIRES_CLIENT_ACTION
@@ -210,10 +250,9 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
     }
   };
 
-  // Sin @react-native-clipboard/clipboard instalado: se muestra el número completo
-  // para copiar manualmente (agregar la dependencia habilita copia real).
-  const copyToClipboard = (value: string) => {
-    appAlert(t('activity.orderNumber'), value);
+  const copyToClipboard = (value: string, title: string) => {
+    // Si el sistema niega la copia, se muestra el número para transcribirlo a mano.
+    appAlert(title, writeClipboardText(value) ? t('common.copied') : value);
   };
 
   const submitReview = async () => {
@@ -237,12 +276,68 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
     }
   };
 
-  // Timeline derivada del estado de pago (sin envío real todavía).
+  const locale = i18n.language || 'es';
   const isPaid = purchase.payment_status === 'paid';
-  const timelineSteps: { label: string; sub?: string; state: 'done' | 'current' | 'todo' }[] = [
+  const fulfillmentStatus = normalizeFulfillmentStatus(purchase.fulfillment_status);
+  const shipmentFailed = isFulfillmentFailure(fulfillmentStatus);
+  // Índice en la línea de avance: 1 = guía creada, 2 = en tránsito, 4 = entregado.
+  const progress = fulfillmentProgress(fulfillmentStatus);
+
+  /** Fecha (epoch s) del primer evento del envío con uno de esos estados. */
+  const eventDateFor = (codes: string[]): number | undefined => {
+    const event = tracking?.events?.find(
+      (e) => e.state_code && codes.includes(e.state_code.toUpperCase()) && e.occurred_at
+    );
+    return event?.occurred_at ?? undefined;
+  };
+
+  const shippedAt = eventDateFor(['CREATED', 'PICKING']);
+  const inTransitAt = eventDateFor(['IN_TRANSIT', 'OUT_FOR_DELIVERY']);
+  const deliveredAt =
+    purchase.delivered_at ?? tracking?.delivered_at ?? eventDateFor(['DELIVERED']);
+  const estimatedAt = tracking?.estimated_delivery_at ?? purchase.estimated_delivery_at;
+  const guideId = (tracking?.guide_id ?? purchase.delivery_guide_id)?.trim() || null;
+
+  const stepDate = (epochSec?: number | null): string | undefined =>
+    epochSec ? formatDateTime(epochSec, locale) : undefined;
+
+  /**
+   * Pasos de envío cumplidos: 1 = guía creada, 2 = en camino, 3 = entregado.
+   * `failed_delivery` y `returned` implican que el paquete viajó, así que los dos
+   * primeros quedan cumplidos y el fallo reemplaza al último paso.
+   */
+  const shippingReached = shipmentFailed
+    ? fulfillmentStatus === 'shipment_failed'
+      ? 0
+      : 2
+    : progress >= 4
+      ? 3
+      : progress >= 2
+        ? 2
+        : progress >= 1
+          ? 1
+          : 0;
+
+  const stepState = (index: number): 'done' | 'current' | 'todo' => {
+    if (shippingReached >= index) return 'done';
+    if (shipmentFailed || !isPaid) return 'todo';
+    // El paso siguiente al último cumplido es el que está en curso.
+    return shippingReached === index - 1 ? 'current' : 'todo';
+  };
+
+  /**
+   * Timeline real: los tres últimos pasos salen de `fulfillment_status`, no del
+   * pago. Un envío fallido reemplaza el paso donde se cortó por uno en rojo — un
+   * timeline de 5 pasos verdes no puede representar un envío que no llegó.
+   */
+  const timelineSteps: {
+    label: string;
+    sub?: string;
+    state: 'done' | 'current' | 'todo' | 'failed';
+  }[] = [
     {
       label: t('activity.stepConfirmed'),
-      sub: formatDateTime(purchase.created_at, i18n.language || 'es'),
+      sub: formatDateTime(purchase.created_at, locale),
       state: 'done',
     },
     {
@@ -250,13 +345,41 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
       state: isPaid ? 'done' : 'current',
       sub: isPaid ? undefined : t('activity.stepPaymentPendingHint'),
     },
+    fulfillmentStatus === 'shipment_failed'
+      ? {
+          label: t('activity.stepShipmentFailed'),
+          state: 'failed',
+          sub: t('activity.stepShipmentFailedHint'),
+        }
+      : {
+          label: t('activity.stepPreparing'),
+          state: stepState(1),
+          sub:
+            stepDate(shippedAt) ??
+            (stepState(1) === 'current' ? t('activity.stepPreparingHint') : undefined),
+        },
     {
-      label: t('activity.stepPreparing'),
-      state: isPaid ? 'current' : 'todo',
-      sub: isPaid ? t('activity.stepPreparingHint') : undefined,
+      label: t('activity.stepOnTheWay'),
+      state: stepState(2),
+      sub: stepDate(inTransitAt),
     },
-    { label: t('activity.stepOnTheWay'), state: 'todo' },
-    { label: t('activity.stepDelivered'), state: 'todo' },
+    fulfillmentStatus === 'failed_delivery'
+      ? {
+          label: t('activity.stepFailedDelivery'),
+          state: 'failed',
+          sub: t('activity.stepFailedDeliveryHint'),
+        }
+      : fulfillmentStatus === 'returned'
+        ? {
+            label: t('activity.stepReturned'),
+            state: 'failed',
+            sub: t('activity.stepReturnedHint'),
+          }
+        : {
+            label: t('activity.stepDelivered'),
+            state: stepState(3),
+            sub: stepDate(deliveredAt),
+          },
   ];
 
   const conditionLabel =
@@ -386,7 +509,7 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
             label={t('activity.orderNumber')}
             value={`#${purchase.order_number}`}
             valueColor={PRIMARY}
-            onCopy={() => copyToClipboard(purchase.order_number)}
+            onCopy={() => copyToClipboard(purchase.order_number, t('activity.orderNumber'))}
           />
           {purchase.sku ? <DetailRow label="SKU" value={purchase.sku} /> : null}
           <DetailRow
@@ -484,7 +607,59 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
 
         {/* Estado del Envío */}
         <View style={[styles.card, darkCard]}>
-          <RNText style={[styles.cardTitle, darkText]}>{t('activity.shippingStatus')}</RNText>
+          <View style={styles.shippingHeaderRow}>
+            <RNText style={[styles.cardTitle, darkText]}>{t('activity.shippingStatus')}</RNText>
+            {/* Sin fecha de entrega el Figma no tiene estado vacío: se omite. */}
+            {estimatedAt && !shipmentFailed && shippingReached < 3 ? (
+              <RNText style={[styles.shippingEta, darkMuted]}>
+                {t('activity.estimatedShort', { date: formatDayMonth(estimatedAt, locale) })}
+              </RNText>
+            ) : null}
+          </View>
+
+          {/* El Figma no contempla envíos fallidos: se avisa explícito arriba del
+              timeline, que además marca en rojo el paso donde se cortó. */}
+          {shipmentFailed ? (
+            <View style={styles.shippingAlert}>
+              <RNText style={styles.shippingAlertTitle}>
+                {fulfillmentStatus === 'failed_delivery'
+                  ? t('activity.shippingFailedTitle')
+                  : fulfillmentStatus === 'returned'
+                    ? t('activity.shippingReturnedTitle')
+                    : t('activity.shippingNotCreatedTitle')}
+              </RNText>
+              <RNText style={[styles.shippingAlertBody, darkMuted]}>
+                {fulfillmentStatus === 'failed_delivery'
+                  ? t('activity.shippingFailedBody')
+                  : fulfillmentStatus === 'returned'
+                    ? t('activity.shippingReturnedBody')
+                    : t('activity.shippingNotCreatedBody')}
+              </RNText>
+            </View>
+          ) : null}
+
+          {/* N° de seguimiento del transportista (Figma: card con botón copiar). */}
+          {guideId ? (
+            <View style={[styles.trackingCard, darkRow]}>
+              <View style={styles.trackingTextCol}>
+                <RNText style={[styles.trackingLabel, darkMuted]}>
+                  {t('activity.trackingNumber')}
+                </RNText>
+                <RNText style={[styles.trackingValue, darkText]} numberOfLines={1}>
+                  #{guideId}
+                </RNText>
+              </View>
+              <TouchableOpacity
+                onPress={() => copyToClipboard(guideId, t('activity.trackingNumber'))}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel={t('activity.trackingNumber')}
+              >
+                <Copy size={18} color={PRIMARY} strokeWidth={2} />
+              </TouchableOpacity>
+            </View>
+          ) : null}
+
           <View style={styles.timeline}>
             {timelineSteps.map((step, idx) => (
               <View key={step.label} style={styles.timelineStep}>
@@ -495,10 +670,13 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
                       step.state === 'todo' && darkRow,
                       step.state === 'done' && styles.timelineDotDone,
                       step.state === 'current' && styles.timelineDotCurrent,
+                      step.state === 'failed' && styles.timelineDotFailed,
                     ]}
                   >
                     {step.state === 'done' ? (
                       <RNText style={styles.timelineCheck}>✓</RNText>
+                    ) : step.state === 'failed' ? (
+                      <RNText style={styles.timelineCheck}>!</RNText>
                     ) : step.state === 'current' ? (
                       <View style={styles.timelineInnerDot} />
                     ) : null}
@@ -520,6 +698,7 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
                       step.state !== 'todo' && darkText,
                       step.state === 'todo' && styles.timelineLabelTodo,
                       step.state === 'todo' && isDark ? { color: D.textMuted } : null,
+                      step.state === 'failed' && styles.timelineLabelFailed,
                     ]}
                   >
                     {step.label}
@@ -1082,6 +1261,70 @@ const styles = StyleSheet.create({
     color: MUTED,
     includeFontPadding: false,
   },
+  shippingHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  shippingEta: {
+    fontFamily: FONT_FAMILY.semibold,
+    fontSize: 13,
+    lineHeight: 16,
+    color: MUTED,
+    includeFontPadding: false,
+  },
+  shippingAlert: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: DANGER,
+    backgroundColor: 'rgba(251,44,54,0.08)',
+    padding: 12,
+    gap: 4,
+  },
+  shippingAlertTitle: {
+    fontFamily: FONT_FAMILY.bold,
+    fontSize: 14,
+    lineHeight: 20,
+    color: DANGER,
+    includeFontPadding: false,
+  },
+  shippingAlertBody: {
+    fontFamily: FONT_FAMILY.regular,
+    fontSize: 12,
+    lineHeight: 16,
+    color: MUTED,
+    includeFontPadding: false,
+  },
+  trackingCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    backgroundColor: ROW_BG,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
+  trackingTextCol: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
+  trackingLabel: {
+    fontFamily: FONT_FAMILY.regular,
+    fontSize: 12,
+    lineHeight: 16,
+    color: MUTED,
+    includeFontPadding: false,
+  },
+  trackingValue: {
+    fontFamily: FONT_FAMILY.semibold,
+    fontSize: 14,
+    lineHeight: 20,
+    color: TEXT,
+    includeFontPadding: false,
+  },
   timeline: {
     gap: 0,
   },
@@ -1106,6 +1349,9 @@ const styles = StyleSheet.create({
   },
   timelineDotCurrent: {
     backgroundColor: PRIMARY,
+  },
+  timelineDotFailed: {
+    backgroundColor: DANGER,
   },
   timelineInnerDot: {
     width: 8,
@@ -1143,6 +1389,9 @@ const styles = StyleSheet.create({
   timelineLabelTodo: {
     color: '#A1A1AA',
     fontFamily: FONT_FAMILY.semibold,
+  },
+  timelineLabelFailed: {
+    color: DANGER,
   },
   timelineSub: {
     fontFamily: FONT_FAMILY.regular,

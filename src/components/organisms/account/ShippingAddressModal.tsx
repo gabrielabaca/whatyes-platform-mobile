@@ -292,13 +292,13 @@ export const ShippingAddressModal: React.FC<ShippingAddressModalProps> = ({
               label={t('account.shippingAddress.city')}
               value={city}
               onChangeText={setCity}
-              placeholder={t('account.shippingAddress.selectPlaceholder')}
+              placeholder={t('account.shippingAddress.cityPlaceholder')}
             />
             <FormField
               label={t('account.shippingAddress.state')}
               value={state}
               onChangeText={setState}
-              placeholder={t('account.shippingAddress.selectPlaceholder')}
+              placeholder={t('account.shippingAddress.statePlaceholder')}
             />
             <FormField
               label={t('account.shippingAddress.postalCode')}

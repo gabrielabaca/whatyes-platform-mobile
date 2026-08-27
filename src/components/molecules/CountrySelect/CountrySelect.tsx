@@ -65,6 +65,8 @@ interface CountrySelectProps {
   variant?: 'default' | 'pillDark';
   modalTitle?: string;
   searchPlaceholder?: string;
+  /** Ver la nota junto al `AppOptionPickerSheet` de abajo antes de ponerlo en `false`. */
+  nativeModal?: boolean;
 }
 
 export const CountrySelect: React.FC<CountrySelectProps> = ({
@@ -77,6 +79,7 @@ export const CountrySelect: React.FC<CountrySelectProps> = ({
   variant = 'default',
   modalTitle = 'Seleccionar país',
   searchPlaceholder = 'Buscar país...',
+  nativeModal = true,
 }) => {
   const [isModalVisible, setIsModalVisible] = useState(false);
 
@@ -132,9 +135,14 @@ export const CountrySelect: React.FC<CountrySelectProps> = ({
        * presentando uno — el desplegable no abriría, sin error. En ese caso hay que pasarle
        * `nativeModal={false}` y montarlo en el slot `overlay` del modal padre, como hacen
        * PreferencesModal y ShippingAddressModal.
+       *
+       * `nativeModal={false}` también sirve cuando el padre ya vive en el portal raíz (no
+       * en un Modal nativo): ahí el picker comparte jerarquía con la pantalla de fondo y su
+       * glass difumina de verdad, como en los drawers del vivo.
        */}
       <AppOptionPickerSheet
         visible={isModalVisible}
+        nativeModal={nativeModal}
         title={modalTitle}
         searchPlaceholder={searchPlaceholder}
         options={COUNTRIES.map((country) => ({

@@ -10,6 +10,7 @@ import { AppTextInput } from '../../../atoms/AppTextInput';
 import { useTranslation } from 'react-i18next';
 import { Check } from 'lucide-react-native';
 import { StreamBottomSheet, streamSheetStyles } from '../StreamBottomSheet';
+import { CountrySelect } from '../../../molecules/CountrySelect/CountrySelect';
 import { FONT_FAMILY } from '../../../../theme/typography';
 import { themeColors } from '../../../../theme/colors';
 import {
@@ -337,11 +338,16 @@ export const StreamAddCardDrawer: React.FC<StreamAddCardDrawerProps> = ({
       </RNText>
 
       <Field label={t('stream.wallet.countryLabel')}>
-        <AppTextInput
-          style={styles.input}
+        <CountrySelect
           value={country}
-          onChangeText={setCountry}
-          placeholderTextColor={themeColors.glass.placeholder}
+          onValueChange={setCountry}
+          variant="pillDark"
+          hideLabel
+          modalTitle={t('account.shippingAddress.country')}
+          searchPlaceholder={t('account.shippingAddress.countrySearch')}
+          /* Este drawer ya está en el portal raíz: el picker acompaña para no abrir una
+             ventana nativa aparte, donde su glass no tendría nada que difuminar. */
+          nativeModal={false}
         />
       </Field>
 

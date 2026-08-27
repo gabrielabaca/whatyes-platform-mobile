@@ -14,12 +14,17 @@ import {
   Text as RNText,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { SlidersVertical, Truck, ShoppingBag } from 'lucide-react-native';
+import { SlidersVertical, Truck, PackageX, ShoppingBag } from 'lucide-react-native';
 import { formatStreamPrice } from '../../atoms/stream/StreamPriceText';
 import { useMyActivity, type ActivityRole } from '../../../hooks/useMyActivity';
 import { FONT_FAMILY } from '../../../theme/typography';
 import { themeColors } from '../../../theme/colors';
 import { useTheme } from '../../../context/ThemeContext';
+import {
+  fulfillmentStatusKey,
+  isFulfillmentFailure,
+  normalizeFulfillmentStatus,
+} from '../../../utils/fulfillment';
 import type { PurchaseItem } from '../../../api/platformApi';
 
 const PRIMARY = '#685CF0';
@@ -27,6 +32,16 @@ const TEXT = '#18181B';
 const MUTED = '#6B7280';
 const GOLD = '#EAB308';
 const CHIP_BG = '#E7E7FF';
+const DANGER = themeColors.danger;
+
+/** "30/12/26" — fecha corta de la línea "Llegará el …". */
+function formatShortDate(epochSec: number, locale: string): string {
+  return new Intl.DateTimeFormat(locale, {
+    day: '2-digit',
+    month: '2-digit',
+    year: '2-digit',
+  }).format(new Date(epochSec * 1000));
+}
 
 type ActivityFilter = 'all' | 'recent' | 'lowestPrice';
 
@@ -187,7 +202,7 @@ const ActivityCard: React.FC<{
   role: ActivityRole;
   onPress: () => void;
 }> = ({ item, role, onPress }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { isDark } = useTheme();
   const d = themeColors.dark;
   const counterpartName = item.counterpart.name?.trim() || t('activity.unknownUser');
@@ -196,6 +211,17 @@ const ActivityCard: React.FC<{
   const imageUrl = item.product_image_url?.trim() || null;
   const darkMuted = isDark ? { color: d.textSecondary } : null;
   const darkSurfaceAlt = isDark ? { backgroundColor: d.surfaceAlt } : null;
+
+  // Estado real del envío; el pago solo manda mientras no haya guía (ver utils/fulfillment).
+  const fulfillmentStatus = normalizeFulfillmentStatus(item.fulfillment_status);
+  const shipmentFailed = isFulfillmentFailure(fulfillmentStatus);
+  const locale = i18n.language || 'es';
+  const deliveryLine =
+    item.delivered_at && fulfillmentStatus === 'delivered'
+      ? t('activity.arrivedOn', { date: formatShortDate(item.delivered_at, locale) })
+      : item.estimated_delivery_at && !shipmentFailed && fulfillmentStatus !== 'delivered'
+        ? t('activity.arrivesOn', { date: formatShortDate(item.estimated_delivery_at, locale) })
+        : null;
 
   return (
     <TouchableOpacity
@@ -250,15 +276,23 @@ const ActivityCard: React.FC<{
         </View>
         <View style={styles.cardRow}>
           <View style={styles.statusChip}>
-            <Truck size={14} color={PRIMARY} strokeWidth={2} />
-            <RNText style={styles.statusText}>
-              {item.payment_status === 'paid'
-                ? t('activity.statusPreparing')
-                : item.payment_status === 'cancelled'
-                  ? t('activity.statusCancelled')
-                  : t('activity.statusPendingPayment')}
+            {shipmentFailed ? (
+              <PackageX size={14} color={DANGER} strokeWidth={2} />
+            ) : (
+              <Truck size={14} color={PRIMARY} strokeWidth={2} />
+            )}
+            <RNText
+              style={[styles.statusText, shipmentFailed && styles.statusTextFailed]}
+              numberOfLines={1}
+            >
+              {t(fulfillmentStatusKey(item))}
             </RNText>
           </View>
+          {deliveryLine ? (
+            <RNText style={[styles.deliveryLine, darkMuted]} numberOfLines={1}>
+              {deliveryLine}
+            </RNText>
+          ) : null}
         </View>
         <View style={styles.cardRow}>
           <RNText style={[styles.costLabel, darkMuted]}>{t('activity.totalCost')}</RNText>
@@ -439,12 +473,26 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    flexShrink: 1,
+    minWidth: 0,
   },
   statusText: {
     fontFamily: FONT_FAMILY.semibold,
     fontSize: 12,
     lineHeight: 16,
     color: PRIMARY,
+    flexShrink: 1,
+    includeFontPadding: false,
+  },
+  statusTextFailed: {
+    color: DANGER,
+  },
+  deliveryLine: {
+    fontFamily: FONT_FAMILY.regular,
+    fontSize: 12,
+    lineHeight: 16,
+    color: MUTED,
+    flexShrink: 1,
     includeFontPadding: false,
   },
   costLabel: {

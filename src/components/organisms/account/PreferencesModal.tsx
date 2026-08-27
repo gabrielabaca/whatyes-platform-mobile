@@ -7,7 +7,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   Text as RNText,
-  Switch,
+  Linking,
   Platform,
 } from 'react-native';
 import { ChevronDown, ChevronRight } from 'lucide-react-native';
@@ -147,6 +147,12 @@ export const PreferencesModal: React.FC<PreferencesModalProps> = ({
     setRecordingFolderPath(prefs.displayPath);
   };
 
+  const handleOpenSystemSettings = () => {
+    Linking.openSettings().catch((e) => {
+      console.warn('[PreferencesModal] openSettings:', e);
+    });
+  };
+
   return (
       <GlassFullScreenModal
         ref={modalRef}
@@ -270,16 +276,12 @@ export const PreferencesModal: React.FC<PreferencesModalProps> = ({
           <View style={[styles.section, styles.sectionBorder]}>
             <RNText style={styles.sectionTitle}>{t('account.preferencesModal.permissions')}</RNText>
             <FieldLabel text={t('account.preferencesModal.appPermissions')} />
-            <View style={styles.pillRow}>
-              <RNText style={styles.pillValue}>{t('account.preferencesModal.enablePermissions')}</RNText>
-              <Switch
-                value
-                disabled
-                trackColor={{ false: '#767577', true: themeColors.glass.text }}
-                thumbColor={themeColors.primary}
-                ios_backgroundColor="#767577"
-              />
-            </View>
+            {/* Los permisos los concede el sistema operativo: la app solo puede llevar
+                al usuario a esa pantalla, no alternarlos desde acá. */}
+            <ActionRow
+              label={t('account.preferencesModal.openSystemSettings')}
+              onPress={handleOpenSystemSettings}
+            />
           </View>
 
           <View style={styles.accountActions}>

@@ -8,6 +8,7 @@ import {
   Text as RNText,
 } from 'react-native';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
+import { useTranslation } from 'react-i18next';
 import { IconBell, IconEye } from '../../icons';
 import { FONT_FAMILY } from '../../../theme/typography';
 import { themeColors } from '../../../theme/colors';
@@ -17,6 +18,7 @@ import type { UserShowItem } from '../../../api/platformApi';
 const CARD_H = 224;
 const LIVE_RED = '#FB2C36';
 const PRIMARY = '#685CF0';
+const ENDED_GRAY = '#71717B';
 
 function formatViewerCount(n: number): string {
   if (n >= 1000) {
@@ -49,10 +51,12 @@ export const ProfileShowCard: React.FC<ProfileShowCardProps> = ({ show, onPress 
    * oscuro y son iguales en ambos temas.
    */
   const { isDark } = useTheme();
+  const { t } = useTranslation();
   const d = themeColors.dark;
   const cardW = (width - 16 * 2 - 12) / 2;
   const isLive = show.status === 'live';
   const isDraft = show.status === 'draft';
+  const isEnded = show.status === 'ended';
   const thumb = show.thumbnail_url;
   const title = show.name ?? show.stream_name ?? 'Show';
   const subtitle = show.description ?? show.name ?? '';
@@ -61,10 +65,13 @@ export const ProfileShowCard: React.FC<ProfileShowCardProps> = ({ show, onPress 
     <TouchableOpacity
       activeOpacity={0.88}
       onPress={onPress}
+      // Un show terminado no lleva a ningún lado (no hay VOD): que no dé ni feedback táctil.
+      disabled={!isLive}
       style={[
         styles.card,
         { width: cardW, height: CARD_H },
         isDark ? { backgroundColor: d.surface } : null,
+        isEnded && styles.cardEnded,
       ]}
     >
       {thumb ? (
@@ -98,6 +105,10 @@ export const ProfileShowCard: React.FC<ProfileShowCardProps> = ({ show, onPress 
           ) : isDraft ? (
             <View style={styles.scheduledBadge}>
               <RNText style={styles.scheduledText}>{formatScheduled(show.created_at)}</RNText>
+            </View>
+          ) : isEnded ? (
+            <View style={styles.endedBadge}>
+              <RNText style={styles.liveText}>{t('home.showEndedBadge')}</RNText>
             </View>
           ) : (
             <View />
@@ -133,6 +144,9 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     overflow: 'hidden',
     backgroundColor: '#E4E4E7',
+  },
+  cardEnded: {
+    opacity: 0.6,
   },
   thumb: {
     ...StyleSheet.absoluteFillObject,
@@ -174,6 +188,15 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 16,
     color: '#FFFFFF',
+  },
+  /** Mismo tratamiento que el badge LIVE, en gris neutro y sin el punto de "en aire". */
+  endedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: ENDED_GRAY,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 1000,
   },
   /** Figma 698:11052 — pill translúcida clara */
   scheduledBadge: {

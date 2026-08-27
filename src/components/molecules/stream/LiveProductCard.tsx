@@ -143,12 +143,18 @@ export const LiveProductCard: React.FC<LiveProductCardProps> = ({
               <RNText style={styles.startBtnText}>{t('stream.productStart')}</RNText>
             </TouchableOpacity>
             <TouchableOpacity
-              style={styles.pinBtn}
+              style={[styles.pinBtn, item.isPinned && styles.pinBtnActive]}
               onPress={onPin}
               activeOpacity={0.85}
               accessibilityRole="button"
+              accessibilityState={{ selected: Boolean(item.isPinned) }}
             >
-              <Pin size={20} color="#FFFFFF" strokeWidth={2} />
+              <Pin
+                size={20}
+                color="#FFFFFF"
+                fill={item.isPinned ? '#FFFFFF' : 'none'}
+                strokeWidth={2}
+              />
             </TouchableOpacity>
           </View>
         ) : null}
@@ -287,5 +293,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.2)',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  pinBtnActive: {
+    backgroundColor: STREAM_COLORS.primary,
   },
 });

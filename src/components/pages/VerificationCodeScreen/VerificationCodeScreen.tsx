@@ -169,11 +169,16 @@ export const VerificationCodeScreen: React.FC<VerificationCodeScreenProps> = ({
               >
                 <ArrowLeft size={22} color={c.text} />
               </TouchableOpacity>
-              <Text className="text-[20px] font-bold text-[#02050F]">{t('verification.title')}</Text>
+              <Text className="text-[20px] font-bold" style={{ color: c.text }}>
+                {t('verification.title')}
+              </Text>
               <View className="w-8 h-8" />
             </View>
 
-            <Text className="text-center text-[#4C4E55] text-[14px] leading-[22px] mb-10">
+            <Text
+              className="text-center text-[14px] leading-[22px] mb-10"
+              style={{ color: c.textSecondary }}
+            >
               {origin === 'forgotPassword'
                 ? t('verification.introForgot', { count: otpLength, email })
                 : t('verification.introRegister', { email })}
@@ -204,9 +209,13 @@ export const VerificationCodeScreen: React.FC<VerificationCodeScreenProps> = ({
                       key={index}
                       activeOpacity={1}
                       onPress={() => {}}
-                      className={`${slotSize} rounded-full items-center justify-center border ${isActive ? 'border-[#49A9E1]' : 'border-[#D9D9D9]'}`}
+                      className={`${slotSize} rounded-full items-center justify-center border`}
+                      style={{ borderColor: isActive ? '#49A9E1' : c.border }}
                     >
-                      <Text className={`text-[20px] font-bold ${hasValue ? 'text-[#02050F]' : 'text-[#7D7E83]'}`}>
+                      <Text
+                        className="text-[20px] font-bold"
+                        style={{ color: hasValue ? c.text : c.textMuted }}
+                      >
                         {hasValue ? codeDigits[index] : '_'}
                       </Text>
                     </TouchableOpacity>

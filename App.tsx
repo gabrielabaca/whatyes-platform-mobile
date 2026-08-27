@@ -192,6 +192,10 @@ function AuthenticatedAppShell({
   if (currentScreen === 'stream' && selectedStream) {
     return (
       <StreamScreen
+        /* StreamScreen asume una sala por montaje (el efecto de /stream/watch corta con
+           `if (transport !== null) return` y nada resetea transport/ivsCreds). La key lo
+           remonta al cambiar de sala, igual que hace la FlatList del swipe. */
+        key={selectedStream.id}
         stream={selectedStream}
         onClose={() => {
           setCurrentScreen('home');

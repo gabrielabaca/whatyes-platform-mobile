@@ -49,7 +49,7 @@ const H_PAD = 16;
 const PRIMARY = '#685CF0';
 const LAVENDER = '#E7E7FF';
 const BORDER_LAVENDER = '#CBCEFF';
-const BIO_SEE_MORE_MIN_LENGTH = 200;
+const BIO_COLLAPSED_LINES = 2;
 
 type ProfileTab = 'shows' | 'products' | 'reviews' | 'clips';
 
@@ -91,6 +91,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   const darkMuted = isDark ? { color: d.textSecondary } : null;
   const [tab, setTab] = useState<ProfileTab>('shows');
   const [bioExpanded, setBioExpanded] = useState(false);
+  const [bioOverflows, setBioOverflows] = useState(false);
   const [editDrawerOpen, setEditDrawerOpen] = useState(false);
   const { profile, loading, error, resolvedId, reload } = useUserProfile(userId);
   const { shows, loading: showsLoading } = useUserShows(resolvedId, tab === 'shows');
@@ -142,12 +143,10 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
     (variant === 'sellerPublic' || isSellerType);
 
   const bioText = profile?.bio?.trim() ?? '';
-  const bioIsLong = bioText.length > BIO_SEE_MORE_MIN_LENGTH;
-  const bioDisplayText =
-    bioIsLong && !bioExpanded ? `${bioText.slice(0, BIO_SEE_MORE_MIN_LENGTH)}…` : bioText;
 
   useEffect(() => {
     setBioExpanded(false);
+    setBioOverflows(false);
   }, [bioText]);
 
   const sellerDisplayName =
@@ -377,8 +376,30 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
 
                 {bioText ? (
                   <View style={styles.bioBlock}>
-                    <RNText style={[styles.bioText, darkMuted]}>{bioDisplayText}</RNText>
-                    {bioIsLong ? (
+                    {/*
+                      Copia invisible sin tope de líneas: es la única forma de saber si la bio
+                      desborda. Con numberOfLines puesto, el layout nativo (NSTextContainer en
+                      iOS, StaticLayout.setMaxLines en Android) ya recorta antes de emitir
+                      onTextLayout, así que lines.length nunca supera el tope.
+                    */}
+                    <RNText
+                      style={[styles.bioText, styles.bioMeasure]}
+                      accessibilityElementsHidden
+                      importantForAccessibility="no-hide-descendants"
+                      onTextLayout={(e) => {
+                        const overflows = e.nativeEvent.lines.length > BIO_COLLAPSED_LINES;
+                        setBioOverflows((prev) => (prev === overflows ? prev : overflows));
+                      }}
+                    >
+                      {bioText}
+                    </RNText>
+                    <RNText
+                      style={[styles.bioText, darkMuted]}
+                      numberOfLines={bioExpanded ? undefined : BIO_COLLAPSED_LINES}
+                    >
+                      {bioText}
+                    </RNText>
+                    {bioOverflows || bioExpanded ? (
                       <TouchableOpacity onPress={() => setBioExpanded((v) => !v)}>
                         <RNText style={styles.bioMore}>
                           {bioExpanded ? t('profile.seeLess') : t('profile.seeMore')}
@@ -834,6 +855,14 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     color: '#535353',
     includeFontPadding: false,
+  },
+  bioMeasure: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    opacity: 0,
+    pointerEvents: 'none',
   },
   bioMore: {
     fontFamily: FONT_FAMILY.bold,

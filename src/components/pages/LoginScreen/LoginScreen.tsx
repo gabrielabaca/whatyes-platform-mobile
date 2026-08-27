@@ -161,7 +161,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 </View>
 
                 <Text className="text-[10px] text-[#34363E] dark:text-night-muted mb-2">{t('common.password')}</Text>
-                <View className="relative mb-7">
+                <View className="relative">
                   <AppTextInput
                     value={password}
                     onChangeText={(value) => {
@@ -196,14 +196,15 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                   </View>
                 )}
               </View>
-              {passwordError && (
-                <Text
-                  className="mt-[-18px] mb-5"
-                  style={{ color: '#E53935', fontSize: 10, lineHeight: 18 }}
-                >
-                  {passwordError}
-                </Text>
-              )}
+              {/* Espacio reservado para una línea de error: el mensaje entra en el flujo
+                  normal y el botón no se mueve al aparecer o desaparecer. */}
+              <View className="mt-2 mb-4 min-h-[18px]">
+                {passwordError ? (
+                  <Text style={{ color: '#E53935', fontSize: 10, lineHeight: 18 }}>
+                    {passwordError}
+                  </Text>
+                ) : null}
+              </View>
 
               <Button
                 title={t('common.continue')}

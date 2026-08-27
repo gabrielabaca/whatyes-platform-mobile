@@ -1,5 +1,6 @@
 /**
- * Lectura del portapapeles ("Pegar notas" del drawer de la nota del vivo).
+ * Lectura y escritura del portapapeles ("Pegar notas" del drawer de la nota del vivo,
+ * copiar N° de compra y de guía en el detalle de compra).
  *
  * Usa el `Clipboard` que React Native todavía exporta desde el core. Está marcado
  * como deprecado (avisa por consola) y el reemplazo es `@react-native-clipboard/clipboard`,
@@ -15,5 +16,15 @@ export async function readClipboardText(): Promise<string> {
     return typeof value === 'string' ? value : '';
   } catch {
     return '';
+  }
+}
+
+/** Copia texto al portapapeles. Devuelve false si el sistema lo niega. */
+export function writeClipboardText(value: string): boolean {
+  try {
+    Clipboard.setString(value);
+    return true;
+  } catch {
+    return false;
   }
 }
