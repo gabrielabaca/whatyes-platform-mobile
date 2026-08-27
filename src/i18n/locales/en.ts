@@ -103,12 +103,10 @@ export default {
     "createFailed": "Could not create account. Please try again.",
     "emailAlreadyInUse": "This email is already in use. Sign in or use another email.",
     "buyerBirthday": "Birthday",
-    "buyerBirthdayPh": "MM/DD/YYYY",
     "passwordPolicyHint": "Password must be at least 8 characters",
     "termsNotice": "By tapping accept and continue, you agree to PulpoLive Terms of Service and acknowledge the Privacy Policy",
     "acceptContinue": "Accept and continue",
     "passwordPolicyError": "Password must be at least 8 characters",
-    "birthdayInvalid": "Enter a valid date (MM/DD/YYYY)",
     "underageError": "You must be at least 18 years old to create an account"
   },
   "forgotPassword": {

@@ -108,8 +108,8 @@ export interface UserReviewListItem {
   reviewer_avatar_url?: string | null;
   rating: number;
   rating_general: number;
-  rating_shipping: number;
-  rating_product: number;
+  rating_shipping?: number | null;
+  rating_product?: number | null;
   comment?: string | null;
   created_at: number;
   product_label?: string | null;
@@ -125,8 +125,9 @@ export interface UserReviewsListResponse {
 
 export interface CreateUserReviewPayload {
   rating_general: number;
-  rating_shipping: number;
-  rating_product: number;
+  /** Categorías opcionales: sin calificar viajan ausentes y quedan sin dato. */
+  rating_shipping?: number | null;
+  rating_product?: number | null;
   comment?: string | null;
   product_label?: string | null;
   product_image_url?: string | null;

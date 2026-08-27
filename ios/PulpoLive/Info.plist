@@ -25,7 +25,7 @@
     <key>CFBundleSignature</key>
     <string>????</string>
     <key>CFBundleVersion</key>
-    <string>22</string>
+    <string>23</string>
     <key>CFBundleURLTypes</key>
     <array>
       <dict>
@@ -56,6 +56,10 @@
     </dict>
     <key>NSLocationWhenInUseUsageDescription</key>
     <string>Usamos tu ubicación para completar automáticamente tu dirección en los formularios de envío y facturación</string>
+    <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+    <string>Usamos tu ubicación para completar automáticamente tu dirección en los formularios de envío y facturación. Solo la usamos mientras la app está abierta.</string>
+    <key>NSLocationAlwaysUsageDescription</key>
+    <string>Usamos tu ubicación para completar automáticamente tu dirección en los formularios de envío y facturación. Solo la usamos mientras la app está abierta.</string>
     <key>NSCameraUsageDescription</key>
     <string>Necesitamos acceso a tu cámara para transmitir en vivo</string>
     <key>NSMicrophoneUsageDescription</key>

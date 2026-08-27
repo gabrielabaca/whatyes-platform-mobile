@@ -50,12 +50,12 @@ function nameFromEmail(email: string): string {
     .join(' ');
 }
 
-/** Formato MM/DD/AAAA (mismo criterio que el diseño). */
+/** Formato DD/MM/AAAA (criterio local: el público de la app es de Argentina). */
 function formatBirthdayDisplay(d: Date): string {
   const mm = String(d.getMonth() + 1).padStart(2, '0');
   const dd = String(d.getDate()).padStart(2, '0');
   const yyyy = d.getFullYear();
-  return `${mm}/${dd}/${yyyy}`;
+  return `${dd}/${mm}/${yyyy}`;
 }
 
 /** Formato ISO YYYY-MM-DD que espera el backend. */
@@ -420,7 +420,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
               </TouchableOpacity>
 
               <Text className="text-center text-[#02050F] dark:text-white text-[20px] font-bold">
-                {t('login.title')}
+                {t('register.createAccount')}
               </Text>
 
               <View className="w-8 h-8" />

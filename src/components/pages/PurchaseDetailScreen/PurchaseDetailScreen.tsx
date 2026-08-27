@@ -217,10 +217,10 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
     if (reviewRating < 1 || reviewSending) return;
     setReviewSending(true);
     try {
+      // El formulario captura una sola calificación: envío y producto quedan sin
+      // dato a propósito para no inflar esos promedios con un valor no calificado.
       await createUserReview(sellerId, {
         rating_general: reviewRating,
-        rating_shipping: reviewRating,
-        rating_product: reviewRating,
         comment: reviewMessage.trim() || null,
         product_label: purchase.product_title,
         product_image_url: purchase.product_image_url ?? null,

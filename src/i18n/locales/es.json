@@ -102,12 +102,10 @@
     "createFailed": "No se pudo crear la cuenta. Intenta nuevamente.",
     "emailAlreadyInUse": "Este correo electrónico ya está en uso. Inicia sesión o usa otro correo.",
     "buyerBirthday": "Cumpleaños",
-    "buyerBirthdayPh": "MM/DD/AAAA",
     "passwordPolicyHint": "La contraseña debe tener al menos 8 caracteres",
     "termsNotice": "Al hacer clic en el botón de aceptar y continuar, aceptas los Términos y Servicios de PulpoLive y reconoces la Política de Privacidad",
     "acceptContinue": "Aceptar y Continuar",
     "passwordPolicyError": "La contraseña debe tener al menos 8 caracteres",
-    "birthdayInvalid": "Ingresa una fecha válida (MM/DD/AAAA)",
     "underageError": "Debes ser mayor de 18 años para crear una cuenta"
   },
   "forgotPassword": {
