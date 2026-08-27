@@ -23,6 +23,7 @@ import { themeColors } from '../../../theme/colors';
 import { COUNTRIES } from '../../molecules/CountrySelect/CountrySelect';
 import { useAuth } from '../../../hooks/useAuth';
 import {
+  createShippingAddress,
   getShippingAddress,
   updateShippingAddress,
 } from '../../../api/shippingAddressApi';
@@ -34,6 +35,8 @@ import { appAlert } from '../../../alerts';
 
 export interface ShippingAddressModalProps {
   visible: boolean;
+  /** Alta (selector) o edición de la default (hub wallet / wizard vendedor). */
+  mode?: 'create' | 'edit';
   defaultFullName?: string;
   onClose: () => void;
   onSaved?: () => void;
@@ -41,6 +44,7 @@ export interface ShippingAddressModalProps {
 
 export const ShippingAddressModal: React.FC<ShippingAddressModalProps> = ({
   visible,
+  mode = 'create',
   defaultFullName = '',
   onClose,
   onSaved,
@@ -71,10 +75,22 @@ export const ShippingAddressModal: React.FC<ShippingAddressModalProps> = ({
       return;
     }
 
+    setConfirmed(false);
+
+    if (mode === 'create') {
+      setFullName(knownFullName);
+      setCountry('');
+      setAddressLine1('');
+      setCity('');
+      setState('');
+      setPostalCode('');
+      setLoading(false);
+      return;
+    }
+
     let cancelled = false;
     (async () => {
       setLoading(true);
-      setConfirmed(false);
       try {
         const data = await getShippingAddress();
         if (cancelled) {
@@ -105,8 +121,7 @@ export const ShippingAddressModal: React.FC<ShippingAddressModalProps> = ({
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible, knownFullName]);
+  }, [visible, knownFullName, mode]);
 
   const handleClose = () => {
     modalRef.current?.dismiss();
@@ -174,7 +189,11 @@ export const ShippingAddressModal: React.FC<ShippingAddressModalProps> = ({
 
     setSaving(true);
     try {
-      await updateShippingAddress(trimmed);
+      if (mode === 'create') {
+        await createShippingAddress(trimmed);
+      } else {
+        await updateShippingAddress(trimmed);
+      }
       onSaved?.();
       handleClose();
     } catch (e) {
@@ -239,7 +258,13 @@ export const ShippingAddressModal: React.FC<ShippingAddressModalProps> = ({
                 {saving ? (
                   <ActivityIndicator color={themeColors.glass.text} />
                 ) : (
-                  <RNText style={styles.saveBtnText}>{t('account.shippingAddress.save')}</RNText>
+                  <RNText style={styles.saveBtnText}>
+                    {t(
+                      mode === 'create'
+                        ? 'account.shippingAddress.add'
+                        : 'account.shippingAddress.save'
+                    )}
+                  </RNText>
                 )}
               </TouchableOpacity>
               <TouchableOpacity onPress={handleClose} hitSlop={12}>

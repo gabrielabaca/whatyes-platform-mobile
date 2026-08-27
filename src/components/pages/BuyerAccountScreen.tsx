@@ -1,5 +1,5 @@
 import React, { useId, useState, useCallback } from 'react';
-import { ShippingAddressModal } from '../organisms/account/ShippingAddressModal';
+import { ShippingAddressSelectorModal } from '../organisms/account/ShippingAddressSelectorModal';
 import { PreferencesModal } from '../organisms/account/PreferencesModal';
 import { NotificationsModal } from '../organisms/account/NotificationsModal';
 import { ChangePasswordModal } from '../organisms/account/ChangePasswordModal';
@@ -166,7 +166,7 @@ export const BuyerAccountScreen: React.FC<BuyerAccountScreenProps> = ({
       </View>
     </ScrollView>
 
-    <ShippingAddressModal
+    <ShippingAddressSelectorModal
       visible={shippingModalVisible}
       defaultFullName={displayName}
       onClose={() => setShippingModalVisible(false)}

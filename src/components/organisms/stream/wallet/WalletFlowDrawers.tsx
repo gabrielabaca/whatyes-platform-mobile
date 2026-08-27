@@ -50,6 +50,7 @@ export const WalletFlowDrawers: React.FC<WalletFlowDrawersProps> = ({
     />
     <ShippingAddressModal
       visible={wallet.step === 'shipping'}
+      mode="edit"
       defaultFullName={defaultFullName}
       onClose={() => {
         void wallet.returnToHub();

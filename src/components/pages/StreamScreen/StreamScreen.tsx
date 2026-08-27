@@ -67,6 +67,7 @@ import {
 import { StreamVideoScrim } from '../../organisms/stream/StreamVideoScrim';
 import { StreamFollowSellerDrawer } from '../../organisms/stream/StreamFollowSellerDrawer';
 import { StreamShippingRateDrawer } from '../../organisms/stream/StreamShippingRateDrawer';
+import { StreamShippingAddressDrawer } from '../../organisms/stream/StreamShippingAddressDrawer';
 import { StreamPausedMedia } from '../../organisms/stream/StreamPausedMedia';
 import { UserProfileScreen } from '../UserProfileScreen';
 import { ConversationModal } from '../../organisms/chat/ConversationModal';
@@ -78,6 +79,7 @@ import { useLiveScreenRecording } from '../../../hooks/useLiveScreenRecording';
 import { useStreamWalletFlow } from '../../../hooks/useStreamWalletFlow';
 import { useProductShippingQuote } from '../../../hooks/useProductShippingQuote';
 import { WalletFlowDrawers } from '../../organisms/stream/wallet';
+import { hasUsableShippingAddress, formatShippingAddressLine } from '../../../utils/shippingAddress';
 
 /** Tiempo máximo de espera del primer frame antes de reintentar/errorear la conexión WebRTC. */
 const CONNECT_TIMEOUT_MS = 12_000;
@@ -405,32 +407,28 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({
   }, [isAuctionActive, refreshShippingQuote]);
 
   // Drawer "Tasa de Envío" (Figma 698-7308): se abre desde el link del panel de
-  // subasta solo si el comprador ya tiene domicilio configurado; si no, se lo
-  // manda directo al modal de domicilio del wallet.
+  // subasta solo si el comprador ya tiene domicilio configurado; si no, se abre
+  // el selector (vacío + "Adicionar Domicilio").
   const [shippingRateDrawerVisible, setShippingRateDrawerVisible] = useState(false);
-  const hasShippingAddressConfigured = Boolean(
-    shippingAddress?.address_line1?.trim() && shippingAddress?.postal_code?.trim()
-  );
-  const shippingAddressLabel = [
-    shippingAddress?.address_line1?.trim(),
-    shippingAddress?.city?.trim(),
-    shippingAddress?.state?.trim(),
-  ]
-    .filter(Boolean)
-    .join(', ');
+  const [shippingSelectorVisible, setShippingSelectorVisible] = useState(false);
+  const hasShippingAddressConfigured = hasUsableShippingAddress(shippingAddress);
+  const shippingAddressLabel = shippingAddress
+    ? formatShippingAddressLine(shippingAddress)
+    : '';
+  const shippingDefaultFullName = `${user?.name ?? ''} ${user?.last_name ?? ''}`.trim();
 
   const handlePressShippingRate = useCallback(() => {
     if (hasShippingAddressConfigured) {
       setShippingRateDrawerVisible(true);
     } else {
-      wallet.openShipping();
+      setShippingSelectorVisible(true);
     }
-  }, [hasShippingAddressConfigured, wallet.openShipping]);
+  }, [hasShippingAddressConfigured]);
 
   const handleEditShippingAddress = useCallback(() => {
     setShippingRateDrawerVisible(false);
-    wallet.openShipping();
-  }, [wallet.openShipping]);
+    setShippingSelectorVisible(true);
+  }, []);
 
   // ---- Auto-prompts del vivo (Figma 698-5913 / 698-6121) ----
   // A los 15s: si no sigue al vendedor → drawer de follow; al resolverse (o si
@@ -1167,6 +1165,15 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({
         sellerAddressLabel={sellerPickupAddress}
         onClose={() => setShippingRateDrawerVisible(false)}
         onEditAddress={handleEditShippingAddress}
+      />
+
+      <StreamShippingAddressDrawer
+        visible={shippingSelectorVisible}
+        defaultFullName={shippingDefaultFullName}
+        onClose={() => setShippingSelectorVisible(false)}
+        onChanged={() => {
+          void refreshShippingQuote();
+        }}
       />
 
       <StreamFollowSellerDrawer

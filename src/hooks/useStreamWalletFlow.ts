@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getShippingAddress } from '../api/shippingAddressApi';
+import { hasUsableShippingAddress } from '../utils/shippingAddress';
 import {
   createMpWalletConnectSession,
   deleteSavedCard,
@@ -32,16 +33,6 @@ export type WalletStep =
   | 'methods'
   | 'cardForm'
   | 'success';
-
-function hasShippingData(addr: {
-  full_name?: string | null;
-  address_line1?: string | null;
-  country?: string | null;
-}): boolean {
-  return Boolean(
-    addr.full_name?.trim() && addr.address_line1?.trim() && addr.country?.trim()
-  );
-}
 
 export function useStreamWalletFlow() {
   const { t } = useTranslation();
@@ -85,7 +76,7 @@ export function useStreamWalletFlow() {
         listSavedCards().catch(() => [] as SavedCard[]),
         storage.getPreferredPaymentOrigin(),
       ]);
-      setHasShipping(hasShippingData(shipping));
+      setHasShipping(hasUsableShippingAddress(shipping));
       setHasPayment(cardList.length > 0 || (mpEnabled && pref === 'MP_WALLET'));
       setCards(cardList);
       setPreferredOrigin(pref);
@@ -105,7 +96,7 @@ export function useStreamWalletFlow() {
       listSavedCards().catch(() => [] as SavedCard[]),
       storage.getPreferredPaymentOrigin(),
     ]);
-    const okShipping = hasShippingData(shipping);
+    const okShipping = hasUsableShippingAddress(shipping);
     const okPayment = cardList.length > 0 || (mpEnabled && pref === 'MP_WALLET');
     setHasShipping(okShipping);
     setHasPayment(okPayment);

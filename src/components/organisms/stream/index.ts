@@ -18,3 +18,5 @@ export type {
 } from './StreamLiveNoteDrawer';
 export { StreamSellerOverlay } from './StreamSellerOverlay';
 export type { StreamSellerOverlayProps } from './StreamSellerOverlay';
+export { StreamShippingAddressDrawer } from './StreamShippingAddressDrawer';
+export type { StreamShippingAddressDrawerProps } from './StreamShippingAddressDrawer';

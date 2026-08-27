@@ -14,4 +14,6 @@ export { StreamToast, useStreamToast } from './StreamToast';
 export type { StreamToastMessage, StreamToastProps, StreamToastTone } from './StreamToast';
 export { StreamViewerSplash } from './StreamViewerSplash';
 export type { StreamViewerSplashProps } from './StreamViewerSplash';
+export { SelectablePillRow, PillRadio, pillRowStyles } from './SelectablePillRow';
+export type { SelectablePillRowProps } from './SelectablePillRow';
 export { STREAM_COLORS, STREAM_RADIUS } from './streamTokens';

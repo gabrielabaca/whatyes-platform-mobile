@@ -11,7 +11,8 @@ import {
   getProductShippingQuote,
   type ProductShippingQuoteResponse,
 } from '../api/platformApi';
-import { getShippingAddress, type ShippingAddress } from '../api/shippingAddressApi';
+import { listShippingAddresses, type ShippingAddress } from '../api/shippingAddressApi';
+import { pickDefaultShippingAddress } from '../utils/shippingAddress';
 import { storage } from '../utils/storage';
 
 export type ShippingQuoteState =
@@ -51,8 +52,9 @@ export function useProductShippingQuote({ roomId, productId }: UseProductShippin
       }
       let cpDestino: string | null = null;
       try {
-        const address = await getShippingAddress(token);
-        cpDestino = address.postal_code?.trim() || null;
+        const addresses = await listShippingAddresses(token);
+        const address = pickDefaultShippingAddress(addresses);
+        cpDestino = address?.postal_code?.trim() || null;
         if (requestEpochRef.current === epoch) setShippingAddress(address);
       } catch {
         // Sin domicilio guardado: el backend igual puede responder free (combinado)
