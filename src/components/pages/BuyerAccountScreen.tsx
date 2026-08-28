@@ -1,5 +1,6 @@
 import React, { useId, useState, useCallback } from 'react';
 import { ShippingAddressSelectorModal } from '../organisms/account/ShippingAddressSelectorModal';
+import { BankAccountModal } from '../organisms/account/BankAccountModal';
 import { PreferencesModal } from '../organisms/account/PreferencesModal';
 import { NotificationsModal } from '../organisms/account/NotificationsModal';
 import { ChangePasswordModal } from '../organisms/account/ChangePasswordModal';
@@ -7,6 +8,7 @@ import { ContactModal } from '../organisms/account/ContactModal';
 import { LegalWebViewModal } from '../organisms/account/LegalWebViewModal';
 import { WalletFlowDrawers } from '../organisms/stream/wallet';
 import { useStreamWalletFlow } from '../../hooks/useStreamWalletFlow';
+import { Landmark } from 'lucide-react-native';
 import {
   View,
   ScrollView,
@@ -77,12 +79,13 @@ export const BuyerAccountScreen: React.FC<BuyerAccountScreenProps> = ({
   // Solo se agregan overrides oscuros: en claro los estilos estáticos quedan intactos.
   const darkText = isDark ? { color: themeColors.dark.text } : null;
   const [shippingModalVisible, setShippingModalVisible] = useState(false);
+  const [bankAccountVisible, setBankAccountVisible] = useState(false);
   const [preferencesModalVisible, setPreferencesModalVisible] = useState(false);
   const [notificationsModalVisible, setNotificationsModalVisible] = useState(false);
   const [changePasswordVisible, setChangePasswordVisible] = useState(false);
   const [contactModalVisible, setContactModalVisible] = useState(false);
   const [legalModal, setLegalModal] = useState<{ title: string; url: string } | null>(null);
-  /** Mismo flujo de drawers que el vivo; acá se entra directo al hub. */
+  /** Mismo flujo de drawers que el vivo; acá se entra directo a métodos. */
   const wallet = useStreamWalletFlow();
 
   return (
@@ -108,7 +111,7 @@ export const BuyerAccountScreen: React.FC<BuyerAccountScreenProps> = ({
             label={t('account.payments')}
             icon={AddCardIcon}
             onPress={() => {
-              void wallet.goToHub();
+              void wallet.goToMethods();
             }}
           />
           <AccountMenuRow
@@ -116,6 +119,13 @@ export const BuyerAccountScreen: React.FC<BuyerAccountScreenProps> = ({
             icon={LocationIcon}
             onPress={() => setShippingModalVisible(true)}
           />
+          {wallet.showPayoutRow ? (
+            <AccountMenuRow
+              label={t('account.payoutAccount')}
+              icon={Landmark}
+              onPress={() => setBankAccountVisible(true)}
+            />
+          ) : null}
           <AccountMenuRow
             label={t('account.notifications')}
             icon={NotificationsIcon}
@@ -164,6 +174,12 @@ export const BuyerAccountScreen: React.FC<BuyerAccountScreenProps> = ({
       visible={shippingModalVisible}
       defaultFullName={displayName}
       onClose={() => setShippingModalVisible(false)}
+    />
+
+    <BankAccountModal
+      visible={bankAccountVisible}
+      onClose={() => setBankAccountVisible(false)}
+      onSaved={() => setBankAccountVisible(false)}
     />
 
     {/* El modal de borrado lo monta PreferencesModal adentro suyo: apilado acá como

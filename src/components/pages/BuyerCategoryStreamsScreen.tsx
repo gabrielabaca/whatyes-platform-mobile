@@ -15,6 +15,7 @@ import { FONT_FAMILY } from '../../theme/typography';
 import { themeColors } from '../../theme/colors';
 import { useTheme } from '../../context/ThemeContext';
 import { useBuyerLiveRoomPreviews } from '../../hooks/useBuyerLiveRoomPreviews';
+import { useInterestCategories } from '../../hooks/useInterestCategories';
 import { BuyerLiveStreamsGrid } from '../organisms/home/BuyerLiveStreamsGrid';
 import { LiveStreamPreviewCard } from '../organisms/home/LiveStreamPreviewCard';
 import { recordInterestCategoryVisit } from '../../api/platformApi';
@@ -37,12 +38,14 @@ export interface BuyerCategoryStreamsScreenProps {
   category: InterestCategoryItem;
   onBack: () => void;
   onStreamPress: (preview: LiveStreamPreviewModel) => void;
+  onSelectCategory: (category: InterestCategoryItem) => void;
 }
 
 export const BuyerCategoryStreamsScreen: React.FC<BuyerCategoryStreamsScreenProps> = ({
   category,
   onBack,
   onStreamPress,
+  onSelectCategory,
 }) => {
   const { t } = useTranslation();
   const { width: windowWidth } = useWindowDimensions();
@@ -53,10 +56,15 @@ export const BuyerCategoryStreamsScreen: React.FC<BuyerCategoryStreamsScreenProp
   const popularCardStyle = useMemo(() => ({ width: popularCardW }), [popularCardW]);
   const [sort, setSort] = useState<CategorySortMode>('all');
   const [following, setFollowing] = useState(false);
+  const { categories, loadOnce, isLoaded } = useInterestCategories();
   const { previews, loading, refreshing, onRefresh } = useBuyerLiveRoomPreviews({
     interestCategoryUuid: category.uuid,
     pollIntervalMs: 15000,
   });
+
+  useEffect(() => {
+    loadOnce().catch(() => {});
+  }, [loadOnce]);
 
   useEffect(() => {
     recordInterestCategoryVisit(category.uuid).catch((e) => {
@@ -80,10 +88,25 @@ export const BuyerCategoryStreamsScreen: React.FC<BuyerCategoryStreamsScreenProp
   }, [previews]);
 
   /**
-   * Misma fuente de verdad que decide el estado vacío de la rejilla: sin resultados no
-   * hay nada que filtrar, así que la fila de chips tampoco se monta (Figma 1215:5206).
+   * `hasResults` sigue siendo la fuente de verdad de la grilla (sectionHeader de Lives).
+   * Los chips de orden se sostienen durante `loading` (`showSortChips`) para que la fila
+   * no cambie de layout en los saltos de categoría; solo desaparecen cuando la carga
+   * terminó y la categoría quedó vacía. Los de categoría no cuelgan de esto: son la vía
+   * para saltar a otra categoría.
    */
   const hasResults = !loading && sortedPreviews.length > 0;
+  const showSortChips = loading || hasResults;
+  const otherCategories = useMemo(
+    () => (isLoaded ? categories.filter((c) => c.uuid !== category.uuid) : []),
+    [isLoaded, categories, category.uuid]
+  );
+  const showCategoryChips = otherCategories.length > 0;
+  const idleChipDark = isDark
+    ? {
+        backgroundColor: themeColors.dark.surfaceAlt,
+        borderColor: themeColors.dark.surfaceAlt,
+      }
+    : null;
 
   const filterChip = (
     mode: CategorySortMode,
@@ -104,14 +127,7 @@ export const BuyerCategoryStreamsScreen: React.FC<BuyerCategoryStreamsScreenProp
                 borderColor: CHIP_ACTIVE_BORDER_DARK,
               }
             : null,
-          on
-            ? null
-            : isDark
-              ? {
-                  backgroundColor: themeColors.dark.surfaceAlt,
-                  borderColor: themeColors.dark.surfaceAlt,
-                }
-              : null,
+          on ? null : idleChipDark,
         ]}
       >
         <Text
@@ -184,16 +200,47 @@ export const BuyerCategoryStreamsScreen: React.FC<BuyerCategoryStreamsScreenProp
         </TouchableOpacity>
       </View>
 
-      {hasResults ? (
+      {showSortChips || showCategoryChips ? (
         <View style={styles.filtersRow}>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.filterChipsContent}
           >
-            {filterChip('all', 'explore.all', '⚡️')}
-            {filterChip('recommended', 'explore.recommended', '🛍️')}
-            {filterChip('bestSellers', 'explore.bestSellers', '📊')}
+            {showSortChips ? (
+              <>
+                {filterChip('all', 'explore.all', '⚡️')}
+                {filterChip('recommended', 'explore.recommended', '🛍️')}
+                {filterChip('bestSellers', 'explore.bestSellers', '📊')}
+              </>
+            ) : null}
+            {showSortChips && showCategoryChips ? (
+              <View
+                style={[
+                  styles.chipGroupSeparator,
+                  {
+                    backgroundColor: isDark
+                      ? themeColors.dark.borderSubtle
+                      : themeColors.light.border,
+                  },
+                ]}
+              />
+            ) : null}
+            {otherCategories.map((cat) => (
+              <TouchableOpacity
+                key={cat.uuid}
+                onPress={() => onSelectCategory(cat)}
+                activeOpacity={0.8}
+                style={[styles.filterChip, styles.filterChipIdle, idleChipDark]}
+              >
+                <Text
+                  style={{ fontFamily: FONT_FAMILY.semibold }}
+                  className="text-[14px] dark:text-white text-[#18181b]"
+                >
+                  {displayInterestCategoryIcon(cat)} {cat.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
           </ScrollView>
         </View>
       ) : null}
@@ -227,7 +274,7 @@ export const BuyerCategoryStreamsScreen: React.FC<BuyerCategoryStreamsScreenProp
         previews={sortedPreviews}
         loading={loading}
         onStreamPress={onStreamPress}
-        emptyLabel={t('explore.noLivesInCategory')}
+        emptyLabel={t('home.noLiveStreams')}
         emptySubtitle={t('explore.noLivesInCategorySubtitle')}
         sectionHeader={hasResults ? sectionHeader(t('explore.livesSection')) : undefined}
       />
@@ -337,6 +384,14 @@ const styles = StyleSheet.create({
     backgroundColor: CHIP_IDLE_BG,
     borderColor: CHIP_IDLE_BG,
     paddingHorizontal: 16,
+  },
+  /** Separa chips de orden (filtro) de chips de categoría (navegación). */
+  chipGroupSeparator: {
+    width: 1,
+    height: 24,
+    marginLeft: 4,
+    marginRight: 12,
+    borderRadius: 1,
   },
   sectionHeader: {
     width: '100%',

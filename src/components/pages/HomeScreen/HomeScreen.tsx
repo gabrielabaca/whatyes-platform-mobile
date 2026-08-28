@@ -571,9 +571,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
           {homePath.name === 'category' ? (
             <BuyerCategoryStreamsScreen
+              /* Remonta al cambiar de categoría: resetea sort/following. El feed se
+                 recarga igual (el hook depende de uuid); sin remount el grid mostraría
+                 lives de la categoría anterior hasta que llegue el fetch nuevo. */
+              key={homePath.category.uuid}
               category={homePath.category}
               onBack={() => setHomePath({ name: 'explore' })}
               onStreamPress={handleStreamPress}
+              onSelectCategory={(c) => setHomePath({ name: 'category', category: c })}
             />
           ) : null}
 

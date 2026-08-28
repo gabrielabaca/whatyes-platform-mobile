@@ -39,7 +39,7 @@ export interface StreamAuctionPanelProps {
   saleMode?: 'auction' | 'buy_now';
   /** Tocar la fila "N artículos" (misma acción que el stack de fotos). */
   onPressItemsRow?: () => void;
-  /** Cotización de envío hacia el domicilio del comprador (Figma 698-8349). */
+  /** Cotización de envío hacia el domicilio del comprador (Figma 821-3704). */
   shippingQuote?: ShippingQuoteState;
   /** Tocar la fila de envío cuando falta domicilio (abre wallet → shipping). */
   onPressShipping?: () => void;
@@ -155,7 +155,7 @@ export const StreamAuctionPanel: React.FC<StreamAuctionPanelProps> = ({
           ) : null}
           <View style={[styles.details, variant === 'buyer' && styles.detailsBuyer]}>
             {/* Tarea 25: al vendedor no se le muestra (ni se le calcula) la tasa
-                de envío — esa fila es exclusiva del comprador, más abajo. */}
+                de envío — esa fila es exclusiva del comprador, en la columna derecha. */}
             <RNText style={styles.title} numberOfLines={2}>
               {productTitle}
             </RNText>
@@ -169,28 +169,6 @@ export const StreamAuctionPanel: React.FC<StreamAuctionPanelProps> = ({
                   {t('stream.itemsCount', { count: itemCount })}
                 </RNText>
                 <ChevronRight size={16} color={STREAM_COLORS.white} />
-              </TouchableOpacity>
-            ) : null}
-            {/* Figma 698-8349: la tasa de envío va bajo "N artículos", en la columna
-                izquierda. Siempre es un link: abre el domicilio de envío del wallet. */}
-            {variant === 'buyer' && shippingText ? (
-              <TouchableOpacity
-                onPress={onPressShipping}
-                disabled={!onPressShipping}
-                activeOpacity={0.8}
-                hitSlop={8}
-                accessibilityRole="button"
-                accessibilityLabel={t('stream.shippingRate')}
-              >
-                <RNText
-                  style={[
-                    styles.shippingLabel,
-                    shippingIsFree && styles.shippingFree,
-                    shippingIsCta && styles.shippingCta,
-                  ]}
-                >
-                  {shippingText}
-                </RNText>
               </TouchableOpacity>
             ) : null}
           </View>
@@ -208,6 +186,29 @@ export const StreamAuctionPanel: React.FC<StreamAuctionPanelProps> = ({
             <CountdownExtensionFloat extension={timeExtension} />
           </View>
         ) : null}
+        {/* Figma 821-3704: tasa de envío al pie de la columna derecha, bajo el reloj.
+            Siempre es un link: abre el domicilio de envío del wallet. */}
+        {variant === 'buyer' && shippingText ? (
+          <TouchableOpacity
+            onPress={onPressShipping}
+            disabled={!onPressShipping}
+            activeOpacity={0.8}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={t('stream.shippingRate')}
+          >
+            <RNText
+              style={[
+                styles.shippingLabel,
+                shippingIsFree && styles.shippingFree,
+                shippingIsCta && styles.shippingCta,
+              ]}
+              numberOfLines={2}
+            >
+              {shippingText}
+            </RNText>
+          </TouchableOpacity>
+        ) : null}
       </View>
     </View>
   );
@@ -215,8 +216,8 @@ export const StreamAuctionPanel: React.FC<StreamAuctionPanelProps> = ({
 
 const styles = StyleSheet.create({
   panel: {
-    // Figma 698-8349: columna izquierda (título / artículos / tasa de envío) y
-    // derecha (precio + tiempo) centradas verticalmente entre sí.
+    // Figma 821-3704: columna izquierda (título / artículos) y derecha
+    // (precio + tiempo + tasa de envío) centradas verticalmente entre sí.
     flexDirection: 'row',
     alignItems: 'center',
     width: '100%',
@@ -248,7 +249,7 @@ const styles = StyleSheet.create({
     gap: 4,
     justifyContent: 'center',
   },
-  /** El comprador conserva el espaciado de 8 entre título / artículos / envío. */
+  /** El comprador conserva el espaciado de 8 entre título y artículos. */
   detailsBuyer: {
     gap: 8,
   },
@@ -282,6 +283,9 @@ const styles = StyleSheet.create({
   right: {
     alignItems: 'flex-end',
     justifyContent: 'center',
+    // Tope para que "Agregá tu domicilio…" no coma la columna del título.
+    maxWidth: '46%',
+    flexShrink: 0,
   },
   countdownWrap: {
     // Ancla del "+N": el globo se posiciona contra el reloj, no contra el panel.
@@ -293,6 +297,7 @@ const styles = StyleSheet.create({
     fontSize: 10,
     lineHeight: 16,
     color: STREAM_COLORS.white,
+    textAlign: 'right',
     includeFontPadding: false,
   },
   shippingFree: {

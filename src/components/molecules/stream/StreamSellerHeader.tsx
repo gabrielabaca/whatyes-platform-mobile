@@ -101,7 +101,7 @@ export const StreamSellerHeader: React.FC<StreamSellerHeaderProps> = ({
               <View style={styles.viewerRow}>
                 <Eye size={14} color={STREAM_COLORS.white} />
                 <RNText style={styles.viewerText}>
-                  {viewerCount.toLocaleString('es-CO')}
+                  {viewerCount.toLocaleString('es-ES')}
                 </RNText>
               </View>
             </StreamGlassPill>

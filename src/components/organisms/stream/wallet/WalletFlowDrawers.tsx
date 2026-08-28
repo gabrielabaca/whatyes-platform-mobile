@@ -9,6 +9,7 @@ import { StreamPaymentMethodsDrawer } from './StreamPaymentMethodsDrawer';
 import { StreamAddCardDrawer } from './StreamAddCardDrawer';
 import { StreamWalletSuccessDrawer } from './StreamWalletSuccessDrawer';
 import { StreamMpWalletConnectModal } from './StreamMpWalletConnectModal';
+import { DeletePaymentMethodModal } from './DeletePaymentMethodModal';
 
 /**
  * Stack completo de drawers de pagos y envíos (Figma 536-20451 y siguientes).
@@ -95,6 +96,17 @@ export const WalletFlowDrawers: React.FC<WalletFlowDrawersProps> = ({
       }}
       onDeleteCard={wallet.deleteCard}
       onAddCard={wallet.openCardForm}
+    />
+    {/*
+      Hermano del drawer de métodos, ambos con nativeModal={false} → OverlayPortal.
+      Un Modal RN anidado sobre el sheet no aparece en iOS (mismo bug que CountrySelect,
+      alta de dirección, CBU y formato de venta).
+    */}
+    <DeletePaymentMethodModal
+      visible={wallet.cardToDelete != null}
+      card={wallet.cardToDelete}
+      onClose={wallet.cancelDeleteCard}
+      onConfirm={wallet.confirmDeleteCard}
     />
     <StreamMpWalletConnectModal
       visible={wallet.mpConnectVisible}

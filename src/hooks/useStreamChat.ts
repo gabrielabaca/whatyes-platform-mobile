@@ -20,6 +20,10 @@ interface UseStreamChatOptions {
   onStreamEnded?: (reason?: string) => void;
   /** El vendedor canceló la oferta: llega SOLO el código de motivo (el detalle es interno). */
   onAuctionCancelled?: (info: AuctionCancelledInfo) => void;
+  /** Oferta nueva vía WS (`auction_start`). No se dispara con el `init`. */
+  onAuctionStarted?: () => void;
+  /** Oferta cerrada vía WS (`auction_end`). `hadWinner` es false si quedó desierta. */
+  onAuctionEnded?: (hadWinner: boolean) => void;
 }
 
 interface WsPayloadMessage {
@@ -141,6 +145,8 @@ export function useStreamChat({
   onLike,
   onStreamEnded,
   onAuctionCancelled,
+  onAuctionStarted,
+  onAuctionEnded,
 }: UseStreamChatOptions) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [viewerCount, setViewerCount] = useState(0);
@@ -188,10 +194,18 @@ export function useStreamChat({
   }, [onStreamEnded]);
 
   const onAuctionCancelledRef = useRef(onAuctionCancelled);
+  const onAuctionStartedRef = useRef(onAuctionStarted);
+  const onAuctionEndedRef = useRef(onAuctionEnded);
 
   useEffect(() => {
     onAuctionCancelledRef.current = onAuctionCancelled;
   }, [onAuctionCancelled]);
+  useEffect(() => {
+    onAuctionStartedRef.current = onAuctionStarted;
+  }, [onAuctionStarted]);
+  useEffect(() => {
+    onAuctionEndedRef.current = onAuctionEnded;
+  }, [onAuctionEnded]);
 
   // Offset (segundos) entre el reloj del servidor y el del dispositivo.
   // serverNow() = reloj local + offset. Imprescindible para que la cuenta regresiva
@@ -379,6 +393,7 @@ export function useStreamChat({
               setAuctionBids([]);
               setLastAuctionExtension(null);
               setAuctionPausedRemaining(null);
+              onAuctionStartedRef.current?.();
             }
             return;
           }
@@ -419,7 +434,8 @@ export function useStreamChat({
             // Mismo evento para los dos modos: en compra directa el "ganador" es
             // quien llegó primero, y llega apenas compra (no al vencer el tiempo).
             const winner = msg.payload?.winner;
-            if (winner?.username) {
+            const hadWinner = !!winner?.username;
+            if (hadWinner) {
               setAuctionWinner({
                 username: winner.username,
                 amount: winner.amount ?? 0,
@@ -431,6 +447,7 @@ export function useStreamChat({
             setAuctionBids([]);
             setLastAuctionExtension(null);
             setAuctionPausedRemaining(null);
+            onAuctionEndedRef.current?.(hadWinner);
             return;
           }
           if (msg.type === 'auction_bid' && msg.payload) {

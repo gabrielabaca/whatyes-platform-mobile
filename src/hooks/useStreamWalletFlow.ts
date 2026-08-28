@@ -52,6 +52,7 @@ export function useStreamWalletFlow() {
   const [mpConnectSession, setMpConnectSession] = useState<MpWalletConnectSession | null>(null);
   const [mpConnectLoading, setMpConnectLoading] = useState(false);
   const [walletLinkEnabled, setWalletLinkEnabled] = useState(false);
+  const [cardToDelete, setCardToDelete] = useState<SavedCard | null>(null);
 
   /**
    * Vincular MP solo cuenta como método de pago si el backend lo tiene habilitado:
@@ -141,6 +142,7 @@ export function useStreamWalletFlow() {
     setMpConnectSession(null);
     setMpConnectLoading(false);
     setSuccessPaymentMethod(null);
+    setCardToDelete(null);
   }, []);
 
   const goToHub = useCallback(async () => {
@@ -171,7 +173,11 @@ export function useStreamWalletFlow() {
     await refreshHubState();
   }, [refreshHubState]);
 
-  const openPayment = useCallback(async () => {
+  /**
+   * Entra directo a la lista de métodos (con KYC si falta). Lo usa el menú de
+   * Cuenta ("Pagos"). El vivo llega al mismo paso desde el hub (`openPayment`).
+   */
+  const goToMethods = useCallback(async () => {
     const verified = await isKycVerified();
     if (!verified) {
       setStep('kyc');
@@ -180,6 +186,9 @@ export function useStreamWalletFlow() {
     setStep('methods');
     await refreshHubState();
   }, [isKycVerified, refreshHubState]);
+
+  /** Desde el hub del vivo: mismo camino que `goToMethods`. */
+  const openPayment = goToMethods;
 
   const onKycVerified = useCallback(async () => {
     await refreshAuth();
@@ -278,34 +287,30 @@ export function useStreamWalletFlow() {
     void finishMpWalletLink();
   }, [finishMpWalletLink]);
 
-  /** Baja de una tarjeta guardada, con confirmación destructiva. */
-  const deleteCard = useCallback(
-    (card: SavedCard) => {
-      const name = [card.payment_method_id, card.last_four ? `···· ${card.last_four}` : '']
-        .filter(Boolean)
-        .join(' ');
-      appAlert.confirm({
-        title: t('stream.wallet.deleteCardTitle'),
-        message: t('stream.wallet.deleteCardMessage').replace('{method}', name),
-        cancelText: t('common.cancel'),
-        confirmText: t('stream.wallet.deleteCardConfirm'),
-        destructive: true,
-        onConfirm: () => {
-          void (async () => {
-            try {
-              await deleteSavedCard(card.uuid);
-              // Si era la predeterminada, el estado de "método configurado" cambia.
-              await refreshHubState();
-            } catch (e) {
-              const msg = e instanceof ApiError ? e.message : t('stream.wallet.deleteCardError');
-              appAlert(t('common.appName'), msg);
-            }
-          })();
-        },
-      });
-    },
-    [refreshHubState, t]
-  );
+  /** Abre la confirmación por texto (Figma 1195:8992); no borra todavía. */
+  const deleteCard = useCallback((card: SavedCard) => {
+    setCardToDelete(card);
+  }, []);
+
+  const cancelDeleteCard = useCallback(() => {
+    setCardToDelete(null);
+  }, []);
+
+  const confirmDeleteCard = useCallback(async () => {
+    const card = cardToDelete;
+    if (!card) {
+      return;
+    }
+    try {
+      await deleteSavedCard(card.uuid);
+      setCardToDelete(null);
+      // Si era la predeterminada, el estado de "método configurado" cambia.
+      await refreshHubState();
+    } catch (e) {
+      const msg = e instanceof ApiError ? e.message : t('stream.wallet.deleteCardError');
+      appAlert(t('common.appName'), msg);
+    }
+  }, [cardToDelete, refreshHubState, t]);
 
   const selectCard = useCallback(async (card: SavedCard) => {
     await storage.setPreferredPaymentOrigin('PLATFORM_CARD');
@@ -353,6 +358,7 @@ export function useStreamWalletFlow() {
     isWalletConfigured,
     closeAll,
     goToHub,
+    goToMethods,
     returnToHub,
     openShipping,
     onShippingSaved,
@@ -365,6 +371,9 @@ export function useStreamWalletFlow() {
     selectMpWallet,
     selectCard,
     deleteCard,
+    cardToDelete,
+    cancelDeleteCard,
+    confirmDeleteCard,
     successPaymentMethod,
     mpConnectVisible,
     mpConnectSession,

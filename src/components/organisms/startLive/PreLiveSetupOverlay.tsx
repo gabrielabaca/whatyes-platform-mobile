@@ -414,7 +414,9 @@ export const PreLiveSetupOverlay: React.FC<{
   const [showScheduleTimePicker, setShowScheduleTimePicker] = useState(false);
   const [frequency, setFrequency] = useState<Frequency>(initialConfig.recurrence ?? 'none');
   const [moderatorIds, setModeratorIds] = useState<string[]>(initialConfig.moderatorUserIds ?? []);
-  const [categoryUuids, setCategoryUuids] = useState<string[]>(initialConfig.interestCategoryUuids ?? []);
+  const [categoryUuid, setCategoryUuid] = useState<string | null>(
+    initialConfig.interestCategoryUuids?.[0] ?? null,
+  );
   const [saleFormat, setSaleFormat] = useState<SaleFormat>(initialConfig.saleFormat ?? 'individual');
   const [explicitContent, setExplicitContent] = useState(initialConfig.explicitContent ?? false);
   const [blockedWordsEnabled, setBlockedWordsEnabled] = useState(initialConfig.blockedWordsEnabled ?? false);
@@ -479,14 +481,9 @@ export const PreLiveSetupOverlay: React.FC<{
   }, [clearLaunchTimers, onCancel]);
 
   const categoryLabel = useMemo(() => {
-    if (!categoryUuids.length) return null;
-    const labels = categoryUuids
-      .map((uuid) => categories.find((cat) => cat.uuid === uuid)?.label)
-      .filter(Boolean);
-    if (!labels.length) return t('startLive.setupCategoriesSelected', { count: categoryUuids.length });
-    if (labels.length <= 2) return labels.join(', ');
-    return `${labels.slice(0, 2).join(', ')} +${labels.length - 2}`;
-  }, [categories, categoryUuids, t]);
+    if (!categoryUuid) return null;
+    return categories.find((cat) => cat.uuid === categoryUuid)?.label ?? null;
+  }, [categories, categoryUuid]);
 
   const frequencyOptions = useMemo(
     () => [
@@ -580,7 +577,7 @@ export const PreLiveSetupOverlay: React.FC<{
     ...initialConfig,
     title: title.trim() || initialConfig.title || 'Mi show',
     scheduledAt: scheduleEpochSeconds,
-    interestCategoryUuids: categoryUuids,
+    interestCategoryUuids: categoryUuid ? [categoryUuid] : [],
     recurrence: frequency,
     moderatorUserIds: moderatorIds,
     saleFormat,
@@ -808,7 +805,7 @@ export const PreLiveSetupOverlay: React.FC<{
               <StartLivePrimaryButton
                 label={t('startLive.saveCta')}
                 onPress={startCountdown}
-                disabled={!title.trim() || !categoryUuids.length || coverUploading}
+                disabled={!title.trim() || !categoryUuid || coverUploading}
               />
               <TouchableOpacity style={styles.cancelButton} onPress={handleLeavePreLive} activeOpacity={0.85}>
                 <RNText style={styles.cancelText}>{t('common.cancel')}</RNText>
@@ -853,11 +850,11 @@ export const PreLiveSetupOverlay: React.FC<{
           />
           <StartLiveCategoriesDrawer
             visible={drawer === 'categories'}
-            selectionMode="multiple"
-            initialSelected={categoryUuids}
+            selectionMode="single"
+            initialSelected={categoryUuid ? [categoryUuid] : []}
             onClose={() => setDrawer('none')}
             onContinue={(uuids) => {
-              setCategoryUuids(uuids);
+              setCategoryUuid(uuids[0] ?? null);
               setDrawer('none');
             }}
           />

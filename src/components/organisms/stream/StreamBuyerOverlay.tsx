@@ -19,6 +19,7 @@ import {
   StreamChatComposer,
   StreamAuctionPanel,
   StreamBidBar,
+  StreamAuctionBanner,
 } from '../../molecules/stream';
 import type {
   ChatMessage,
@@ -96,6 +97,9 @@ export interface StreamBuyerOverlayProps {
   onNotify?: (text: string) => void;
   /** El vendedor silenció su micrófono (estado real, vía WS). */
   isSellerAudioMuted?: boolean;
+  /** Figma 881-960: interludio entre productos, en el hueco del panel. */
+  showAuctionInterlude?: boolean;
+  onDismissAuctionInterlude?: () => void;
 }
 
 export const StreamBuyerOverlay: React.FC<StreamBuyerOverlayProps> = ({
@@ -141,6 +145,8 @@ export const StreamBuyerOverlay: React.FC<StreamBuyerOverlayProps> = ({
   onPressShipping,
   onNotify,
   isSellerAudioMuted = false,
+  showAuctionInterlude = false,
+  onDismissAuctionInterlude,
 }) => {
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
@@ -307,7 +313,13 @@ export const StreamBuyerOverlay: React.FC<StreamBuyerOverlayProps> = ({
           onProductStackPress={onOpenProductCatalog}
         />
 
-        {showAuctionUi ? (
+        {showAuctionInterlude ? (
+          <StreamAuctionBanner
+            variant="interlude"
+            visible
+            onDismiss={onDismissAuctionInterlude ?? (() => {})}
+          />
+        ) : showAuctionUi ? (
           <StreamAuctionPanel
             productTitle={productTitle}
             itemCount={itemCount}
@@ -328,7 +340,10 @@ export const StreamBuyerOverlay: React.FC<StreamBuyerOverlayProps> = ({
             En pausa (vendedor decidiendo si cancela) queda inerte: el servidor
             rechazaría la oferta igual, pero no invitamos a un gesto muerto.
             Sin oferta en curso la barra NO se oculta: queda deshabilitada con
-            "Esperando subasta..." y se habilita sola cuando arranca la venta. */}
+            "Esperando subasta..." y se habilita sola cuando arranca la venta.
+            El Figma (821-3811) la oculta, pero contentBlock es flex-end y no
+            reserva el hueco: al ocultarla el chat y el rail saltan en cada
+            subasta. Por eso no seguimos el diseño acá. */}
         {!showAuctionUi ? (
           <StreamBidBar
             mode="idle"

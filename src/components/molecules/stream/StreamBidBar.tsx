@@ -66,6 +66,11 @@ export interface StreamBidBarProps {
   bidAmount: number;
   onBid: () => void;
   disabled?: boolean;
+  /**
+   * Si es false la barra queda inerte (sin oferta / pausa / oferta ya cerrada).
+   * El overlay del comprador la monta con false + `mode="idle"` mientras espera
+   * la próxima venta, para que el hueco no salte.
+   */
   isAuctionActive?: boolean;
   /**
    * `bid` (default): "Ofertar $X" y el monto es la puja sugerida.

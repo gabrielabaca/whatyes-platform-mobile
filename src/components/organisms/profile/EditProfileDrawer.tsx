@@ -27,6 +27,11 @@ import { FONT_FAMILY } from '../../../theme/typography';
 import { themeColors } from '../../../theme/colors';
 import { updateOwnProfile, type UserPublicProfile } from '../../../api/profileApi';
 import { appAlert } from '../../../alerts';
+import {
+  BIO_EDIT_MAX_GRAPHEMES,
+  clampToGraphemes,
+  graphemeCount,
+} from '../../../utils/grapheme';
 
 const COVER_H = 164;
 
@@ -58,7 +63,7 @@ export const EditProfileDrawer: React.FC<EditProfileDrawerProps> = ({
   useEffect(() => {
     if (visible) {
       setDisplayName(profile.display_name);
-      setBio(profile.bio ?? '');
+      setBio(clampToGraphemes(profile.bio ?? '', BIO_EDIT_MAX_GRAPHEMES));
       setAvatarUri(initialAvatarUri);
     }
   }, [visible, profile, initialAvatarUri]);
@@ -173,9 +178,10 @@ export const EditProfileDrawer: React.FC<EditProfileDrawerProps> = ({
               <EditField
                 label={t('profile.editBio')}
                 value={bio}
-                onChangeText={setBio}
+                onChangeText={(v) => setBio(clampToGraphemes(v, BIO_EDIT_MAX_GRAPHEMES))}
                 multiline
                 inputStyle={styles.bioInput}
+                hint={`${graphemeCount(bio)}/${BIO_EDIT_MAX_GRAPHEMES}`}
               />
 
             </View>
@@ -200,7 +206,8 @@ const EditField: React.FC<{
   onChangeText: (v: string) => void;
   multiline?: boolean;
   inputStyle?: object;
-}> = ({ label, value, onChangeText, multiline, inputStyle }) => (
+  hint?: string;
+}> = ({ label, value, onChangeText, multiline, inputStyle, hint }) => (
   <View style={styles.field}>
     <RNText style={styles.fieldLabel}>{label}</RNText>
     <View style={[styles.fieldInputWrap, multiline && styles.fieldInputWrapMultiline]}>
@@ -213,6 +220,7 @@ const EditField: React.FC<{
         textAlignVertical={multiline ? 'top' : 'center'}
       />
     </View>
+    {hint ? <RNText style={styles.fieldHint}>{hint}</RNText> : null}
   </View>
 );
 
@@ -301,6 +309,14 @@ const styles = StyleSheet.create({
     color: themeColors.glass.text,
     letterSpacing: 0.05,
     includeFontPadding: false,
+  },
+  fieldHint: {
+    fontFamily: FONT_FAMILY.regular,
+    fontSize: 10,
+    lineHeight: 18,
+    color: themeColors.glass.textSoft,
+    includeFontPadding: false,
+    textAlign: 'right',
   },
   fieldInputWrap: {
     borderWidth: 1,

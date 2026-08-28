@@ -12,6 +12,11 @@ export type { SellerLiveActionBarProps } from './SellerLiveActionBar';
 export { StreamBidBar } from './StreamBidBar';
 export { StreamToast, useStreamToast } from './StreamToast';
 export type { StreamToastMessage, StreamToastProps, StreamToastTone } from './StreamToast';
+export { StreamAuctionBanner } from './StreamAuctionBanner';
+export type {
+  StreamAuctionBannerProps,
+  StreamAuctionBannerVariant,
+} from './StreamAuctionBanner';
 export { StreamViewerSplash } from './StreamViewerSplash';
 export type { StreamViewerSplashProps } from './StreamViewerSplash';
 export { SelectablePillRow, PillRadio, pillRowStyles } from './SelectablePillRow';

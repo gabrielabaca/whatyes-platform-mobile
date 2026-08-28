@@ -43,6 +43,7 @@ import {
 } from '../../../native/IvsStageNative';
 import { HlsStreamPlayer } from '../../molecules/stream/HlsStreamPlayer';
 import { StreamToast, useStreamToast } from '../../molecules/stream/StreamToast';
+import { StreamAuctionBanner } from '../../molecules/stream/StreamAuctionBanner';
 import { StreamViewerSplash } from '../../molecules/stream/StreamViewerSplash';
 import { fetchLiveRoomIds, pickNextLiveStreamIndex } from '../../../utils/streamLiveNavigation';
 import { showToStreamData } from '../../../utils/showToStreamData';
@@ -163,6 +164,8 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({
    * usuario lo cierra, aunque el evento del chat se limpie a los segundos.
    */
   const [winCelebration, setWinCelebration] = useState<AuctionWinner | null>(null);
+  /** Banner efímero del comprador: arranque de subasta (top) o interludio (panel). */
+  const [auctionBanner, setAuctionBanner] = useState<'start' | 'interlude' | null>(null);
   /** Compra directa en vuelo: bloquea la barra hasta que el backend resuelve. */
   const [buyNowPending, setBuyNowPending] = useState(false);
   const [productCatalogVisible, setProductCatalogVisible] = useState(false);
@@ -219,12 +222,39 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({
 
   // Tarea 18: al cancelar el vendedor, el viewer ve SOLO el mensaje genérico del
   // motivo (el detalle interno nunca viaja por el WS).
+  const winCelebrationRef = useRef<AuctionWinner | null>(null);
+  winCelebrationRef.current = winCelebration;
+
+  const handleAuctionStarted = useCallback(() => {
+    // El festejo a pantalla completa tapa el vivo: no anunciar "Nueva Subasta"
+    // detrás. Al cerrarlo la barra de ofertar ya está a la vista.
+    if (winCelebrationRef.current) return;
+    setAuctionBanner('start');
+  }, []);
+
+  const handleAuctionEnded = useCallback((hadWinner: boolean) => {
+    if (hadWinner) {
+      setAuctionBanner(null);
+      return;
+    }
+    setAuctionBanner('interlude');
+  }, []);
+
   const handleAuctionCancelled = useCallback(
     (info: AuctionCancelledInfo) => {
+      setAuctionBanner(null);
       showToast(t(auctionCancelledMessageKey(info.reasonCode)), 'info');
     },
     [showToast, t]
   );
+
+  const handleDismissAuctionStart = useCallback(() => {
+    setAuctionBanner((cur) => (cur === 'start' ? null : cur));
+  }, []);
+
+  const handleDismissAuctionInterlude = useCallback(() => {
+    setAuctionBanner((cur) => (cur === 'interlude' ? null : cur));
+  }, []);
 
   const {
     messages,
@@ -255,6 +285,8 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({
     onLike: handleLikeEvent,
     onStreamEnded: onStreamEndedFromWs,
     onAuctionCancelled: handleAuctionCancelled,
+    onAuctionStarted: handleAuctionStarted,
+    onAuctionEnded: handleAuctionEnded,
   });
 
   // Toast solo cuando el toggle del mic ocurre con el viewer ya adentro:
@@ -1082,6 +1114,13 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({
         topOffset={Math.max(insets.top, 16) + 64}
       />
 
+      <StreamAuctionBanner
+        variant="start"
+        visible={auctionBanner === 'start' && !winCelebration}
+        onDismiss={handleDismissAuctionStart}
+        topOffset={Math.max(insets.top, 16)}
+      />
+
       {/* El ganador ve el festejo completo; el resto, el banner compacto. */}
       <AuctionWinnerOverlay winner={winCelebration ? null : auctionWinner} />
       <AuctionWinnerCelebration
@@ -1146,6 +1185,8 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({
         onPressShipping={handlePressShippingRate}
         onNotify={showToast}
         isSellerAudioMuted={isSellerAudioMuted}
+        showAuctionInterlude={auctionBanner === 'interlude' && !winCelebration}
+        onDismissAuctionInterlude={handleDismissAuctionInterlude}
       />
 
       {/* La nota es solo lectura para el viewer: acá no hay edición ni "Publicar". */}

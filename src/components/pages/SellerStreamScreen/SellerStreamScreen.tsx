@@ -457,22 +457,31 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
 
   const productCards = useMemo<LiveProductCardVM[]>(
     () =>
-      catalogItems.map((it, index) => ({
-        uuid: it.uuid,
-        title: it.title,
-        imageUrl: it.image_url,
-        priceCents: it.base_price_cents,
-        currency: it.currency,
-        articleCount: it.article_count ?? it.quantity_on_hand,
-        startsSoon: it.starts_soon,
-        auctionSecondsRemaining: it.auction_seconds_remaining,
-        status: it.is_active ? 'live' : it.starts_soon ? 'scheduled' : undefined,
-        isPinned: it.is_pinned,
-        // El primero del catálogo es el que la vista del vendedor muestra y el
-        // que pone en juego el deslizamiento de "Siguiente Subasta".
-        isNext: index === 0,
-      })),
-    [catalogItems],
+      catalogItems
+        .filter((it) => {
+          // Un producto recién cargado llega con live_sale_mode null: si lo
+          // filtráramos por igualdad estricta desaparecería de los tres tabs.
+          // Lo mostramos en todos, así el vendedor lo encuentra apenas lo sube.
+          const mode = it.live_sale_mode;
+          if (mode == null || mode === '') return true;
+          return mode === saleMode;
+        })
+        .map((it, index) => ({
+          uuid: it.uuid,
+          title: it.title,
+          imageUrl: it.image_url,
+          priceCents: it.base_price_cents,
+          currency: it.currency,
+          articleCount: it.article_count ?? it.quantity_on_hand,
+          startsSoon: it.starts_soon,
+          auctionSecondsRemaining: it.auction_seconds_remaining,
+          status: it.is_active ? 'live' : it.starts_soon ? 'scheduled' : undefined,
+          isPinned: it.is_pinned,
+          // El primero del catálogo filtrado es el que la vista del vendedor
+          // muestra y el que pone en juego el deslizamiento de "Siguiente Subasta".
+          isNext: index === 0,
+        })),
+    [catalogItems, saleMode],
   );
 
   /** Pone un producto en juego según el modo de venta elegido en el drawer. */
@@ -1135,6 +1144,11 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
         onSaleModeChange={setSaleMode}
         onSelectProduct={handleSelectProduct}
         onStartProduct={isStreamPaused ? undefined : handleStartProduct}
+        emptyLabel={
+          catalogItems.length === 0
+            ? t('stream.productsCatalogEmpty')
+            : t('stream.productsCatalogEmptyFiltered')
+        }
         onPinProduct={handlePinProduct}
         onAddProduct={() => {
           setProductCatalogVisible(false);

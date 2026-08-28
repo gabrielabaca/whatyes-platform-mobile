@@ -32,6 +32,8 @@ export interface StreamRoomProductsDrawerProps {
   /** Seleccionar un producto lo deja primero en la lista (sin arrancarlo). */
   onSelectProduct?: (item: LiveProductCardVM) => void;
   onAddProduct?: () => void;
+  /** Copy del empty: el tab filtrado puede vaciar la lista sin que el catálogo lo esté. */
+  emptyLabel?: string;
 }
 
 export const StreamRoomProductsDrawer: React.FC<StreamRoomProductsDrawerProps> = ({
@@ -47,6 +49,7 @@ export const StreamRoomProductsDrawer: React.FC<StreamRoomProductsDrawerProps> =
   onPinProduct,
   onSelectProduct,
   onAddProduct,
+  emptyLabel,
 }) => {
   const { t } = useTranslation();
 
@@ -99,7 +102,9 @@ export const StreamRoomProductsDrawer: React.FC<StreamRoomProductsDrawerProps> =
       ) : errorMessage ? (
         <RNText style={styles.errorText}>{errorMessage}</RNText>
       ) : items.length === 0 ? (
-        <RNText style={styles.emptyText}>{t('stream.productsCatalogEmpty')}</RNText>
+        <RNText style={styles.emptyText}>
+          {emptyLabel ?? t('stream.productsCatalogEmpty')}
+        </RNText>
       ) : (
         <FlatList
           data={items}
