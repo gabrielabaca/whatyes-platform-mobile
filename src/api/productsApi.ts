@@ -28,7 +28,6 @@ export interface CreateProductPayload {
   /** Asocia el producto al catálogo del vivo activo. */
   room_id?: string;
   live_sale_mode?: LiveSaleMode;
-  min_bid_cents?: number;
   auction_duration_seconds?: number;
   raffle_participation_mode?: RaffleParticipationMode;
   status?: ProductStatus;

@@ -845,11 +845,10 @@ export function startCatalogProductAuction(
   accessToken: string,
   roomId: string,
   productId: string,
-  body: { durationSeconds?: number; minBidCents?: number } = {},
+  body: { durationSeconds?: number } = {},
 ): Promise<RoomCatalogActionResponse> {
   return postRoomCatalogAction(accessToken, roomId, productId, 'start-auction', {
     ...(body.durationSeconds != null ? { duration_seconds: body.durationSeconds } : {}),
-    ...(body.minBidCents != null ? { min_bid_cents: body.minBidCents } : {}),
   });
 }
 
