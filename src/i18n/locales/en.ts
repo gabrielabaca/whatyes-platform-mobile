@@ -503,6 +503,8 @@ export default {
     "bidIncrementTitle": "Bid increment",
     "bidIncrementA11y": "Choose bid increment",
     "bidIncrementOption": "{{multiplier}}× — +{{amount}}",
+    "bidIncrementHelp": "The base step is ~5% of the product price; your choice multiplies it on every bid.",
+    "bidIncrementHelpNoAmount": "Applies to auctions: the amount is computed from the product price when one starts.",
     "auctionStartTitle": "New Auction",
     "auctionStartSubtitle": "Bid before someone else does!",
     "auctionInterludeTitle": "Stay in the live",

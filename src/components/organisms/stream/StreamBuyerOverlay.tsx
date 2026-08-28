@@ -367,7 +367,17 @@ export const StreamBuyerOverlay: React.FC<StreamBuyerOverlayProps> = ({
             "Esperando subasta..." y se habilita sola cuando arranca la venta.
             El Figma (821-3811) la oculta, pero contentBlock es flex-end y no
             reserva el hueco: al ocultarla el chat y el rail saltan en cada
-            subasta. Por eso no seguimos el diseño acá. */}
+            subasta. Por eso no seguimos el diseño acá.
+
+            El botón de incremento acompaña a la barra en los TRES modos: la
+            preferencia 1×/2×/3× es de la sala y aplica a la próxima subasta,
+            así que elegirla en idle o durante una venta buy_now es válido —
+            y es justamente cuando el comprador tiene tiempo de pensarla.
+            Montarlo siempre también elimina el salto de ancho del track
+            (flex:1) que había en cada arranque de subasta. Fuera de una
+            subasta el drawer muestra las opciones SIN monto (showAmounts):
+            el paso del próximo producto no se conoce todavía y cualquier
+            cifra saldría del fallback — inventada. */}
         {!showAuctionUi ? (
           <StreamBidBar
             mode="idle"
@@ -375,6 +385,8 @@ export const StreamBuyerOverlay: React.FC<StreamBuyerOverlayProps> = ({
             onBid={() => {}}
             isAuctionActive={false}
             disabled
+            onTunePress={() => setTuneOpen(true)}
+            tuneAccessibilityLabel={t('stream.bidIncrementA11y')}
           />
         ) : isBuyNow ? (
           <StreamBidBar
@@ -383,6 +395,8 @@ export const StreamBuyerOverlay: React.FC<StreamBuyerOverlayProps> = ({
             onBid={() => onBuyNow?.()}
             isAuctionActive={isAuctionActive}
             disabled={isBuyNowPending || !onBuyNow || isAuctionPaused}
+            onTunePress={() => setTuneOpen(true)}
+            tuneAccessibilityLabel={t('stream.bidIncrementA11y')}
           />
         ) : (
           <StreamBidBar
@@ -400,6 +414,11 @@ export const StreamBuyerOverlay: React.FC<StreamBuyerOverlayProps> = ({
         visible={tuneOpen}
         onClose={() => setTuneOpen(false)}
         floorMajor={floorMajor}
+        // Montos solo con una subasta en curso: ahí floorMajor es el precio
+        // del producto subastado y el monto por opción es el paso real. En
+        // idle o buy_now serían cifras del fallback, sin relación con el
+        // producto que va a salir.
+        showAmounts={showAuctionUi && !isBuyNow}
         multiplier={bidMultiplier}
         onSelect={handleSelectMultiplier}
       />

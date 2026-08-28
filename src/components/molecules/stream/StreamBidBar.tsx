@@ -23,7 +23,7 @@ import { useTranslation } from 'react-i18next';
 import HapticFeedback from 'react-native-haptic-feedback';
 import { formatStreamPrice } from '../../atoms/stream/StreamPriceText';
 import { PulpoLogo } from '../../atoms/stream/PulpoLogo';
-import { STREAM_RADIUS } from './streamTokens';
+import { STREAM_COLORS, STREAM_RADIUS } from './streamTokens';
 import { FONT_FAMILY } from '../../../theme/typography';
 import DiscoverTuneIcon from '../../../../assets/icons/stream/discoverTune.svg';
 
@@ -84,8 +84,13 @@ export interface StreamBidBarProps {
    */
   mode?: 'bid' | 'buy_now' | 'idle';
   /**
-   * Figma 698:8442 — sliders a la izquierda de la barra. Solo en modo puja:
-   * abre el drawer del multiplicador. Si falta, el botón no se monta.
+   * Figma 698:8442 — sliders a la izquierda de la barra: abre el drawer del
+   * multiplicador. El overlay del comprador lo pasa en TODOS los modos (idle
+   * y buy_now incluidos): la preferencia 1×/2×/3× es de la sala y aplica a la
+   * próxima subasta, así que ajustarla mientras no se puede pujar es válido.
+   * Montarlo siempre además mantiene estable el ancho del track (flex:1),
+   * que antes saltaba en cada arranque de subasta. Si falta, el botón no se
+   * monta (overlay del vendedor, que no puja).
    */
   onTunePress?: () => void;
   tuneAccessibilityLabel?: string;
@@ -216,6 +221,10 @@ export const StreamBidBar: React.FC<StreamBidBarProps> = ({
 
   return (
     <View style={styles.bar}>
+      {/* Fuera del track a propósito: no hereda styles.dimmed. Con la barra
+          apagada (idle / pausa) elegir el incremento sigue siendo una acción
+          válida — configura la próxima puja — así que el botón queda a
+          contraste pleno y operativo. */}
       {onTunePress ? (
         <TouchableOpacity
           style={styles.tuneBtn}
@@ -362,7 +371,7 @@ const styles = StyleSheet.create({
     width: TRACK_HEIGHT,
     height: TRACK_HEIGHT,
     borderRadius: STREAM_RADIUS.pill,
-    backgroundColor: '#515154',
+    backgroundColor: STREAM_COLORS.controlBg,
     alignItems: 'center',
     justifyContent: 'center',
   },

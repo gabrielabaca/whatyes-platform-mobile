@@ -17,6 +17,8 @@ export const STREAM_COLORS = {
   ctaSoftGradientEnd: 'rgba(255,201,0,0.2)',
   /** "+3s" que suma una puja al reloj de la subasta (verde `success` del tema). */
   timeExtension: '#00C566',
+  /** Figma 698:8442: fondo del botón circular de ajustes junto a la barra de puja. */
+  controlBg: '#515154',
 } as const;
 
 export const STREAM_RADIUS = {
