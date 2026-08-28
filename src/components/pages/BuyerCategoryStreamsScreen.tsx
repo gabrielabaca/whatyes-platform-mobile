@@ -5,10 +5,11 @@ import {
   TouchableOpacity,
   RefreshControl,
   StyleSheet,
+  Platform,
   useWindowDimensions,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
+import { ChevronLeft } from 'lucide-react-native';
 import { Text } from '../atoms/Text';
 import { FONT_FAMILY } from '../../theme/typography';
 import { themeColors } from '../../theme/colors';
@@ -21,7 +22,16 @@ import type { InterestCategoryItem } from '../../api/types';
 import type { LiveStreamPreviewModel } from '../organisms/home/types';
 import { displayInterestCategoryIcon } from '../../utils/interestCategoryEmoji';
 
-export type CategorySortMode = 'recommended' | 'bestSellers';
+/** Chip activo — Figma 1225:7272. */
+const CHIP_ACTIVE_BG = 'rgba(221, 218, 255, 0.2)';
+const CHIP_ACTIVE_BORDER = 'rgba(183, 177, 255, 0.4)';
+/** Chip activo en dark — sin spec en Figma; decisión de producto. */
+const CHIP_ACTIVE_BG_DARK = 'rgba(104, 92, 240, 0.30)';
+const CHIP_ACTIVE_BORDER_DARK = '#8F86F5';
+/** Inactivo — Figma 1220:7234. */
+const CHIP_IDLE_BG = '#DDDAFF';
+
+export type CategorySortMode = 'all' | 'recommended' | 'bestSellers';
 
 export interface BuyerCategoryStreamsScreenProps {
   category: InterestCategoryItem;
@@ -39,10 +49,9 @@ export const BuyerCategoryStreamsScreen: React.FC<BuyerCategoryStreamsScreenProp
   const { isDark } = useTheme();
   /** Overrides sólo para oscuro: en claro mandan los estilos estáticos. */
   const darkText = isDark ? { color: themeColors.dark.text } : null;
-  const darkSurfaceAlt = isDark ? { backgroundColor: themeColors.dark.surfaceAlt } : null;
   const popularCardW = Math.floor((windowWidth - 16 * 2 - 12) / 2);
   const popularCardStyle = useMemo(() => ({ width: popularCardW }), [popularCardW]);
-  const [sort, setSort] = useState<CategorySortMode>('recommended');
+  const [sort, setSort] = useState<CategorySortMode>('all');
   const [following, setFollowing] = useState(false);
   const { previews, loading, refreshing, onRefresh } = useBuyerLiveRoomPreviews({
     interestCategoryUuid: category.uuid,
@@ -56,6 +65,9 @@ export const BuyerCategoryStreamsScreen: React.FC<BuyerCategoryStreamsScreenProp
   }, [category.uuid]);
 
   const sortedPreviews = useMemo(() => {
+    if (sort === 'all') {
+      return previews;
+    }
     const list = [...previews];
     if (sort === 'bestSellers') {
       list.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
@@ -75,7 +87,7 @@ export const BuyerCategoryStreamsScreen: React.FC<BuyerCategoryStreamsScreenProp
 
   const filterChip = (
     mode: CategorySortMode,
-    labelKey: 'explore.recommended' | 'explore.bestSellers',
+    labelKey: 'explore.all' | 'explore.recommended' | 'explore.bestSellers',
     icon: string
   ) => {
     const on = sort === mode;
@@ -86,12 +98,25 @@ export const BuyerCategoryStreamsScreen: React.FC<BuyerCategoryStreamsScreenProp
         style={[
           styles.filterChip,
           on ? styles.filterChipActive : styles.filterChipIdle,
-          on ? null : darkSurfaceAlt,
+          on && isDark
+            ? {
+                backgroundColor: CHIP_ACTIVE_BG_DARK,
+                borderColor: CHIP_ACTIVE_BORDER_DARK,
+              }
+            : null,
+          on
+            ? null
+            : isDark
+              ? {
+                  backgroundColor: themeColors.dark.surfaceAlt,
+                  borderColor: themeColors.dark.surfaceAlt,
+                }
+              : null,
         ]}
       >
         <Text
           style={{ fontFamily: FONT_FAMILY.semibold }}
-          className={`text-[14px] ${on ? 'text-white' : 'text-[#18181b] dark:text-white'}`}
+          className={`text-[14px] dark:text-white ${on ? 'text-[#1E1E1E]' : 'text-[#303030]'}`}
         >
           {icon} {t(labelKey)}
         </Text>
@@ -123,7 +148,11 @@ export const BuyerCategoryStreamsScreen: React.FC<BuyerCategoryStreamsScreenProp
       <View style={styles.headingRow}>
         <View style={styles.headingLeft}>
           <TouchableOpacity onPress={onBack} hitSlop={12} style={styles.backButton}>
-            <Text style={[styles.backIcon, darkText]}>‹</Text>
+            <ChevronLeft
+              size={22}
+              color={isDark ? themeColors.dark.text : '#18181b'}
+              strokeWidth={2}
+            />
           </TouchableOpacity>
           <Text style={[styles.categoryTitle, darkText]} numberOfLines={1}>
             {displayInterestCategoryIcon(category)} {category.label}
@@ -135,17 +164,20 @@ export const BuyerCategoryStreamsScreen: React.FC<BuyerCategoryStreamsScreenProp
           activeOpacity={0.85}
           style={styles.followButtonTouchable}
         >
-          <View style={styles.followButton}>
-            <Svg pointerEvents="none" style={styles.followButtonGradient} width="100%" height="100%">
-              <Defs>
-                <LinearGradient id="follow-button-gradient" x1="0" y1="0" x2="1" y2="0">
-                  <Stop offset="0" stopColor="#685CF0" />
-                  <Stop offset="1" stopColor="#454087" />
-                </LinearGradient>
-              </Defs>
-              <Rect width="100%" height="100%" fill="url(#follow-button-gradient)" />
-            </Svg>
-            <Text style={styles.followButtonText}>
+          <View
+            style={[
+              styles.followButton,
+              following ? styles.followButtonFollowing : styles.followButtonIdle,
+              following && isDark ? { backgroundColor: themeColors.dark.surfaceAlt } : null,
+            ]}
+          >
+            <Text
+              style={[
+                styles.followButtonText,
+                following ? styles.followButtonTextFollowing : null,
+                following && isDark ? { color: themeColors.dark.textSecondary } : null,
+              ]}
+            >
               {following ? t('explore.following') : t('explore.follow')}
             </Text>
           </View>
@@ -159,7 +191,8 @@ export const BuyerCategoryStreamsScreen: React.FC<BuyerCategoryStreamsScreenProp
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.filterChipsContent}
           >
-            {filterChip('recommended', 'explore.recommended', '⚡')}
+            {filterChip('all', 'explore.all', '⚡️')}
+            {filterChip('recommended', 'explore.recommended', '🛍️')}
             {filterChip('bestSellers', 'explore.bestSellers', '📊')}
           </ScrollView>
         </View>
@@ -228,11 +261,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginRight: 4,
   },
-  backIcon: {
-    fontSize: 34,
-    lineHeight: 34,
-    color: '#18181b',
-  },
   categoryTitle: {
     flex: 1,
     minWidth: 0,
@@ -248,23 +276,30 @@ const styles = StyleSheet.create({
     marginLeft: 12,
   },
   followButton: {
-    minWidth: 58,
-    height: 26,
-    paddingHorizontal: 12,
+    minWidth: 75,
+    height: 32,
     borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
   },
-  followButtonGradient: {
-    ...StyleSheet.absoluteFillObject,
+  followButtonIdle: {
+    backgroundColor: '#685CF0',
+    paddingHorizontal: 16,
+  },
+  followButtonFollowing: {
+    backgroundColor: '#D9D9D9',
+    paddingHorizontal: 12,
   },
   followButtonText: {
     fontFamily: FONT_FAMILY.bold,
     color: '#FFFFFF',
-    fontSize: 12,
+    fontSize: 14,
     lineHeight: 16,
     textAlign: 'center',
+  },
+  followButtonTextFollowing: {
+    color: '#71717B',
   },
   filtersRow: {
     flexDirection: 'row',
@@ -276,18 +311,32 @@ const styles = StyleSheet.create({
     paddingRight: 16,
   },
   filterChip: {
-    height: 48,
+    height: 44,
     borderRadius: 999,
-    paddingHorizontal: 16,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 8,
+    borderWidth: 1,
   },
   filterChipActive: {
-    backgroundColor: '#685CF0',
+    backgroundColor: CHIP_ACTIVE_BG,
+    borderColor: CHIP_ACTIVE_BORDER,
+    paddingHorizontal: 17,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowRadius: 5,
+        shadowOpacity: 0.05,
+      },
+      android: {},
+      default: {},
+    }),
   },
   filterChipIdle: {
-    backgroundColor: '#DDDAFF',
+    backgroundColor: CHIP_IDLE_BG,
+    borderColor: CHIP_IDLE_BG,
+    paddingHorizontal: 16,
   },
   sectionHeader: {
     width: '100%',

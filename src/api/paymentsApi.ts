@@ -189,6 +189,7 @@ export interface PayoutAccount {
   account_holder: string;
   tax_id: string;
   bank_name: string | null;
+  alias: string | null;
   cbu: string;
   created_at: number;
   updated_at: number;
@@ -198,6 +199,7 @@ export interface PayoutAccountUpsertPayload {
   account_holder: string;
   tax_id: string;
   bank_name?: string | null;
+  alias?: string | null;
   cbu: string;
 }
 

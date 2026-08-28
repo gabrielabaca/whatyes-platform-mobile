@@ -568,9 +568,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                 gap={GRID_GAP}
                 previewWithCategory={previewWithCategory}
                 sectionHeader={
-                  !loading && filteredPreviews.length > 0 ? (
-                    <SectionHeader title={t('home.forYou')} />
-                  ) : undefined
+                  !loading ? <SectionHeader title={t('home.forYou')} /> : undefined
                 }
               />
             </ScrollView>

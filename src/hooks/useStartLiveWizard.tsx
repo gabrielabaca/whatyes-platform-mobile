@@ -197,7 +197,8 @@ export const StartLiveWizardProvider: React.FC<{ children: ReactNode }> = ({ chi
           await upsertPayoutAccount({
             account_holder: payload.customer_name,
             tax_id: payload.customer_tax_id,
-            bank_name: payload.bank.alias ?? null,
+            alias: payload.bank.alias ?? null,
+            bank_name: null,
             cbu: payload.bank.cbu,
           });
           setHasPayoutAccount(true);

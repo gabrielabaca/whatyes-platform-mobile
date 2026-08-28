@@ -132,7 +132,8 @@ export const StartLivePillField: React.FC<{
   placeholder?: string;
   keyboardType?: 'default' | 'number-pad' | 'phone-pad';
   maxLength?: number;
-}> = ({ label, value, onChangeText, placeholder, keyboardType, maxLength }) => (
+  autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
+}> = ({ label, value, onChangeText, placeholder, keyboardType, maxLength, autoCapitalize }) => (
   <View style={startLiveStyles.field}>
     <RNText style={startLiveStyles.fieldLabel}>{label}</RNText>
     <View style={startLiveStyles.fieldInputWrap}>
@@ -144,6 +145,7 @@ export const StartLivePillField: React.FC<{
         placeholderTextColor={START_LIVE_COLORS.placeholder}
         keyboardType={keyboardType}
         maxLength={maxLength}
+        autoCapitalize={autoCapitalize}
       />
     </View>
   </View>

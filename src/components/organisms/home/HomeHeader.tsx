@@ -18,7 +18,7 @@ const HEADER_METRICS = {
   logoIconH: 23,
   gapLogoToText: 8,
   iconGray: '#71717A',
-  /** Rojo del punto de la campana y del contador de mensajes. */
+  /** Rojo del punto de la campana y del chat. */
   badgeRed: '#FB2C36',
   hitSearchBell: 38,
   iconSearchBell: 22,
@@ -52,9 +52,7 @@ export const HomeHeader: React.FC<HomeHeaderProps> = ({
   const logoWordColor = isDark ? themeColors.primary : HEADER_METRICS.logoText;
   const badgeBorderColor = isDark ? '#050f2f' : '#E7E7FF';
 
-  // A partir de 100 el número no entra en el círculo sin deformar el header.
   const unreadCount = Math.max(0, Math.trunc(chatUnreadCount) || 0);
-  const unreadLabel = unreadCount > 99 ? '99+' : String(unreadCount);
 
   return (
     <View
@@ -89,7 +87,7 @@ export const HomeHeader: React.FC<HomeHeaderProps> = ({
             {hasNotificationDot ? (
               <View
                 style={[
-                  styles.bellDot,
+                  styles.unreadDot,
                   {
                     backgroundColor: HEADER_METRICS.badgeRed,
                     borderColor: badgeBorderColor,
@@ -122,22 +120,13 @@ export const HomeHeader: React.FC<HomeHeaderProps> = ({
             {unreadCount > 0 ? (
               <View
                 style={[
-                  styles.chatBadge,
+                  styles.unreadDot,
                   {
                     backgroundColor: HEADER_METRICS.badgeRed,
                     borderColor: badgeBorderColor,
                   },
                 ]}
-              >
-                <Text
-                  className="text-white"
-                  style={styles.chatBadgeText}
-                  allowFontScaling={false}
-                  numberOfLines={1}
-                >
-                  {unreadLabel}
-                </Text>
-              </View>
+              />
             ) : null}
           </TouchableOpacity>
         ) : null}
@@ -170,7 +159,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  bellDot: {
+  unreadDot: {
     position: 'absolute',
     top: -1,
     right: -1,
@@ -184,24 +173,5 @@ const styles = StyleSheet.create({
     height: HEADER_METRICS.iconChat,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  /** Contador sobre la esquina del ícono; crece hacia la izquierda con 2-3 dígitos. */
-  chatBadge: {
-    position: 'absolute',
-    top: -4,
-    right: -4,
-    minWidth: 16,
-    height: 16,
-    borderRadius: 8,
-    paddingHorizontal: 3,
-    borderWidth: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  chatBadgeText: {
-    fontFamily: FONT_FAMILY.bold,
-    fontSize: 10,
-    lineHeight: 12,
-    color: '#FFFFFF',
   },
 });

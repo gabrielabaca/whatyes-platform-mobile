@@ -1,11 +1,11 @@
 import React from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { Clock } from 'lucide-react-native';
 import {
   IconHome,
   IconSearch,
   IconPlus,
-  IconBell,
   type SvgIconProps,
   IconAccount,
 } from '../../icons';
@@ -44,7 +44,7 @@ export const HomeBottomNav: React.FC<HomeBottomNavProps> = ({ activeTab, onTabPr
       | 'home.tabExplore'
       | 'home.tabActivity'
       | 'home.tabAccount';
-    IconCmp: React.FC<SvgIconProps>;
+    IconCmp: React.ComponentType<SvgIconProps>;
   }) => {
     const on = activeTab === tab;
     const color = on ? active : muted;
@@ -83,7 +83,7 @@ export const HomeBottomNav: React.FC<HomeBottomNavProps> = ({ activeTab, onTabPr
       <NavItem tab="home" labelKey="home.tabHome" IconCmp={IconHome} />
       <NavItem tab="explore" labelKey="home.tabExplore" IconCmp={IconSearch} />
       <CenterFab onPress={() => onTabPress('create')} />
-      <NavItem tab="activity" labelKey="home.tabActivity" IconCmp={IconBell} />
+      <NavItem tab="activity" labelKey="home.tabActivity" IconCmp={Clock} />
       <NavItem tab="account" labelKey="home.tabAccount" IconCmp={IconAccount} />
     </View>
   );

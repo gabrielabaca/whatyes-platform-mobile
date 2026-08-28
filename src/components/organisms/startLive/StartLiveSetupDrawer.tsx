@@ -17,6 +17,7 @@ import {
   StartLivePrimaryButton,
   StartLiveTermsCheckbox,
 } from './StartLivePrimitives';
+import { CBU_LENGTH, normalizeCbu } from '../../../utils/cbu';
 
 export interface StartLiveSetupPayload {
   customer_name: string;
@@ -37,10 +38,6 @@ export interface StartLiveSetupDrawerProps {
   initialTaxId?: string;
   onClose: () => void;
   onSubmit: (payload: StartLiveSetupPayload) => Promise<void>;
-}
-
-function normalizeCbu(raw: string): string {
-  return raw.replace(/\D/g, '');
 }
 
 export const StartLiveSetupDrawer: React.FC<StartLiveSetupDrawerProps> = ({
@@ -78,7 +75,7 @@ export const StartLiveSetupDrawer: React.FC<StartLiveSetupDrawerProps> = ({
   }, [visible, initialTaxId]);
 
   const cbuDigits = normalizeCbu(cbu);
-  const bankOk = payoutLater || !needsPayout || cbuDigits.length === 22;
+  const bankOk = payoutLater || !needsPayout || cbuDigits.length === CBU_LENGTH;
   const customerOk = !needsCustomer || (fullName.trim().length >= 2 && taxId.trim().length >= 8);
   // El CUIT también hace falta para la cuenta bancaria aunque la tienda ya exista.
   const taxForBankOk = needsCustomer || payoutLater || !needsPayout || taxId.trim().length >= 8;
@@ -161,7 +158,7 @@ export const StartLiveSetupDrawer: React.FC<StartLiveSetupDrawerProps> = ({
                   onChangeText={setCbu}
                   placeholder={t('startLive.bankCbuPlaceholder')}
                   keyboardType="number-pad"
-                  maxLength={26}
+                  maxLength={30}
                 />
                 <StartLivePillField
                   label={t('startLive.bankAlias')}

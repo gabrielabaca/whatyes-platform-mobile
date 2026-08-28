@@ -71,40 +71,44 @@ export const BuyerLiveStreamsGrid: React.FC<BuyerLiveStreamsGridProps> = ({
 
   if (!loading && previews.length === 0) {
     // Card del estado vacío — Figma nodo 821-1098 ("Inicio No Live").
+    // El heading ("✨ Para Ti") se mantiene en el vacío (Figma 1121:8056).
     return (
-      <View
-        style={[
-          styles.emptyCard,
-          { borderColor: isDark ? 'rgba(104,92,240,0.35)' : '#CBCEFF' },
-        ]}
-      >
-        <View style={styles.emptyTextBlock}>
-          <Text
-            style={[styles.emptyTitle, { fontFamily: FONT_FAMILY.bold }]}
-            className="text-[#685CF0]"
-          >
-            {emptyLabel}
-          </Text>
-          {emptySubtitle ? (
+      <>
+        {sectionHeader}
+        <View
+          style={[
+            styles.emptyCard,
+            { borderColor: isDark ? 'rgba(104,92,240,0.35)' : '#CBCEFF' },
+          ]}
+        >
+          <View style={styles.emptyTextBlock}>
             <Text
-              style={[styles.emptySubtitle, { fontFamily: FONT_FAMILY.semibold }]}
-              className="text-[#3B3B40] dark:text-night-muted"
+              style={[styles.emptyTitle, { fontFamily: FONT_FAMILY.bold }]}
+              className="text-[#685CF0]"
             >
-              {emptySubtitle}
+              {emptyLabel}
             </Text>
+            {emptySubtitle ? (
+              <Text
+                style={[styles.emptySubtitle, { fontFamily: FONT_FAMILY.semibold }]}
+                className="text-[#3B3B40] dark:text-night-muted"
+              >
+                {emptySubtitle}
+              </Text>
+            ) : null}
+          </View>
+          {emptyActionLabel && onEmptyActionPress ? (
+            <Button
+              title={emptyActionLabel}
+              size="small"
+              titleClassName="font-bold"
+              style={styles.emptyCta}
+              leftIcon={<IconNotifications size={24} color="#FEFEFE" />}
+              onPress={onEmptyActionPress}
+            />
           ) : null}
         </View>
-        {emptyActionLabel && onEmptyActionPress ? (
-          <Button
-            title={emptyActionLabel}
-            size="small"
-            titleClassName="font-bold"
-            style={styles.emptyCta}
-            leftIcon={<IconNotifications size={24} color="#FEFEFE" />}
-            onPress={onEmptyActionPress}
-          />
-        ) : null}
-      </View>
+      </>
     );
   }
 

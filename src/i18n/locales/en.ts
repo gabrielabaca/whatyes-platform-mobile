@@ -315,8 +315,9 @@ export default {
     "sortRecent": "Most recent",
     "follow": "Follow",
     "following": "Following",
+    "all": "All",
     "recommended": "Recommended",
-    "bestSellers": "Top sellers",
+    "bestSellers": "Top",
     "popularSection": "🙌 Popular",
     "livesSection": "▶️ Lives",
     "noLivesInCategory": "No live streams in this category",
@@ -325,8 +326,8 @@ export default {
   "account": {
     "viewProfile": "View profile",
     "sectionAccount": "Account",
-    "paymentsShipping": "Payments & shipping",
-    "address": "Address",
+    "payments": "Payments",
+    "address": "Shipping address",
     "notifications": "Notifications",
     "notificationsModal": {
       "title": "Notifications",
@@ -397,6 +398,21 @@ export default {
       "postalCodeRequired": "Enter postal code.",
       "confirmRequired": "You must confirm your details are correct.",
       "saveError": "Could not save address. Please try again."
+    },
+    "bankAccount": {
+      "title": "Bank account",
+      "holder": "Account holder",
+      "taxId": "CUIT / CUIL",
+      "alias": "Alias (optional)",
+      "aliasPlaceholder": "my.bank.alias",
+      "bankName": "Bank (optional)",
+      "bankNamePlaceholder": "Bank name",
+      "cbuHint": "The CBU has exactly 22 digits. If you pasted an alias (for example mi.alias.banco), use the CBU number.",
+      "consent": "By adding your CBU, you agree that PulpoLive will deposit your sales proceeds into this account, according to PulpoLive terms and policies.",
+      "add": "Add",
+      "save": "Save",
+      "cancel": "Cancel",
+      "saveError": "We couldn't save the bank account. Please try again."
     },
     "preferencesModal": {
       "title": "Preferences",
@@ -659,6 +675,8 @@ export default {
       "hubTitle": "Wallet",
       "shippingRow": "Shipping Address",
       "paymentRow": "Payment Method",
+      "bankRow": "Bank account",
+      "bankSectionHint": "To receive the money from your sales",
       "add": "Add",
       "modify": "Modify",
       "methodsTitle": "Payment methods",
@@ -850,7 +868,7 @@ export default {
     bankCbu: 'CBU number',
     bankCbuPlaceholder: '0000 0000 0000 0000',
     bankAlias: 'Alias',
-    bankAliasPlaceholder: '0000 0000 0000 0000',
+    bankAliasPlaceholder: 'my.bank.alias',
     bankPaymentAddress: 'Payment address',
     bankTaxId: 'Holder tax ID',
     bankConsent:

@@ -21,7 +21,7 @@ import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { useTranslation } from 'react-i18next';
 import { Text } from '../atoms/Text';
 import { AccountMenuRow } from '../organisms/home/AccountMenuRow';
-import { IconUser, IconLogOut } from '../icons';
+import { IconUser } from '../icons';
 import AddCardIcon from '../../../assets/icons/account/add-card.svg';
 import LocationIcon from '../../../assets/icons/account/location-on.svg';
 import NotificationsIcon from '../../../assets/icons/account/notifications.svg';
@@ -105,7 +105,7 @@ export const BuyerAccountScreen: React.FC<BuyerAccountScreenProps> = ({
 
         <View style={styles.rowList}>
           <AccountMenuRow
-            label={t('account.paymentsShipping')}
+            label={t('account.payments')}
             icon={AddCardIcon}
             onPress={() => {
               void wallet.goToHub();
@@ -155,12 +155,6 @@ export const BuyerAccountScreen: React.FC<BuyerAccountScreenProps> = ({
             label={t('account.faq')}
             icon={HelpIcon}
             onPress={() => setLegalModal({ title: t('account.faq'), url: FAQ_URL })}
-          />
-          <AccountMenuRow
-            label={t('account.logout')}
-            icon={IconLogOut}
-            onPress={onLogout}
-            variant="danger"
           />
         </View>
       </View>

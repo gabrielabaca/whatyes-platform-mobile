@@ -32,7 +32,8 @@ const LIVE_RED = '#fb2c36';
 const AVATAR_BORDER = '#3f3f47';
 
 function formatViewerCount(n: number): string {
-  return n.toLocaleString('es-ES');
+  // Figma 1118:6375 muestra coma (`1,247`). Dudoso: en es-AR el miles es punto.
+  return n.toLocaleString('en-US');
 }
 
 export const LiveStreamPreviewCard: React.FC<LiveStreamPreviewCardProps> = ({

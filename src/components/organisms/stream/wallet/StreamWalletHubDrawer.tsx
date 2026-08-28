@@ -7,7 +7,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { CreditCard, Truck } from 'lucide-react-native';
+import { CreditCard, Landmark, Truck } from 'lucide-react-native';
 import { StreamBottomSheet, streamBottomPanelStyle, streamSheetStyles } from '../StreamBottomSheet';
 import { FONT_FAMILY } from '../../../../theme/typography';
 import { themeColors } from '../../../../theme/colors';
@@ -19,8 +19,11 @@ export interface StreamWalletHubDrawerProps {
   loading?: boolean;
   shippingActionLabel: string;
   paymentActionLabel: string;
+  payoutActionLabel: string;
+  showPayoutRow?: boolean;
   onShippingPress: () => void;
   onPaymentPress: () => void;
+  onPayoutPress: () => void;
 }
 
 export const StreamWalletHubDrawer: React.FC<StreamWalletHubDrawerProps> = ({
@@ -29,8 +32,11 @@ export const StreamWalletHubDrawer: React.FC<StreamWalletHubDrawerProps> = ({
   loading = false,
   shippingActionLabel,
   paymentActionLabel,
+  payoutActionLabel,
+  showPayoutRow = false,
   onShippingPress,
   onPaymentPress,
+  onPayoutPress,
 }) => {
   const { t } = useTranslation();
 
@@ -59,6 +65,18 @@ export const StreamWalletHubDrawer: React.FC<StreamWalletHubDrawerProps> = ({
             actionLabel={shippingActionLabel}
             onPress={onShippingPress}
           />
+          {showPayoutRow ? (
+            <View style={styles.payoutSection}>
+              <View style={styles.divider} />
+              <RNText style={styles.sectionHint}>{t('stream.wallet.bankSectionHint')}</RNText>
+              <HubPillRow
+                icon={<Landmark size={24} color={themeColors.glass.text} strokeWidth={2} />}
+                title={t('stream.wallet.bankRow')}
+                actionLabel={payoutActionLabel}
+                onPress={onPayoutPress}
+              />
+            </View>
+          ) : null}
         </View>
       )}
     </StreamBottomSheet>
@@ -105,6 +123,24 @@ const styles = StyleSheet.create({
   configSection: {
     width: '100%',
     gap: 16,
+  },
+  payoutSection: {
+    width: '100%',
+    gap: 12,
+    marginTop: 8,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: themeColors.glass.border,
+    width: '100%',
+  },
+  sectionHint: {
+    fontFamily: FONT_FAMILY.semibold,
+    fontSize: 12,
+    lineHeight: 18,
+    color: themeColors.glass.textMuted,
+    letterSpacing: 0.06,
+    includeFontPadding: false,
   },
   pillRow: {
     flexDirection: 'row',

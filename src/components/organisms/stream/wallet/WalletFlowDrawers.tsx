@@ -1,6 +1,7 @@
 import React from 'react';
 import type { useStreamWalletFlow } from '../../../../hooks/useStreamWalletFlow';
 import { ShippingAddressModal } from '../../account/ShippingAddressModal';
+import { BankAccountModal } from '../../account/BankAccountModal';
 import { BuyerKycModal } from '../../account/BuyerKycModal';
 import { StreamWalletIntroDrawer } from './StreamWalletIntroDrawer';
 import { StreamWalletHubDrawer } from './StreamWalletHubDrawer';
@@ -43,10 +44,13 @@ export const WalletFlowDrawers: React.FC<WalletFlowDrawersProps> = ({
       loading={wallet.hubLoading}
       shippingActionLabel={wallet.shippingActionLabel}
       paymentActionLabel={wallet.paymentActionLabel}
+      payoutActionLabel={wallet.payoutActionLabel}
+      showPayoutRow={wallet.showPayoutRow}
       onShippingPress={wallet.openShipping}
       onPaymentPress={() => {
         void wallet.openPayment();
       }}
+      onPayoutPress={wallet.openPayout}
     />
     <ShippingAddressModal
       visible={wallet.step === 'shipping'}
@@ -58,6 +62,15 @@ export const WalletFlowDrawers: React.FC<WalletFlowDrawersProps> = ({
       onSaved={() => {
         void wallet.onShippingSaved();
         onShippingSaved?.();
+      }}
+    />
+    <BankAccountModal
+      visible={wallet.step === 'payout'}
+      onClose={() => {
+        void wallet.returnToHub();
+      }}
+      onSaved={() => {
+        void wallet.onPayoutSaved();
       }}
     />
     <BuyerKycModal

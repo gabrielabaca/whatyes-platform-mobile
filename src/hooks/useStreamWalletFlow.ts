@@ -6,6 +6,7 @@ import {
   createMpWalletConnectSession,
   deleteSavedCard,
   getPublicPaymentsConfig,
+  getPayoutAccount,
   listSavedCards,
   type MpWalletConnectSession,
   type SavedCard,
@@ -29,6 +30,7 @@ export type WalletStep =
   | 'intro'
   | 'hub'
   | 'shipping'
+  | 'payout'
   | 'kyc'
   | 'methods'
   | 'cardForm'
@@ -41,6 +43,7 @@ export function useStreamWalletFlow() {
   const [hubLoading, setHubLoading] = useState(false);
   const [hasShipping, setHasShipping] = useState(false);
   const [hasPayment, setHasPayment] = useState(false);
+  const [hasPayout, setHasPayout] = useState(false);
   const [cards, setCards] = useState<SavedCard[]>([]);
   const [preferredOrigin, setPreferredOrigin] = useState<PreferredPaymentOrigin | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | undefined>();
@@ -71,19 +74,22 @@ export function useStreamWalletFlow() {
     setHubLoading(true);
     try {
       const mpEnabled = await resolveWalletLink();
-      const [shipping, cardList, pref] = await Promise.all([
+      const seller = user?.user_type === 'seller_user';
+      const [shipping, cardList, pref, payout] = await Promise.all([
         getShippingAddress().catch(() => ({})),
         listSavedCards().catch(() => [] as SavedCard[]),
         storage.getPreferredPaymentOrigin(),
+        seller ? getPayoutAccount().catch(() => null) : Promise.resolve(null),
       ]);
       setHasShipping(hasUsableShippingAddress(shipping));
       setHasPayment(cardList.length > 0 || (mpEnabled && pref === 'MP_WALLET'));
+      setHasPayout(!!payout);
       setCards(cardList);
       setPreferredOrigin(pref);
     } finally {
       setHubLoading(false);
     }
-  }, [resolveWalletLink]);
+  }, [resolveWalletLink, user?.user_type]);
 
   /**
    * Chequea (sin abrir el hub) si el usuario ya configuró domicilio de envío y
@@ -152,6 +158,15 @@ export function useStreamWalletFlow() {
   }, []);
 
   const onShippingSaved = useCallback(async () => {
+    setStep('hub');
+    await refreshHubState();
+  }, [refreshHubState]);
+
+  const openPayout = useCallback(() => {
+    setStep('payout');
+  }, []);
+
+  const onPayoutSaved = useCallback(async () => {
     setStep('hub');
     await refreshHubState();
   }, [refreshHubState]);
@@ -310,6 +325,9 @@ export function useStreamWalletFlow() {
   const paymentActionLabel = hasPayment
     ? t('stream.wallet.modify')
     : t('stream.wallet.add');
+  const payoutActionLabel = hasPayout
+    ? t('stream.wallet.modify')
+    : t('stream.wallet.add');
 
   useEffect(() => {
     if (step === 'hub') {
@@ -322,12 +340,15 @@ export function useStreamWalletFlow() {
     hubLoading,
     hasShipping,
     hasPayment,
+    hasPayout,
+    showPayoutRow: user?.user_type === 'seller_user',
     cards,
     preferredOrigin,
     walletLinkEnabled,
     successMessage,
     shippingActionLabel,
     paymentActionLabel,
+    payoutActionLabel,
     openWallet,
     isWalletConfigured,
     closeAll,
@@ -335,6 +356,8 @@ export function useStreamWalletFlow() {
     returnToHub,
     openShipping,
     onShippingSaved,
+    openPayout,
+    onPayoutSaved,
     openPayment,
     onKycVerified,
     openCardForm,
