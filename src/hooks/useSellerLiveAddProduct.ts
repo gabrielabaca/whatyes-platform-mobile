@@ -20,7 +20,7 @@ import { MAX_PRODUCT_PHOTOS } from './useAddProductForm';
 import { appAlert } from '../alerts';
 
 /** Drawers que el form in-live puede abrir por encima de la pantalla. */
-export type SellerLiveDrawer = 'none' | 'photos' | 'category' | 'weight';
+export type SellerLiveDrawer = 'none' | 'photos' | 'category' | 'weight' | 'saleFormat';
 
 /**
  * Opciones de tiempo límite de subasta (Figma 698:11652 / 1094:780). Selección
@@ -63,6 +63,7 @@ export interface SellerLiveAddProductDefaults {
   /** Categoría inicial (del vivo); editable por el vendedor. */
   categoryUuid: string | null;
   categories: InterestCategoryItem[];
+  /** Formato de venta inicial del producto (individual/lote); editable por el vendedor. */
   saleFormat: SaleFormatId;
   roomId: string;
   scope: ProductListScope;
@@ -79,7 +80,7 @@ export function useSellerLiveAddProduct(
   const {
     categoryUuid: initialCategoryUuid,
     categories,
-    saleFormat,
+    saleFormat: initialSaleFormat,
     roomId,
     scope,
     defaultSaleMode,
@@ -98,6 +99,7 @@ export function useSellerLiveAddProduct(
   const [quantity, setQuantity] = useState(1);
   const [liveSaleMode, setLiveSaleMode] = useState<LiveSaleMode>(defaultSaleMode);
   const [categoryUuid, setCategoryUuid] = useState<string | null>(initialCategoryUuid);
+  const [saleFormat, setSaleFormat] = useState<SaleFormatId>(initialSaleFormat);
   const [packageTier, setPackageTier] = useState<PackageTierId>(DEFAULT_TIER);
   const [weightKg, setWeightKg] = useState<number>(tierDefaultKg(DEFAULT_TIER));
   const [raffleMode, setRaffleMode] = useState<RaffleParticipationMode>('everyone');
@@ -152,13 +154,14 @@ export function useSellerLiveAddProduct(
     setQuantity(1);
     setLiveSaleMode(defaultSaleMode);
     setCategoryUuid(initialCategoryUuid);
+    setSaleFormat(initialSaleFormat);
     setPackageTier(DEFAULT_TIER);
     setWeightKg(tierDefaultKg(DEFAULT_TIER));
     setRaffleMode('everyone');
     setPhotos([]);
     setActiveDrawer('none');
     setSubmitting(false);
-  }, [defaultSaleMode, initialCategoryUuid]);
+  }, [defaultSaleMode, initialCategoryUuid, initialSaleFormat]);
 
   const appendPhotos = useCallback(
     (incoming: LocalPhoto[]) => {
@@ -352,6 +355,8 @@ export function useSellerLiveAddProduct(
     categoryUuid,
     setCategoryUuid,
     categoryLabel,
+    saleFormat,
+    setSaleFormat,
     packageTier,
     weightKg,
     weightLabel,

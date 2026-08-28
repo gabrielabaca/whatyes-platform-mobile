@@ -28,6 +28,7 @@ import {
   type RoomCatalogProductItem,
   type StreamWatchResponse,
   type StreamWebRTCCredentialsResponse,
+  type UserShowItem,
   type ViewerTransportDecision,
 } from '../../../api/platformApi';
 import { startKinesisWebRTCViewer, stopKinesisWebRTCViewer } from '../../../native/KinesisWebRTCNative';
@@ -44,6 +45,7 @@ import { HlsStreamPlayer } from '../../molecules/stream/HlsStreamPlayer';
 import { StreamToast, useStreamToast } from '../../molecules/stream/StreamToast';
 import { StreamViewerSplash } from '../../molecules/stream/StreamViewerSplash';
 import { fetchLiveRoomIds, pickNextLiveStreamIndex } from '../../../utils/streamLiveNavigation';
+import { showToStreamData } from '../../../utils/showToStreamData';
 import {
   useStreamChat,
   type AuctionWinner,
@@ -111,6 +113,12 @@ export interface StreamScreenProps {
   endedFeedContext?: StreamEndedFeedContext;
   /** Fallback cuando no hay feed de swipe (p. ej. stream abierto fuera del carrusel). */
   onLiveEndedAccept?: () => void;
+  /**
+   * Cambia la sala en vivo que se está mirando (p. ej. al tocar otro show desde el
+   * perfil del vendedor). El contenedor debe remontar la pantalla — StreamScreen
+   * asume una sala por montaje.
+   */
+  onSwitchStream?: (stream: StreamData) => void;
 }
 
 export const StreamScreen: React.FC<StreamScreenProps> = ({
@@ -119,6 +127,7 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({
   initialWatch,
   endedFeedContext,
   onLiveEndedAccept,
+  onSwitchStream,
 }) => {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
@@ -591,6 +600,20 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({
         .catch(() => {});
     }
   }, [resolvedSellerUserId, chatToken, setIsFollowingSeller]);
+
+  /**
+   * Tocar un show desde el perfil del vendedor abierto sobre el vivo. Solo navega a
+   * salas en vivo (no hay VOD): cierra el perfil y delega el cambio de sala al
+   * contenedor, que remonta esta pantalla con la sala nueva.
+   */
+  const handleProfileShowPress = useCallback(
+    (show: UserShowItem) => {
+      if (show.status !== 'live' || !onSwitchStream) return;
+      closeSellerProfile();
+      onSwitchStream(showToStreamData(show, t('home.liveBadge'), t('home.defaultRoomName')));
+    },
+    [onSwitchStream, closeSellerProfile, t]
+  );
 
   const openProductCatalog = useCallback(() => {
     setProductCatalogVisible(true);
@@ -1140,6 +1163,7 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({
             variant="sellerPublic"
             underStatusBar
             onBack={closeSellerProfile}
+            onShowPress={handleProfileShowPress}
             onStartChat={(peerUserId) => {
               void startChat(peerUserId);
             }}

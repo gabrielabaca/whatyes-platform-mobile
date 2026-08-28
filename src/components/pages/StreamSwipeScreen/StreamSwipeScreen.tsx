@@ -209,6 +209,50 @@ export const StreamSwipeScreen: React.FC<StreamSwipeScreenProps> = ({
     };
   }, []);
 
+  /**
+   * Índice pendiente de scroll. El salto se hace en un efecto y no acá mismo porque
+   * cuando la sala destino se inserta, `scrollToIndex` tiene que correr recién cuando
+   * el FlatList ya renderizó con la lista nueva (si no, el offset queda clampeado al
+   * contenido viejo y el usuario aterriza en el slide equivocado).
+   */
+  const pendingScrollIndexRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    const index = pendingScrollIndexRef.current;
+    if (index == null || !liveStreams[index]) return;
+    pendingScrollIndexRef.current = null;
+    flatListRef.current?.scrollToIndex({ index, animated: false });
+  }, [liveStreams, slideState]);
+
+  /**
+   * Cambio de sala desde el perfil del vendedor abierto sobre el vivo. El perfil lista
+   * los shows del vendedor, no los del feed, así que la sala destino puede no estar en
+   * `liveStreams`: en ese caso se inserta justo después del slide actual. Es la única
+   * excepción a la regla append-only de arriba y es deliberada — el usuario aterriza en
+   * ese slide de inmediato, así que no se le desplaza nada por debajo del scroll.
+   */
+  const handleSwitchStream = useCallback(
+    (target: StreamData) => {
+      const existingIndex = liveStreams.findIndex((s) => s.id === target.id);
+      // Tocar el show que ya se está mirando: no hay nada que cambiar.
+      if (existingIndex === slideState.currentIndex) return;
+
+      const nextIndex = existingIndex >= 0 ? existingIndex : slideState.currentIndex + 1;
+      const nextList =
+        existingIndex >= 0
+          ? liveStreams
+          : [...liveStreams.slice(0, nextIndex), target, ...liveStreams.slice(nextIndex)];
+
+      if (nextList !== liveStreams) setLiveStreams(nextList);
+      // `activeWatch: null`: un salto por perfil no pasó por el prefetch, no hay
+      // decisión de transporte que consumir. StreamScreen resuelve /stream/watch solo.
+      setSlideState({ currentIndex: nextIndex, activeWatch: null });
+      schedulePrefetch(nextIndex, nextList);
+      pendingScrollIndexRef.current = nextIndex;
+    },
+    [liveStreams, slideState.currentIndex, schedulePrefetch]
+  );
+
   const handleNavigateToStream = useCallback(
     (index: number, streamId: string) => {
       const watch = canPrefetch ? consume(streamId) : null;
@@ -272,6 +316,7 @@ export const StreamSwipeScreen: React.FC<StreamSwipeScreenProps> = ({
               onClose={onClose}
               initialWatch={slideState.activeWatch}
               endedFeedContext={endedFeedContext}
+              onSwitchStream={handleSwitchStream}
             />
           </View>
         );
@@ -284,7 +329,7 @@ export const StreamSwipeScreen: React.FC<StreamSwipeScreenProps> = ({
         />
       );
     },
-    [slideState, windowHeight, onClose, endedFeedContext, previewRoomId],
+    [slideState, windowHeight, onClose, endedFeedContext, previewRoomId, handleSwitchStream],
   );
 
   return (

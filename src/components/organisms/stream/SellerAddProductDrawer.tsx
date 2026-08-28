@@ -16,7 +16,7 @@
  * y manejan el teclado por su cuenta, sin heredar el KAV de este modal — no hace falta un host
  * absoluto con zIndex.
  */
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   View,
   StyleSheet,
@@ -38,6 +38,7 @@ import { MAX_PRODUCT_PHOTOS } from '../../../hooks/useAddProductForm';
 import { SaleModeTabs } from '../../molecules/stream/SaleModeTabs';
 import { AddProductPackageTierDrawer } from '../addProduct/AddProductPackageTierDrawer';
 import { AddProductPhotoSourceDrawer } from '../addProduct/AddProductPhotoSourceDrawer';
+import { AddProductSaleFormatDrawer } from '../addProduct/AddProductSaleFormatDrawer';
 import { StartLiveCategoriesDrawer } from '../startLive/StartLiveCategoriesDrawer';
 import {
   GlassFullScreenModal,
@@ -49,7 +50,7 @@ import { addProductGlassStyles, addProductStyles } from '../addProduct/addProduc
 import { FONT_FAMILY } from '../../../theme/typography';
 import { themeColors } from '../../../theme/colors';
 import type { LiveSaleMode, ProductListScope } from '../../../api/types';
-import type { SaleFormatId } from '../../../constants/productWeightPresets';
+import { SALE_FORMAT_OPTIONS, type SaleFormatId } from '../../../constants/productWeightPresets';
 import { appAlert } from '../../../alerts';
 
 const RAFFLE_MODES = [
@@ -100,6 +101,8 @@ export interface SellerAddProductDrawerProps {
   onClose: () => void;
   roomId: string;
   categoryUuid: string | null;
+  /** Formato de venta INICIAL del producto (individual/lote). El vendedor lo cambia
+   *  desde el selector del form; no es el formato de la sala. */
   saleFormat?: SaleFormatId;
   scope: ProductListScope;
   defaultSaleMode?: LiveSaleMode;
@@ -138,6 +141,11 @@ export const SellerAddProductDrawer: React.FC<SellerAddProductDrawerProps> = ({
   });
 
   const { reset, setLiveSaleMode } = form;
+
+  const saleFormatLabel = useMemo(() => {
+    const opt = SALE_FORMAT_OPTIONS.find((o) => o.id === form.saleFormat);
+    return opt ? t(opt.labelKey) : null;
+  }, [form.saleFormat, t]);
 
   useEffect(() => {
     if (!visible) reset();
@@ -223,6 +231,19 @@ export const SellerAddProductDrawer: React.FC<SellerAddProductDrawerProps> = ({
             onClose={() => form.setActiveDrawer('none')}
             onConfirm={(tier, kg) => {
               form.setPackageTier(tier, kg);
+              form.setActiveDrawer('none');
+            }}
+          />
+          {/* Sin `nativeModal`: en bottomPanel resuelve a false, y dentro del
+              `ModalWindowBoundary` de GlassFullScreenModal el OverlayPortal cae al
+              render en el lugar. Así el selector queda sobre el form del vivo sin
+              anidar un Modal nativo dentro de otro. */}
+          <AddProductSaleFormatDrawer
+            visible={form.activeDrawer === 'saleFormat'}
+            initialValue={form.saleFormat}
+            onClose={() => form.setActiveDrawer('none')}
+            onConfirm={(value) => {
+              form.setSaleFormat(value);
               form.setActiveDrawer('none');
             }}
           />
@@ -456,6 +477,13 @@ export const SellerAddProductDrawer: React.FC<SellerAddProductDrawerProps> = ({
               })}
             </View>
           ) : null}
+
+          <GlassSelectField
+            label={req(t('addProduct.fieldSaleFormat'))}
+            value={saleFormatLabel}
+            placeholder={t('addProduct.fieldSaleFormatPlaceholder')}
+            onPress={() => form.setActiveDrawer('saleFormat')}
+          />
 
           {/* Orden Figma 698:11849: Peso antes de los campos de subasta; SKU al final. */}
           <GlassSelectField

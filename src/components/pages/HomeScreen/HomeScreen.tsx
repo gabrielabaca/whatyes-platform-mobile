@@ -53,6 +53,7 @@ import {
 import { NotificationsScreen } from '../NotificationsScreen/NotificationsScreen';
 import { ChatListScreen } from '../ChatListScreen/ChatListScreen';
 import { previewToStreamData } from '../../../utils/streamPreviewToStreamData';
+import { showToStreamData } from '../../../utils/showToStreamData';
 import { themeColors } from '../../../theme/colors';
 import type { UserMe } from '../../../api/types';
 import type { InterestCategoryItem } from '../../../api/types';
@@ -356,19 +357,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     if (show.status !== 'live' || !onStreamPress) {
       return;
     }
-    const seller = show.creator;
-    onStreamPress({
-      id: show.room_uuid,
-      sellerName: seller ? `${seller.name} ${seller.last_name}`.trim() : t('home.defaultRoomName'),
-      viewerCount: show.viewer_count ?? 0,
-      streamingTime: t('home.liveBadge'),
-      thumbnail: show.thumbnail_url ?? undefined,
-      title: show.name ?? undefined,
-      sellerAvatarUrl: seller?.profile_picture ?? null,
-      sellerUserId: seller?.uuid,
-      productImageUrl: show.thumbnail_url ?? undefined,
-      productCount: 1,
-    });
+    onStreamPress(showToStreamData(show, t('home.liveBadge'), t('home.defaultRoomName')));
   };
 
   const handleBottomTab = useCallback(

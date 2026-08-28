@@ -197,6 +197,7 @@ function AuthenticatedAppShell({
            remonta al cambiar de sala, igual que hace la FlatList del swipe. */
         key={selectedStream.id}
         stream={selectedStream}
+        onSwitchStream={setSelectedStream}
         onClose={() => {
           setCurrentScreen('home');
           setSelectedStream(null);
