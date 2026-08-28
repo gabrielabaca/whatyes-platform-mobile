@@ -203,16 +203,28 @@ export const StreamBuyerOverlay: React.FC<StreamBuyerOverlayProps> = ({
     : (auctionWinnerUsername ?? (lastBid ? lastBid.username : null));
 
   /**
-   * Piso local de la puja: la barra confirma sin esperar animación ni eco del
-   * WS, así que dos deslizadas seguidas podrían mandar el mismo monto. Cada
-   * envío sube este piso; el eco del servidor lo supera apenas llega.
+   * Envío pendiente de eco: la barra confirma sin esperar el eco del WS, así
+   * que dos deslizadas seguidas podrían mandar el mismo monto. Mientras el eco
+   * no llega, la sugerencia no baja de `amount + step` — con el paso vigente
+   * AL ENVIAR: si el usuario después baja el multiplicador, el cambio se
+   * refleja apenas el eco confirma la puja, en vez de quedar clavado en el
+   * piso calculado con el paso grande.
    */
-  const [localBidFloor, setLocalBidFloor] = useState(0);
+  const [pendingBid, setPendingBid] = useState<{ amount: number; step: number } | null>(null);
 
   useEffect(() => {
-    // Cerró la oferta: el piso local no debe filtrarse a la siguiente subasta.
-    if (!showAuctionUi) setLocalBidFloor(0);
+    // Cerró la oferta: el envío pendiente no debe filtrarse a la siguiente subasta.
+    if (!showAuctionUi) setPendingBid(null);
   }, [showAuctionUi]);
+
+  useEffect(() => {
+    // Llegó un eco que alcanza lo enviado (el propio, o uno mayor): la
+    // protección anti-doble-envío ya no hace falta. Si la puja fue rechazada
+    // por piso, el eco de la ganadora (≥ lo enviado) también limpia.
+    if (pendingBid != null && (lastBid?.amount ?? 0) >= pendingBid.amount) {
+      setPendingBid(null);
+    }
+  }, [lastBid?.amount, pendingBid]);
 
   const suggestedBid = useMemo(() => {
     const derived = suggestedBidAmount({
@@ -220,14 +232,14 @@ export const StreamBuyerOverlay: React.FC<StreamBuyerOverlayProps> = ({
       floorMajor,
       multiplier: bidMultiplier,
     });
-    return Math.max(derived, localBidFloor);
-  }, [lastBid?.amount, floorMajor, bidMultiplier, localBidFloor]);
+    return Math.max(derived, pendingBid != null ? pendingBid.amount + pendingBid.step : 0);
+  }, [lastBid?.amount, floorMajor, bidMultiplier, pendingBid]);
 
   const bidStep = bidIncrementAmount(floorMajor, bidMultiplier);
 
   const handleBid = useCallback(() => {
     onBid(suggestedBid);
-    setLocalBidFloor(suggestedBid + bidStep);
+    setPendingBid({ amount: suggestedBid, step: bidStep });
   }, [onBid, suggestedBid, bidStep]);
 
   const handleSelectMultiplier = useCallback((next: BidMultiplier) => {

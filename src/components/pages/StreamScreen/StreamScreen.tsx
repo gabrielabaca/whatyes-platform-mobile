@@ -51,6 +51,7 @@ import {
   useStreamChat,
   type AuctionWinner,
   type AuctionCancelledInfo,
+  type WsErrorEvent,
 } from '../../../hooks/useStreamChat';
 import { auctionCancelledMessageKey } from '../../organisms/stream/StreamAuctionCancelDrawer';
 import { AuctionWinnerOverlay } from '../../molecules/AuctionWinnerOverlay/AuctionWinnerOverlay';
@@ -248,6 +249,32 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({
     [showToast, t]
   );
 
+  /**
+   * Errores dirigidos del WS: los códigos conocidos se traducen acá (el
+   * backend manda `detail` en español fijo); el resto cae al detail crudo.
+   * El rechazo por piso no es culpa del usuario —perdió una carrera de
+   * milisegundos contra otra puja—, así que va en tono `race` (dorado, el
+   * mismo de buyNowTooLate), no como error rojo.
+   */
+  const handleWsError = useCallback(
+    (err: WsErrorEvent) => {
+      if (err.code === 'bid_below_floor') {
+        showToast(t('stream.bidBelowFloor'), 'race');
+        return;
+      }
+      if (err.code === 'auction_paused') {
+        showToast(t('stream.bidAuctionPaused'), 'info');
+        return;
+      }
+      if (err.code === 'buy_now_only') {
+        showToast(t('stream.bidBuyNowOnly'), 'info');
+        return;
+      }
+      if (err.detail) showToast(err.detail, 'error');
+    },
+    [showToast, t]
+  );
+
   const handleDismissAuctionStart = useCallback(() => {
     setAuctionBanner((cur) => (cur === 'start' ? null : cur));
   }, []);
@@ -287,7 +314,7 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({
     onAuctionCancelled: handleAuctionCancelled,
     onAuctionStarted: handleAuctionStarted,
     onAuctionEnded: handleAuctionEnded,
-    onWsError: (detail) => showToast(detail, 'error'),
+    onWsError: handleWsError,
   });
 
   // Toast solo cuando el toggle del mic ocurre con el viewer ya adentro:

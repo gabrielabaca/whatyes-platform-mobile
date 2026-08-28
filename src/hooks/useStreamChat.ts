@@ -25,7 +25,17 @@ interface UseStreamChatOptions {
   /** Oferta cerrada vía WS (`auction_end`). `hadWinner` es false si quedó desierta. */
   onAuctionEnded?: (hadWinner: boolean) => void;
   /** Error dirigido a este socket (puja rechazada, subasta pausada, etc.). */
-  onWsError?: (detail: string) => void;
+  onWsError?: (error: WsErrorEvent) => void;
+}
+
+/** Frame `type: "error"` del WS, ya normalizado. */
+export interface WsErrorEvent {
+  /** Código estable del backend (`bid_below_floor`, `auction_paused`, ...). null en backends viejos. */
+  code: string | null;
+  /** Texto crudo del backend (español fijo). Fallback para códigos desconocidos. */
+  detail: string;
+  /** Solo `bid_below_floor`: piso vigente en pesos enteros. */
+  floor: number | null;
 }
 
 interface WsPayloadMessage {
@@ -334,8 +344,20 @@ export function useStreamChat({
           if (msg?.payload && typeof msg.payload.server_time === 'number') {
             syncClock(msg.payload.server_time);
           }
-          if (msg.type === 'error' && typeof msg.detail === 'string' && msg.detail.trim()) {
-            onWsErrorRef.current?.(msg.detail);
+          if (msg.type === 'error') {
+            const detail = typeof msg.detail === 'string' ? msg.detail.trim() : '';
+            const code =
+              typeof msg.code === 'string' && msg.code.trim() ? msg.code.trim() : null;
+            if (code || detail) {
+              onWsErrorRef.current?.({
+                code,
+                detail,
+                floor:
+                  typeof msg.floor === 'number' && Number.isFinite(msg.floor)
+                    ? msg.floor
+                    : null,
+              });
+            }
             return;
           }
           if (msg.type === 'init' && msg.payload) {
