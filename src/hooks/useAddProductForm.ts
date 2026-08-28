@@ -58,7 +58,7 @@ export function useAddProductForm(options: {
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [minOfferPrice, setMinOfferPrice] = useState('');
+  const [price, setPrice] = useState('');
   const [sku, setSku] = useState('');
   const [photos, setPhotos] = useState<LocalPhoto[]>([]);
   const [categoryUuid, setCategoryUuid] = useState<string | null>(null);
@@ -78,7 +78,7 @@ export function useAddProductForm(options: {
   }, []);
 
   const handlePriceChange = useCallback((value: string) => {
-    setMinOfferPrice(sanitizePrice(value));
+    setPrice(sanitizePrice(value));
   }, []);
 
   const handleSkuChange = useCallback((value: string) => {
@@ -186,8 +186,8 @@ export function useAddProductForm(options: {
     if (!saleFormat) return t('addProduct.errorSaleFormat');
     if (!packageTier || weightKg == null || weightKg <= 0) return t('addProduct.errorWeight');
     if (!condition) return t('addProduct.errorCondition');
-    const price = parseFloat(minOfferPrice.replace(',', '.'));
-    if (!Number.isFinite(price) || price <= 0) return t('addProduct.errorPrice');
+    const parsedPrice = parseFloat(price.replace(',', '.'));
+    if (!Number.isFinite(parsedPrice) || parsedPrice <= 0) return t('addProduct.errorPrice');
     return null;
   }, [
     title,
@@ -198,7 +198,7 @@ export function useAddProductForm(options: {
     packageTier,
     weightKg,
     condition,
-    minOfferPrice,
+    price,
     t,
   ]);
 
@@ -208,14 +208,14 @@ export function useAddProductForm(options: {
       appAlert(t('common.appName'), err);
       return;
     }
-    const price = parseFloat(minOfferPrice.replace(',', '.'));
+    const parsedPrice = parseFloat(price.replace(',', '.'));
     setSubmitting(true);
     try {
       const imageUrls = await uploadProductImages(photos);
       await createProduct({
         title: title.trim(),
         description: description.trim(),
-        base_price_cents: Math.round(price * 100),
+        base_price_cents: Math.round(parsedPrice * 100),
         image_urls: imageUrls,
         interest_category_uuid: categoryUuid!,
         sale_format: saleFormat!,
@@ -236,7 +236,7 @@ export function useAddProductForm(options: {
     photos,
     title,
     description,
-    minOfferPrice,
+    price,
     categoryUuid,
     saleFormat,
     packageTier,
@@ -252,8 +252,8 @@ export function useAddProductForm(options: {
     setTitle: handleTitleChange,
     description,
     setDescription: handleDescriptionChange,
-    minOfferPrice,
-    setMinOfferPrice: handlePriceChange,
+    price,
+    setPrice: handlePriceChange,
     sku,
     setSku: handleSkuChange,
     photos,

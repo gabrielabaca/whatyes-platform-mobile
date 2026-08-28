@@ -21,6 +21,7 @@ import {
   StreamBidBar,
   StreamAuctionBanner,
 } from '../../molecules/stream';
+import { StreamBidIncrementDrawer } from './StreamBidIncrementDrawer';
 import type {
   ChatMessage,
   AuctionBid,
@@ -32,9 +33,13 @@ import { StreamGlassPill } from '../../atoms/stream/StreamGlassPill';
 import { STREAM_COLORS } from '../../molecules/stream/streamTokens';
 import { FONT_FAMILY } from '../../../theme/typography';
 import { APP_DOWNLOAD_URL } from '../../../constants/externalLinks';
-
-const BID_INCREMENT = 1000;
-const DEFAULT_BID = 10000;
+import { storage } from '../../../utils/storage';
+import {
+  parseBidMultiplier,
+  suggestedBidAmount,
+  bidIncrementAmount,
+  type BidMultiplier,
+} from '../../../utils/bidIncrement';
 
 export interface StreamBuyerOverlayProps {
   sellerName: string;
@@ -151,6 +156,18 @@ export const StreamBuyerOverlay: React.FC<StreamBuyerOverlayProps> = ({
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
   const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [bidMultiplier, setBidMultiplier] = useState<BidMultiplier>(1);
+  const [tuneOpen, setTuneOpen] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void storage.getBidMultiplier().then((stored) => {
+      if (!cancelled) setBidMultiplier(parseBidMultiplier(stored));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
@@ -198,18 +215,25 @@ export const StreamBuyerOverlay: React.FC<StreamBuyerOverlayProps> = ({
   }, [showAuctionUi]);
 
   const suggestedBid = useMemo(() => {
-    const derived = lastBid
-      ? lastBid.amount + BID_INCREMENT
-      : floorMajor > 0
-        ? floorMajor + BID_INCREMENT
-        : DEFAULT_BID;
+    const derived = suggestedBidAmount({
+      lastBidAmount: lastBid?.amount ?? null,
+      floorMajor,
+      multiplier: bidMultiplier,
+    });
     return Math.max(derived, localBidFloor);
-  }, [lastBid?.amount, productBasePriceCents, localBidFloor]);
+  }, [lastBid?.amount, floorMajor, bidMultiplier, localBidFloor]);
+
+  const bidStep = bidIncrementAmount(floorMajor, bidMultiplier);
 
   const handleBid = useCallback(() => {
     onBid(suggestedBid);
-    setLocalBidFloor(suggestedBid + BID_INCREMENT);
-  }, [onBid, suggestedBid]);
+    setLocalBidFloor(suggestedBid + bidStep);
+  }, [onBid, suggestedBid, bidStep]);
+
+  const handleSelectMultiplier = useCallback((next: BidMultiplier) => {
+    setBidMultiplier(next);
+    void storage.setBidMultiplier(next);
+  }, []);
 
   const handleShare = useCallback(() => {
     // El mensaje habla del vivo y la app, no del lote en pantalla (rota durante
@@ -366,9 +390,19 @@ export const StreamBuyerOverlay: React.FC<StreamBuyerOverlayProps> = ({
             onBid={handleBid}
             isAuctionActive={isAuctionActive}
             disabled={isAuctionPaused}
+            onTunePress={() => setTuneOpen(true)}
+            tuneAccessibilityLabel={t('stream.bidIncrementA11y')}
           />
         )}
       </View>
+
+      <StreamBidIncrementDrawer
+        visible={tuneOpen}
+        onClose={() => setTuneOpen(false)}
+        floorMajor={floorMajor}
+        multiplier={bidMultiplier}
+        onSelect={handleSelectMultiplier}
+      />
     </View>
   );
 };

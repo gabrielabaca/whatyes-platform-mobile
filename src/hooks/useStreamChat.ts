@@ -24,6 +24,8 @@ interface UseStreamChatOptions {
   onAuctionStarted?: () => void;
   /** Oferta cerrada vía WS (`auction_end`). `hadWinner` es false si quedó desierta. */
   onAuctionEnded?: (hadWinner: boolean) => void;
+  /** Error dirigido a este socket (puja rechazada, subasta pausada, etc.). */
+  onWsError?: (detail: string) => void;
 }
 
 interface WsPayloadMessage {
@@ -147,6 +149,7 @@ export function useStreamChat({
   onAuctionCancelled,
   onAuctionStarted,
   onAuctionEnded,
+  onWsError,
 }: UseStreamChatOptions) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [viewerCount, setViewerCount] = useState(0);
@@ -196,6 +199,7 @@ export function useStreamChat({
   const onAuctionCancelledRef = useRef(onAuctionCancelled);
   const onAuctionStartedRef = useRef(onAuctionStarted);
   const onAuctionEndedRef = useRef(onAuctionEnded);
+  const onWsErrorRef = useRef(onWsError);
 
   useEffect(() => {
     onAuctionCancelledRef.current = onAuctionCancelled;
@@ -206,6 +210,9 @@ export function useStreamChat({
   useEffect(() => {
     onAuctionEndedRef.current = onAuctionEnded;
   }, [onAuctionEnded]);
+  useEffect(() => {
+    onWsErrorRef.current = onWsError;
+  }, [onWsError]);
 
   // Offset (segundos) entre el reloj del servidor y el del dispositivo.
   // serverNow() = reloj local + offset. Imprescindible para que la cuenta regresiva
@@ -326,6 +333,10 @@ export function useStreamChat({
           // Sincronizar reloj con cualquier timestamp de servidor disponible.
           if (msg?.payload && typeof msg.payload.server_time === 'number') {
             syncClock(msg.payload.server_time);
+          }
+          if (msg.type === 'error' && typeof msg.detail === 'string' && msg.detail.trim()) {
+            onWsErrorRef.current?.(msg.detail);
+            return;
           }
           if (msg.type === 'init' && msg.payload) {
             const list = Array.isArray(msg.payload.messages) ? msg.payload.messages : [];

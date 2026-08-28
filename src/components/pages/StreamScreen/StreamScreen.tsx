@@ -287,6 +287,7 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({
     onAuctionCancelled: handleAuctionCancelled,
     onAuctionStarted: handleAuctionStarted,
     onAuctionEnded: handleAuctionEnded,
+    onWsError: (detail) => showToast(detail, 'error'),
   });
 
   // Toast solo cuando el toggle del mic ocurre con el viewer ya adentro:

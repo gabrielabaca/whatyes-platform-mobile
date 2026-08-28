@@ -2,7 +2,7 @@
  * Form in-live "Carga un producto" — modal glass full-screen (Figma 698:11652 / 698:11849 / 698:12046).
  * Campos por modalidad (lógicos):
  *  - Comprar Ahora: Precio
- *  - Subasta Rápida: Mínimo de Oferta + Tiempo límite de subasta
+ *  - Subasta Rápida: Precio + Tiempo límite de subasta
  *  - Sorteo: modo de participación (seguidores / todos / compradores)
  *  Comunes: Fotos, Categoría, Título, Descripción, Cantidad, Peso, SKU.
  *
@@ -160,7 +160,6 @@ export const SellerAddProductDrawer: React.FC<SellerAddProductDrawerProps> = ({
     form.title.trim().length > 0 ||
     form.description.trim().length > 0 ||
     form.price.trim().length > 0 ||
-    form.minBidPrice.trim().length > 0 ||
     form.sku.trim().length > 0 ||
     form.photos.length > 0 ||
     form.quantity !== 1;
@@ -427,7 +426,7 @@ export const SellerAddProductDrawer: React.FC<SellerAddProductDrawerProps> = ({
         <SaleModeTabs value={saleMode} onChange={form.setLiveSaleMode} />
 
         <View style={addProductStyles.fields}>
-          {saleMode === 'buy_now' ? (
+          {(saleMode === 'buy_now' || saleMode === 'auction') ? (
             <View style={addProductStyles.field}>
               <RNText style={[addProductStyles.fieldLabel, addProductGlassStyles.fieldLabel]}>
                 {req(t('addProduct.fieldPrice'))}
@@ -495,22 +494,6 @@ export const SellerAddProductDrawer: React.FC<SellerAddProductDrawerProps> = ({
 
           {saleMode === 'auction' ? (
             <>
-              <View style={addProductStyles.field}>
-                <RNText style={[addProductStyles.fieldLabel, addProductGlassStyles.fieldLabel]}>
-                  {req(t('stream.addProductMinBid'))}
-                </RNText>
-                <View style={[addProductStyles.priceInputWrap, addProductGlassStyles.surface]}>
-                  <RNText style={[addProductStyles.pricePrefix, addProductGlassStyles.inputText]}>$</RNText>
-                  <AppTextInput
-                    style={[addProductStyles.priceInput, addProductGlassStyles.inputText]}
-                    value={form.minBidPrice}
-                    onChangeText={form.setMinBidPrice}
-                    placeholder={t('addProduct.fieldMinOfferPlaceholder')}
-                    placeholderTextColor={themeColors.glass.placeholder}
-                    keyboardType="decimal-pad"
-                  />
-                </View>
-              </View>
               <View style={addProductStyles.field}>
                 <RNText style={[addProductStyles.fieldLabel, addProductGlassStyles.fieldLabel]}>
                   {req(t('stream.addProductAuctionTime'))}

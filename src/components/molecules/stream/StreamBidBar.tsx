@@ -4,6 +4,7 @@ import {
   StyleSheet,
   Animated,
   PanResponder,
+  TouchableOpacity,
   type LayoutChangeEvent,
   type GestureResponderEvent,
   type PanResponderGestureState,
@@ -22,8 +23,9 @@ import { useTranslation } from 'react-i18next';
 import HapticFeedback from 'react-native-haptic-feedback';
 import { formatStreamPrice } from '../../atoms/stream/StreamPriceText';
 import { PulpoLogo } from '../../atoms/stream/PulpoLogo';
-import { STREAM_COLORS, STREAM_RADIUS } from './streamTokens';
+import { STREAM_RADIUS } from './streamTokens';
 import { FONT_FAMILY } from '../../../theme/typography';
+import DiscoverTuneIcon from '../../../../assets/icons/stream/discoverTune.svg';
 
 /**
  * Slide-to-bid clásico: la perilla arranca en el extremo izquierdo y recorre
@@ -81,6 +83,12 @@ export interface StreamBidBarProps {
    * a aparecer la acción). Ignora `bidAmount` y `onBid`.
    */
   mode?: 'bid' | 'buy_now' | 'idle';
+  /**
+   * Figma 698:8442 — sliders a la izquierda de la barra. Solo en modo puja:
+   * abre el drawer del multiplicador. Si falta, el botón no se monta.
+   */
+  onTunePress?: () => void;
+  tuneAccessibilityLabel?: string;
 }
 
 export const StreamBidBar: React.FC<StreamBidBarProps> = ({
@@ -89,6 +97,8 @@ export const StreamBidBar: React.FC<StreamBidBarProps> = ({
   disabled,
   isAuctionActive = true,
   mode = 'bid',
+  onTunePress,
+  tuneAccessibilityLabel,
 }) => {
   const { t } = useTranslation();
   const [trackWidth, setTrackWidth] = useState(0);
@@ -206,6 +216,17 @@ export const StreamBidBar: React.FC<StreamBidBarProps> = ({
 
   return (
     <View style={styles.bar}>
+      {onTunePress ? (
+        <TouchableOpacity
+          style={styles.tuneBtn}
+          onPress={onTunePress}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel={tuneAccessibilityLabel}
+        >
+          <DiscoverTuneIcon width={24} height={24} />
+        </TouchableOpacity>
+      ) : null}
       {/* Track */}
       <View style={[styles.track, isDisabled && styles.dimmed]} onLayout={onTrackLayout}>
         {hasLayout && (
@@ -335,6 +356,15 @@ const styles = StyleSheet.create({
     gap: 8,
     height: TRACK_HEIGHT,
     width: '100%',
+  },
+  /** Figma 698:8442: círculo #515154, icono 24, padding 12. Alto = TRACK_HEIGHT para alinear. */
+  tuneBtn: {
+    width: TRACK_HEIGHT,
+    height: TRACK_HEIGHT,
+    borderRadius: STREAM_RADIUS.pill,
+    backgroundColor: '#515154',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   dimmed: {
     opacity: 0.45,

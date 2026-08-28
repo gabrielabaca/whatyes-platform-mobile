@@ -66,6 +66,8 @@ const STORAGE_KEYS = {
   LAST_LIVE_CATEGORY_UUIDS: 'last_live_category_uuids',
   /** El vendedor eligió cargar la cuenta bancaria más tarde (no volver a insistir). */
   PAYOUT_SETUP_SKIPPED: 'payout_setup_skipped',
+  /** Multiplicador de puja del comprador (1 | 2 | 3). Solo local. */
+  BID_MULTIPLIER: 'bid_multiplier',
 } as const;
 
 export type PreferredPaymentOrigin = 'PLATFORM_CARD' | 'MP_WALLET';
@@ -401,6 +403,28 @@ export const storage = {
       } else {
         await s.removeItem(STORAGE_KEYS.PAYOUT_SETUP_SKIPPED);
       }
+    } catch {
+      // ignore
+    }
+  },
+
+  async getBidMultiplier(): Promise<1 | 2 | 3> {
+    try {
+      const s = getAsyncStorage();
+      if (!s) return 1;
+      const raw = await s.getItem(STORAGE_KEYS.BID_MULTIPLIER);
+      if (raw === '2' || raw === '3') return Number(raw) as 2 | 3;
+      return 1;
+    } catch {
+      return 1;
+    }
+  },
+
+  async setBidMultiplier(multiplier: 1 | 2 | 3): Promise<void> {
+    try {
+      const s = getAsyncStorage();
+      if (!s) return;
+      await s.setItem(STORAGE_KEYS.BID_MULTIPLIER, String(multiplier));
     } catch {
       // ignore
     }

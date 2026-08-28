@@ -151,15 +151,15 @@ export const AddProductScreen: React.FC<AddProductScreenProps> = ({ onCancel, on
           />
 
           <View style={addProductStyles.field}>
-            <RNText style={addProductStyles.fieldLabel}>{t('addProduct.fieldMinOffer')}</RNText>
+            <RNText style={addProductStyles.fieldLabel}>{t('addProduct.fieldPrice')}</RNText>
             <View style={addProductStyles.priceInputWrap}>
-              {form.minOfferPrice ? (
+              {form.price ? (
                 <RNText style={addProductStyles.pricePrefix}>$</RNText>
               ) : null}
               <AppTextInput
                 style={addProductStyles.priceInput}
-                value={form.minOfferPrice}
-                onChangeText={form.setMinOfferPrice}
+                value={form.price}
+                onChangeText={form.setPrice}
                 placeholder={t('addProduct.fieldMinOfferPlaceholder')}
                 placeholderTextColor="#BABABA"
                 keyboardType="decimal-pad"

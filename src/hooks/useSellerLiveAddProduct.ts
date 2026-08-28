@@ -91,7 +91,6 @@ export function useSellerLiveAddProduct(
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [price, setPrice] = useState('');
-  const [minBidPrice, setMinBidPrice] = useState('');
   const [auctionDuration, setAuctionDuration] = useState<AuctionDurationOption>(
     DEFAULT_AUCTION_DURATION,
   );
@@ -119,10 +118,6 @@ export function useSellerLiveAddProduct(
     setPrice(sanitizePrice(value));
   }, []);
 
-  const handleMinBidChange = useCallback((value: string) => {
-    setMinBidPrice(sanitizePrice(value));
-  }, []);
-
   const handleSkuChange = useCallback((value: string) => {
     setSku(sanitizeSku(value));
   }, []);
@@ -148,7 +143,6 @@ export function useSellerLiveAddProduct(
     setTitle('');
     setDescription('');
     setPrice('');
-    setMinBidPrice('');
     setAuctionDuration(DEFAULT_AUCTION_DURATION);
     setSku('');
     setQuantity(1);
@@ -228,13 +222,11 @@ export function useSellerLiveAddProduct(
     if (!categoryUuid) return t('stream.addProductNoCategory');
     if (!(weightKg > 0)) return t('addProduct.errorWeight');
 
-    if (liveSaleMode === 'buy_now') {
+    if (liveSaleMode === 'buy_now' || liveSaleMode === 'auction') {
       const p = parseFloat(price.replace(',', '.'));
       if (!Number.isFinite(p) || p <= 0) return t('addProduct.errorPrice');
     }
     if (liveSaleMode === 'auction') {
-      const minBid = parseFloat(minBidPrice.replace(',', '.'));
-      if (!Number.isFinite(minBid) || minBid <= 0) return t('addProduct.errorPrice');
       if (!AUCTION_DURATION_OPTIONS.includes(auctionDuration)) {
         return t('stream.addProductAuctionTime');
       }
@@ -248,7 +240,6 @@ export function useSellerLiveAddProduct(
     weightKg,
     liveSaleMode,
     price,
-    minBidPrice,
     auctionDuration,
     t,
   ]);
@@ -256,14 +247,12 @@ export function useSellerLiveAddProduct(
   const buildPayload = useCallback(
     (status: 'draft' | 'published') => {
       let basePriceCents = 100;
-      let minBidCents: number | undefined;
       let auctionDurationSeconds: number | undefined;
 
-      if (liveSaleMode === 'buy_now') {
+      if (liveSaleMode === 'buy_now' || liveSaleMode === 'auction') {
         basePriceCents = Math.round(parseFloat(price.replace(',', '.')) * 100);
-      } else if (liveSaleMode === 'auction') {
-        minBidCents = Math.round(parseFloat(minBidPrice.replace(',', '.')) * 100);
-        basePriceCents = minBidCents;
+      }
+      if (liveSaleMode === 'auction') {
         auctionDurationSeconds = auctionDuration;
       }
 
@@ -282,7 +271,6 @@ export function useSellerLiveAddProduct(
         quantity_on_hand: quantity,
         room_id: roomId,
         live_sale_mode: status === 'published' ? liveSaleMode : undefined,
-        min_bid_cents: minBidCents,
         auction_duration_seconds: auctionDurationSeconds,
         raffle_participation_mode: liveSaleMode === 'raffle' ? raffleMode : undefined,
         status,
@@ -291,7 +279,6 @@ export function useSellerLiveAddProduct(
     [
       liveSaleMode,
       price,
-      minBidPrice,
       auctionDuration,
       title,
       description,
@@ -341,8 +328,6 @@ export function useSellerLiveAddProduct(
     setDescription: handleDescriptionChange,
     price,
     setPrice: handlePriceChange,
-    minBidPrice,
-    setMinBidPrice: handleMinBidChange,
     auctionDuration,
     setAuctionDuration,
     sku,

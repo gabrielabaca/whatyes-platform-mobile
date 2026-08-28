@@ -8,6 +8,8 @@ export type {
 } from './StreamRoomProductsDrawer';
 export { StreamBuyerOverlay } from './StreamBuyerOverlay';
 export type { StreamBuyerOverlayProps } from './StreamBuyerOverlay';
+export { StreamBidIncrementDrawer } from './StreamBidIncrementDrawer';
+export type { StreamBidIncrementDrawerProps } from './StreamBidIncrementDrawer';
 export { StreamVideoScrim } from './StreamVideoScrim';
 export { StreamEndLiveDrawer } from './StreamEndLiveDrawer';
 export type { StreamEndLiveDrawerProps } from './StreamEndLiveDrawer';
