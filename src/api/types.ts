@@ -38,6 +38,7 @@ export interface Customer {
 
 export interface User {
   uuid: string;
+  /** Handle público (sin @). No es el email ni un id de login. */
   username: string;
   email: string;
   name: string;

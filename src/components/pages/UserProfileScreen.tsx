@@ -303,6 +303,9 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                     />
                   ) : null}
                 </View>
+                <RNText style={styles.coverHandle} numberOfLines={1}>
+                  @{profile.username}
+                </RNText>
                 {profile.subtitle ? (
                   <RNText style={styles.coverSubtitle} numberOfLines={1}>
                     {profile.subtitle}
@@ -757,10 +760,17 @@ const styles = StyleSheet.create({
   verifiedBadge: {
     flexShrink: 0,
   },
+  coverHandle: {
+    fontFamily: FONT_FAMILY.regular,
+    fontSize: 12,
+    lineHeight: 16,
+    color: '#FFFFFF',
+    includeFontPadding: false,
+  },
   coverSubtitle: {
     fontFamily: FONT_FAMILY.regular,
     fontSize: 12,
-    lineHeight: 12,
+    lineHeight: 16,
     color: '#FFFFFF',
     includeFontPadding: false,
   },

@@ -27,6 +27,7 @@ import { FONT_FAMILY } from '../../../theme/typography';
 import { themeColors } from '../../../theme/colors';
 import { updateOwnProfile, type UserPublicProfile } from '../../../api/profileApi';
 import { appAlert } from '../../../alerts';
+import { useAuth } from '../../../hooks/useAuth';
 import {
   BIO_EDIT_MAX_GRAPHEMES,
   clampToGraphemes,
@@ -53,10 +54,11 @@ export const EditProfileDrawer: React.FC<EditProfileDrawerProps> = ({
   onSaved,
 }) => {
   const { t } = useTranslation();
+  const { user } = useAuth();
   const modalRef = useRef<GlassFullScreenModalHandle>(null);
   const [displayName, setDisplayName] = useState(profile.display_name);
   const [bio, setBio] = useState(profile.bio ?? '');
-  const emailLabel = profile.subtitle ?? '';
+  const emailLabel = user?.email ?? '';
   const [avatarUri, setAvatarUri] = useState(initialAvatarUri);
   const [saving, setSaving] = useState(false);
 
