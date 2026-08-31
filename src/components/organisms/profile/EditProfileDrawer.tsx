@@ -176,7 +176,9 @@ export const EditProfileDrawer: React.FC<EditProfileDrawerProps> = ({
                 value={displayName}
                 onChangeText={setDisplayName}
               />
-              <ReadOnlyField label={t('profile.editEmail')} value={emailLabel} />
+              {emailLabel ? (
+                <ReadOnlyField label={t('profile.editEmail')} value={emailLabel} />
+              ) : null}
               <EditField
                 label={t('profile.editBio')}
                 value={bio}

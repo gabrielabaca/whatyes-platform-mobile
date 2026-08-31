@@ -45,6 +45,7 @@ import {
 } from '../../utils/grapheme';
 import { FONT_FAMILY } from '../../theme/typography';
 import { themeColors } from '../../theme/colors';
+import { isHandle } from '../../utils/handle';
 import { useTheme } from '../../context/ThemeContext';
 import type { UserShowItem } from '../../api/platformApi';
 import { appAlert } from '../../alerts';
@@ -291,7 +292,11 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
               )}
               <View style={styles.coverNameCol}>
                 <View style={styles.coverNameRow}>
-                  <RNText style={styles.coverName} numberOfLines={1}>
+                  <RNText
+                    style={styles.coverName}
+                    numberOfLines={1}
+                    maxFontSizeMultiplier={1.2}
+                  >
                     {profile.display_name}
                   </RNText>
                   {showSellerPublicUi && profile.is_verified ? (
@@ -303,11 +308,21 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                     />
                   ) : null}
                 </View>
-                <RNText style={styles.coverHandle} numberOfLines={1}>
-                  @{profile.username}
-                </RNText>
+                {isHandle(profile.username) ? (
+                  <RNText
+                    style={styles.coverHandle}
+                    numberOfLines={1}
+                    maxFontSizeMultiplier={1.2}
+                  >
+                    @{profile.username}
+                  </RNText>
+                ) : null}
                 {profile.subtitle ? (
-                  <RNText style={styles.coverSubtitle} numberOfLines={1}>
+                  <RNText
+                    style={styles.coverSubtitle}
+                    numberOfLines={1}
+                    maxFontSizeMultiplier={1.2}
+                  >
                     {profile.subtitle}
                   </RNText>
                 ) : null}
@@ -764,7 +779,7 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.regular,
     fontSize: 12,
     lineHeight: 16,
-    color: '#FFFFFF',
+    color: themeColors.glass.textSoft,
     includeFontPadding: false,
   },
   coverSubtitle: {

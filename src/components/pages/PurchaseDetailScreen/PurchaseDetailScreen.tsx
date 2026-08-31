@@ -34,6 +34,7 @@ import {
   createUserReview,
   type UserPublicProfile,
 } from '../../../api/profileApi';
+import { isHandle } from '../../../utils/handle';
 import {
   getMyPurchaseTracking,
   getUserProfileProducts,
@@ -748,6 +749,11 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
               )}
               <View style={styles.sellerNameCol}>
                 <RNText style={[styles.sellerName, darkText]}>{sellerName}</RNText>
+                {isHandle(sellerProfile?.username) ? (
+                  <RNText style={[styles.sellerSubtitle, darkMuted]} numberOfLines={1}>
+                    @{sellerProfile?.username}
+                  </RNText>
+                ) : null}
                 {sellerProfile?.subtitle ? (
                   <RNText style={[styles.sellerSubtitle, darkMuted]} numberOfLines={1}>
                     {sellerProfile.subtitle}

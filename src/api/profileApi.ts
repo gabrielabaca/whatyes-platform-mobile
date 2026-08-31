@@ -10,7 +10,7 @@ export interface UserPublicProfile {
   user_type: 'buyer_user' | 'seller_user' | string;
   name: string;
   last_name: string;
-  username: string;
+  username?: string | null;
   display_name: string;
   subtitle?: string | null;
   bio?: string | null;
