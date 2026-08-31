@@ -349,9 +349,11 @@ export default {
       "evidenceHint": "Help us understand your issue",
       "addEvidence": "Add photo",
       "send": "Send",
+      "sending": "Sending…",
       "cancel": "Cancel",
       "messageRequired": "Please write a message before sending.",
-      "sendNotAvailable": "Message sending will be available soon."
+      "sendSuccess": "We received your message. Support will get back to you.",
+      "sendError": "Couldn't send the message. Please try again."
     },
     "terms": "Terms & conditions",
     "privacy": "Privacy policy",

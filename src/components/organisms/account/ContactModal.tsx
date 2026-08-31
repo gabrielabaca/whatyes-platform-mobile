@@ -1,6 +1,6 @@
 /**
  * Contacto — Figma 536-23051
- * UI completa; envío al backend pendiente.
+ * Envío a service-platform (POST /me/support-tickets).
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -9,11 +9,16 @@ import {
   TouchableOpacity,
   Text as RNText,
   Image,
+  ActivityIndicator,
 } from 'react-native';
 import { AppTextInput } from '../../atoms/AppTextInput';
 import { ImageUp } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { launchPhotoLibraryNow } from '../../../utils/mediaPicker';
+import {
+  launchPhotoLibraryNow,
+  photosFromPickerResponse,
+  type PickerPhoto,
+} from '../../../utils/mediaPicker';
 import { deferMediaPicker } from '../../../utils/deferMediaPicker';
 import {
   GlassFullScreenModal,
@@ -23,6 +28,8 @@ import { GlassModalHeader } from '../profile/GlassModalHeader';
 import { FONT_FAMILY } from '../../../theme/typography';
 import { themeColors } from '../../../theme/colors';
 import { appAlert } from '../../../alerts';
+import { createSupportTicket } from '../../../api/platformApi';
+import { ApiError } from '../../../api/authApi';
 
 const MAX_EVIDENCE = 4;
 
@@ -36,12 +43,14 @@ export const ContactModal: React.FC<ContactModalProps> = ({ visible, onClose }) 
   const modalRef = useRef<GlassFullScreenModalHandle>(null);
 
   const [message, setMessage] = useState('');
-  const [evidenceUris, setEvidenceUris] = useState<string[]>([]);
+  const [evidence, setEvidence] = useState<PickerPhoto[]>([]);
   const [interactionsReady, setInteractionsReady] = useState(false);
+  const [sending, setSending] = useState(false);
 
   const resetState = useCallback(() => {
     setMessage('');
-    setEvidenceUris([]);
+    setEvidence([]);
+    setSending(false);
   }, []);
 
   useEffect(() => {
@@ -55,39 +64,54 @@ export const ContactModal: React.FC<ContactModalProps> = ({ visible, onClose }) 
   }, [visible, resetState]);
 
   const handleClose = () => {
+    if (sending) {
+      return;
+    }
     modalRef.current?.dismiss();
   };
 
   const handlePickEvidence = () => {
-    if (!interactionsReady || evidenceUris.length >= MAX_EVIDENCE) {
+    if (!interactionsReady || sending || evidence.length >= MAX_EVIDENCE) {
       return;
     }
     deferMediaPicker(() => {
       launchPhotoLibraryNow(
-        { mediaType: 'photo', selectionLimit: MAX_EVIDENCE - evidenceUris.length },
+        { mediaType: 'photo', selectionLimit: MAX_EVIDENCE - evidence.length },
         (response) => {
-          const uris =
-            response.assets
-              ?.map((asset) => asset.uri)
-              .filter((uri): uri is string => Boolean(uri)) ?? [];
-          if (uris.length === 0) {
+          const photos = photosFromPickerResponse(response);
+          if (photos.length === 0) {
             return;
           }
-          setEvidenceUris((prev) => [...prev, ...uris].slice(0, MAX_EVIDENCE));
+          setEvidence((prev) => [...prev, ...photos].slice(0, MAX_EVIDENCE));
         },
       );
     });
   };
 
-  const handleSend = () => {
-    if (!message.trim()) {
+  const handleSend = async () => {
+    if (sending) {
+      return;
+    }
+    const body = message.trim();
+    if (!body) {
       appAlert(t('common.appName'), t('account.contactModal.messageRequired'));
       return;
     }
-    appAlert(t('common.appName'), t('account.contactModal.sendNotAvailable'));
+    setSending(true);
+    try {
+      await createSupportTicket({ message: body, evidence });
+      appAlert(t('common.appName'), t('account.contactModal.sendSuccess'));
+      modalRef.current?.dismiss();
+    } catch (error) {
+      const fallback = t('account.contactModal.sendError');
+      const detail = error instanceof ApiError ? error.message : fallback;
+      appAlert(t('common.appName'), detail || fallback);
+    } finally {
+      setSending(false);
+    }
   };
 
-  const canSend = message.trim().length > 0;
+  const canSend = message.trim().length > 0 && !sending;
 
   return (
     <GlassFullScreenModal
@@ -100,7 +124,11 @@ export const ContactModal: React.FC<ContactModalProps> = ({ visible, onClose }) 
       scrollStyle={styles.contentScroll}
       contentContainerStyle={styles.contentScrollInner}
       header={
-        <GlassModalHeader title={t('account.contactModal.title')} onClose={handleClose} />
+        <GlassModalHeader
+          title={t('account.contactModal.title')}
+          onClose={handleClose}
+          closeDisabled={sending}
+        />
       }
       footer={
         <View style={styles.footer}>
@@ -109,12 +137,26 @@ export const ContactModal: React.FC<ContactModalProps> = ({ visible, onClose }) 
             onPress={handleSend}
             disabled={!canSend}
             activeOpacity={0.88}
+            accessibilityLabel={
+              sending
+                ? t('account.contactModal.sending')
+                : t('account.contactModal.send')
+            }
           >
-            <RNText style={styles.primaryBtnText}>
-              {t('account.contactModal.send')}
-            </RNText>
+            {sending ? (
+              <ActivityIndicator color={themeColors.glass.text} />
+            ) : (
+              <RNText style={styles.primaryBtnText}>
+                {t('account.contactModal.send')}
+              </RNText>
+            )}
           </TouchableOpacity>
-          <TouchableOpacity onPress={handleClose} hitSlop={12} activeOpacity={0.75}>
+          <TouchableOpacity
+            onPress={handleClose}
+            hitSlop={12}
+            activeOpacity={0.75}
+            disabled={sending}
+          >
             <RNText style={styles.cancelText}>{t('account.contactModal.cancel')}</RNText>
           </TouchableOpacity>
         </View>
@@ -133,6 +175,7 @@ export const ContactModal: React.FC<ContactModalProps> = ({ visible, onClose }) 
                   multiline
                   textAlignVertical="top"
                   autoCapitalize="sentences"
+                  editable={!sending}
                 />
               </View>
 
@@ -141,7 +184,7 @@ export const ContactModal: React.FC<ContactModalProps> = ({ visible, onClose }) 
                   {t('account.contactModal.evidenceLabel')}
                 </RNText>
                 <View style={styles.evidenceBox}>
-                  {evidenceUris.length === 0 ? (
+                  {evidence.length === 0 ? (
                     <>
                       <RNText style={styles.evidenceHint}>
                         {t('account.contactModal.evidenceHint')}
@@ -149,7 +192,7 @@ export const ContactModal: React.FC<ContactModalProps> = ({ visible, onClose }) 
                       <TouchableOpacity
                         onPress={handlePickEvidence}
                         activeOpacity={0.85}
-                        disabled={!interactionsReady}
+                        disabled={!interactionsReady || sending}
                         hitSlop={12}
                         accessibilityRole="button"
                         accessibilityLabel={t('account.contactModal.addEvidence')}
@@ -159,15 +202,15 @@ export const ContactModal: React.FC<ContactModalProps> = ({ visible, onClose }) 
                     </>
                   ) : (
                     <View style={styles.evidencePreviewRow}>
-                      {evidenceUris.map((uri) => (
-                        <Image key={uri} source={{ uri }} style={styles.evidenceThumb} />
+                      {evidence.map((photo) => (
+                        <Image key={photo.uri} source={{ uri: photo.uri }} style={styles.evidenceThumb} />
                       ))}
-                      {evidenceUris.length < MAX_EVIDENCE ? (
+                      {evidence.length < MAX_EVIDENCE ? (
                         <TouchableOpacity
                           style={styles.evidenceAddMore}
                           onPress={handlePickEvidence}
                           activeOpacity={0.85}
-                          disabled={!interactionsReady}
+                          disabled={!interactionsReady || sending}
                           hitSlop={8}
                           accessibilityRole="button"
                           accessibilityLabel={t('account.contactModal.addEvidence')}

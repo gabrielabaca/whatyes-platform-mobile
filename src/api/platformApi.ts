@@ -152,6 +152,66 @@ export async function uploadRoomCover(photo: {
   return data.cover_url.trim();
 }
 
+export interface CreateSupportTicketResult {
+  uuid: string;
+  status: string;
+  created_at: number;
+}
+
+/**
+ * Abre un ticket de soporte (mensaje + hasta 4 evidencias).
+ * Multipart: no mandar Content-Type, el boundary lo pone fetch.
+ */
+export async function createSupportTicket(input: {
+  message: string;
+  subject?: string;
+  evidence?: { uri: string; type?: string; name?: string }[];
+}): Promise<CreateSupportTicketResult> {
+  const token = await storage.getAccessToken();
+  if (!token) {
+    throw new ApiError(401, 'No access token');
+  }
+  const form = new FormData();
+  form.append('message', input.message);
+  if (input.subject?.trim()) {
+    form.append('subject', input.subject.trim());
+  }
+  (input.evidence ?? []).forEach((photo, index) => {
+    form.append('evidence', {
+      uri: photo.uri,
+      type: photo.type || 'image/jpeg',
+      name: photo.name || `evidence-${index}.jpg`,
+    } as unknown as Blob);
+  });
+
+  const res = await fetch(`${PLATFORM_HTTP_URL}/me/support-tickets`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: form,
+  });
+  const data = (await res.json().catch(() => ({}))) as {
+    detail?: unknown;
+    uuid?: string;
+    status?: string;
+    created_at?: number;
+  };
+  if (!res.ok) {
+    throw new ApiError(
+      res.status,
+      data.detail ?? `createSupportTicket: ${res.status}`,
+      data,
+    );
+  }
+  if (!data.uuid) {
+    throw new ApiError(res.status, 'Sin identificador de ticket');
+  }
+  return {
+    uuid: data.uuid,
+    status: data.status ?? 'open',
+    created_at: data.created_at ?? 0,
+  };
+}
+
 /**
  * Sube el video de intro del vivo; devuelve la URL pública en S3 (campo `intro_video_url` del POST /rooms).
  */
