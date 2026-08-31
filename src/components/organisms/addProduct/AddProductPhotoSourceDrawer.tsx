@@ -8,6 +8,15 @@ import { deferMediaPicker } from '../../../utils/deferMediaPicker';
 import { themeColors } from '../../../theme/colors';
 import { LAYERS } from '../../../theme/layers';
 
+export interface PhotoSourceDrawerCopy {
+  title: string;
+  subtitle: string;
+  cameraLabel: string;
+  cameraHint: string;
+  galleryLabel: string;
+  galleryHint: string;
+}
+
 export interface AddProductPhotoSourceDrawerProps {
   visible: boolean;
   photoCount: number;
@@ -25,6 +34,8 @@ export interface AddProductPhotoSourceDrawerProps {
   /** Oculta modales padre antes del picker (p. ej. PreLiveSetupOverlay). */
   onBeforePicker?: () => void;
   onAfterPicker?: () => void;
+  /** Copy propio (video de intro). Sin esto, usa las claves de fotos de producto. */
+  copy?: PhotoSourceDrawerCopy;
 }
 
 /** Origen de fotos — cierra sheets/modales y difiere el picker en iOS. */
@@ -39,6 +50,7 @@ export const AddProductPhotoSourceDrawer: React.FC<AddProductPhotoSourceDrawerPr
   showCameraOption = true,
   onBeforePicker,
   onAfterPicker,
+  copy,
 }) => {
   const { t } = useTranslation();
   const remaining = maxPhotos - photoCount;
@@ -64,15 +76,15 @@ export const AddProductPhotoSourceDrawer: React.FC<AddProductPhotoSourceDrawerPr
   const options = [
     {
       id: 'camera' as const,
-      labelKey: 'addProduct.takePhoto' as const,
-      hintKey: 'addProduct.takePhotoHint' as const,
+      label: copy?.cameraLabel ?? t('addProduct.takePhoto'),
+      hint: copy?.cameraHint ?? t('addProduct.takePhotoHint'),
       icon: Camera,
       onPress: () => runPickerAction(onTakePhoto),
     },
     {
       id: 'gallery' as const,
-      labelKey: 'addProduct.chooseFromGallery' as const,
-      hintKey: 'addProduct.chooseFromGalleryHint' as const,
+      label: copy?.galleryLabel ?? t('addProduct.chooseFromGallery'),
+      hint: copy?.galleryHint ?? t('addProduct.chooseFromGalleryHint'),
       icon: Images,
       onPress: () => runPickerAction(onChooseGallery),
     },
@@ -81,7 +93,7 @@ export const AddProductPhotoSourceDrawer: React.FC<AddProductPhotoSourceDrawerPr
   const sheet = (
     <StreamBottomSheet
       visible={visible}
-      title={t('addProduct.photoPickerTitle')}
+      title={copy?.title ?? t('addProduct.photoPickerTitle')}
       onClose={onClose}
       nativeModal={!useOverlay}
       {...addProductDrawerProps}
@@ -89,9 +101,11 @@ export const AddProductPhotoSourceDrawer: React.FC<AddProductPhotoSourceDrawerPr
       scrollEnabled={false}
     >
       <RNText style={addProductStyles.photoSourceIntro}>
-        {atLimit
-          ? t('addProduct.maxPhotos', { count: maxPhotos })
-          : t('addProduct.photoPickerSubtitle', { remaining, max: maxPhotos })}
+        {copy?.subtitle
+          ? copy.subtitle
+          : atLimit
+            ? t('addProduct.maxPhotos', { count: maxPhotos })
+            : t('addProduct.photoPickerSubtitle', { remaining, max: maxPhotos })}
       </RNText>
 
       {!showCameraOption ? (
@@ -113,8 +127,8 @@ export const AddProductPhotoSourceDrawer: React.FC<AddProductPhotoSourceDrawerPr
                 <Icon size={20} color={themeColors.primary} strokeWidth={2.3} />
               </View>
               <View style={addProductStyles.photoSourceTextCol}>
-                <RNText style={addProductStyles.photoSourceTitle}>{t(opt.labelKey)}</RNText>
-                <RNText style={addProductStyles.photoSourceHint}>{t(opt.hintKey)}</RNText>
+                <RNText style={addProductStyles.photoSourceTitle}>{opt.label}</RNText>
+                <RNText style={addProductStyles.photoSourceHint}>{opt.hint}</RNText>
               </View>
               <ChevronRight size={20} color={themeColors.glass.textMuted} strokeWidth={2.2} />
             </TouchableOpacity>

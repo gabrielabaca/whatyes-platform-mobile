@@ -535,6 +535,15 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                           key={show.room_uuid}
                           show={show}
                           onPress={() => onShowPress?.(show)}
+                          onNotifyPress={
+                            showSellerPublicUi
+                              ? () => {
+                                  void toggleNotifSubscription();
+                                }
+                              : undefined
+                          }
+                          notifySelected={notifSubscribed}
+                          notifyLoading={notifLoading}
                         />
                       ))}
                       {row.length === 1 ? (

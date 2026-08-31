@@ -4,7 +4,8 @@ import { AppDatePickerSheet } from '../../molecules/AppDatePickerSheet';
 import ConfettiCannon from 'react-native-confetti-cannon';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { ImagePickerResponse } from 'react-native-image-picker';
-import { launchPhotoCameraNow, launchPhotoLibraryNow } from '../../../utils/mediaPicker';
+import Video from 'react-native-video';
+import { launchPhotoCameraNow, launchPhotoLibraryNow, launchVideoCameraNow, launchVideoLibraryNow, videoFromPickerResponse } from '../../../utils/mediaPicker';
 import {
   ActivityIndicator,
   Animated,
@@ -28,11 +29,11 @@ import {
   ImagePlus,
   Search,
   UserRound,
-  Video,
+  Video as VideoIcon,
   X,
 } from 'lucide-react-native';
 import type { StreamConfig } from './types';
-import { uploadRoomCover } from '../../../api/platformApi';
+import { uploadRoomCover, uploadRoomIntroVideo } from '../../../api/platformApi';
 import { ApiError } from '../../../api/authApi';
 import { useInterestCategories } from '../../../hooks/useInterestCategories';
 import { FONT_FAMILY } from '../../../theme/typography';
@@ -51,7 +52,11 @@ import { appAlert } from '../../../alerts';
 type Frequency = NonNullable<StreamConfig['recurrence']>;
 type SaleFormat = NonNullable<StreamConfig['saleFormat']>;
 type Privacy = NonNullable<StreamConfig['privacy']>;
-type Drawer = 'none' | 'frequency' | 'moderators' | 'categories' | 'saleFormat' | 'blockedWords' | 'coverSource';
+type Drawer = 'none' | 'frequency' | 'moderators' | 'categories' | 'saleFormat' | 'blockedWords' | 'coverSource' | 'videoSource';
+
+/** Intro sin transcodificar: 15 s en cliente, 50 MB en servidor. */
+const INTRO_VIDEO_MAX_DURATION_SEC = 15;
+const INTRO_VIDEO_MAX_BYTES = 50 * 1024 * 1024;
 
 const preLiveSheetPanelExtra: ViewStyle = {
   paddingTop: 28,
@@ -426,6 +431,11 @@ export const PreLiveSetupOverlay: React.FC<{
   const [liveCoverUrl, setLiveCoverUrl] = useState<string | null>(initialConfig.coverUrl ?? null);
   const [coverStagingUri, setCoverStagingUri] = useState<string | null>(null);
   const [coverUploading, setCoverUploading] = useState(false);
+  const [liveIntroVideoUrl, setLiveIntroVideoUrl] = useState<string | null>(
+    initialConfig.introVideoUrl ?? null,
+  );
+  const [videoStagingUri, setVideoStagingUri] = useState<string | null>(null);
+  const [videoUploading, setVideoUploading] = useState(false);
 
   const clearLaunchTimers = useCallback(() => {
     if (countdownIntervalRef.current) {
@@ -446,7 +456,10 @@ export const PreLiveSetupOverlay: React.FC<{
     setLiveCoverUrl(initialConfig.coverUrl ?? null);
     setCoverStagingUri(null);
     setCoverUploading(false);
-  }, [visible, initialConfig.coverUrl]);
+    setLiveIntroVideoUrl(initialConfig.introVideoUrl ?? null);
+    setVideoStagingUri(null);
+    setVideoUploading(false);
+  }, [visible, initialConfig.coverUrl, initialConfig.introVideoUrl]);
 
   useEffect(() => {
     if (!visible) {
@@ -573,6 +586,72 @@ export const PreLiveSetupOverlay: React.FC<{
     );
   }, [resetMediaPickerUi, submitCoverPhoto]);
 
+  const submitIntroVideo = useCallback(
+    async (video: { uri: string; type?: string; name?: string }) => {
+      setVideoStagingUri(video.uri);
+      setVideoUploading(true);
+      try {
+        const url = await uploadRoomIntroVideo(video);
+        setLiveIntroVideoUrl(url);
+        setVideoStagingUri(null);
+      } catch (e) {
+        setVideoStagingUri(null);
+        const msg =
+          e instanceof ApiError
+            ? e.message
+            : e instanceof Error
+              ? e.message
+              : t('startLive.setupVideoUploadError');
+        appAlert(t('common.error'), msg);
+      } finally {
+        setVideoUploading(false);
+      }
+    },
+    [t],
+  );
+
+  const handlePickedIntroVideo = useCallback(
+    (response: ImagePickerResponse) => {
+      const video = videoFromPickerResponse(response);
+      if (!video) {
+        return;
+      }
+      if (video.durationSec != null && video.durationSec > INTRO_VIDEO_MAX_DURATION_SEC) {
+        appAlert(
+          t('common.error'),
+          t('startLive.setupVideoTooLong', { seconds: INTRO_VIDEO_MAX_DURATION_SEC }),
+        );
+        return;
+      }
+      if (video.fileSize != null && video.fileSize > INTRO_VIDEO_MAX_BYTES) {
+        appAlert(t('common.error'), t('startLive.setupVideoTooLarge'));
+        return;
+      }
+      void submitIntroVideo(video);
+    },
+    [submitIntroVideo, t],
+  );
+
+  const handleVideoFromGallery = useCallback(() => {
+    launchVideoLibraryNow(
+      { selectionLimit: 1 },
+      handlePickedIntroVideo,
+      { onAfter: resetMediaPickerUi, onError: resetMediaPickerUi },
+    );
+  }, [handlePickedIntroVideo, resetMediaPickerUi]);
+
+  const handleVideoFromCamera = useCallback(() => {
+    launchVideoCameraNow(
+      {
+        cameraType: 'back',
+        saveToPhotos: true,
+        durationLimit: INTRO_VIDEO_MAX_DURATION_SEC,
+      },
+      handlePickedIntroVideo,
+      { onAfter: resetMediaPickerUi, onError: resetMediaPickerUi },
+    );
+  }, [handlePickedIntroVideo, resetMediaPickerUi]);
+
   const buildConfig = (): StreamConfig => ({
     ...initialConfig,
     title: title.trim() || initialConfig.title || 'Mi show',
@@ -586,6 +665,7 @@ export const PreLiveSetupOverlay: React.FC<{
     blockedWords: sanitizeWords(blockedWords),
     privacy,
     coverUrl: liveCoverUrl ?? null,
+    introVideoUrl: liveIntroVideoUrl ?? null,
   });
 
   const startCountdown = () => {
@@ -751,10 +831,54 @@ export const PreLiveSetupOverlay: React.FC<{
                       </TouchableOpacity>
                     ) : null}
                   </View>
-                  <TouchableOpacity style={styles.mediaCard} activeOpacity={0.85}>
-                    <Video size={24} color={START_LIVE_COLORS.border} />
-                    <RNText style={styles.mediaText}>{t('startLive.setupAddVideo')}</RNText>
-                  </TouchableOpacity>
+                  <View style={[styles.mediaCard, !!(liveIntroVideoUrl || videoStagingUri) && styles.mediaCardHasCover]}>
+                    <TouchableOpacity
+                      style={[
+                        styles.coverCardTouch,
+                        !!(liveIntroVideoUrl || videoStagingUri) && styles.coverCardTouchFilled,
+                      ]}
+                      onPress={() => !videoUploading && setDrawer('videoSource')}
+                      activeOpacity={0.85}
+                      disabled={videoUploading}
+                      accessibilityRole="button"
+                      accessibilityLabel={t('startLive.setupAddVideoA11y')}
+                    >
+                      {liveIntroVideoUrl || videoStagingUri ? (
+                        <Video
+                          source={{ uri: videoStagingUri ?? liveIntroVideoUrl! }}
+                          style={styles.coverThumb}
+                          resizeMode="cover"
+                          paused
+                          muted
+                          repeat={false}
+                        />
+                      ) : (
+                        <>
+                          <VideoIcon size={24} color={START_LIVE_COLORS.border} />
+                          <RNText style={styles.mediaText}>{t('startLive.setupAddVideo')}</RNText>
+                        </>
+                      )}
+                      {videoUploading ? (
+                        <View style={styles.coverUploadingOverlay}>
+                          <ActivityIndicator size="large" color={themeColors.glass.text} />
+                        </View>
+                      ) : null}
+                    </TouchableOpacity>
+                    {(liveIntroVideoUrl || videoStagingUri) && !videoUploading ? (
+                      <TouchableOpacity
+                        style={styles.coverClearBtn}
+                        onPress={() => {
+                          setLiveIntroVideoUrl(null);
+                          setVideoStagingUri(null);
+                        }}
+                        hitSlop={10}
+                        accessibilityRole="button"
+                        accessibilityLabel={t('startLive.setupRemoveVideoA11y')}
+                      >
+                        <X size={16} color={themeColors.glass.text} strokeWidth={2.5} />
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
                 </View>
               </View>
 
@@ -805,7 +929,7 @@ export const PreLiveSetupOverlay: React.FC<{
               <StartLivePrimaryButton
                 label={t('startLive.saveCta')}
                 onPress={startCountdown}
-                disabled={!title.trim() || !categoryUuid || coverUploading}
+                disabled={!title.trim() || !categoryUuid || coverUploading || videoUploading}
               />
               <TouchableOpacity style={styles.cancelButton} onPress={handleLeavePreLive} activeOpacity={0.85}>
                 <RNText style={styles.cancelText}>{t('common.cancel')}</RNText>
@@ -869,6 +993,27 @@ export const PreLiveSetupOverlay: React.FC<{
             onAfterPicker={resetMediaPickerUi}
             onTakePhoto={handleCoverFromCamera}
             onChooseGallery={handleCoverFromGallery}
+          />
+          <AddProductPhotoSourceDrawer
+            visible={drawer === 'videoSource'}
+            presentation="overlay"
+            photoCount={0}
+            maxPhotos={1}
+            onClose={() => setDrawer('none')}
+            onBeforePicker={() => setMediaPickerActive(true)}
+            onAfterPicker={resetMediaPickerUi}
+            onTakePhoto={handleVideoFromCamera}
+            onChooseGallery={handleVideoFromGallery}
+            copy={{
+              title: t('startLive.setupVideoSourceTitle'),
+              subtitle: t('startLive.setupVideoSourceSubtitle', {
+                seconds: INTRO_VIDEO_MAX_DURATION_SEC,
+              }),
+              cameraLabel: t('startLive.setupRecordVideo'),
+              cameraHint: t('startLive.setupRecordVideoHint'),
+              galleryLabel: t('startLive.setupChooseVideo'),
+              galleryHint: t('startLive.setupChooseVideoHint'),
+            }}
           />
 
           {/* El overlay es un Modal nativo: los sheets van con nativeModal (default)

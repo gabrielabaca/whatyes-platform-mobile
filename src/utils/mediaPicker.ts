@@ -70,6 +70,49 @@ export function launchPhotoCameraNow(
   launchCamera(options, (response) => finishPicker(response, onResult, callbacks));
 }
 
+/** Galería de video (no altera los pickers de foto). */
+export function launchVideoLibraryNow(
+  options: Omit<ImageLibraryOptions, 'mediaType'>,
+  onResult: (response: ImagePickerResponse) => void,
+  callbacks?: MediaPickerCallbacks,
+): void {
+  launchPhotoLibraryNow({ ...options, mediaType: 'video', selectionLimit: 1 }, onResult, callbacks);
+}
+
+/** Cámara de video (no altera los pickers de foto). */
+export function launchVideoCameraNow(
+  options: Omit<CameraOptions, 'mediaType'>,
+  onResult: (response: ImagePickerResponse) => void,
+  callbacks?: MediaPickerCallbacks,
+): void {
+  launchPhotoCameraNow({ ...options, mediaType: 'video' }, onResult, callbacks);
+}
+
+export interface PickerVideo {
+  uri: string;
+  type?: string;
+  name?: string;
+  durationSec?: number;
+  fileSize?: number;
+}
+
+export function videoFromPickerResponse(response: ImagePickerResponse): PickerVideo | null {
+  if (response.didCancel || response.errorMessage) {
+    return null;
+  }
+  const asset = (response.assets ?? []).find((item) => item.uri);
+  if (!asset?.uri) {
+    return null;
+  }
+  return {
+    uri: asset.uri,
+    type: asset.type ?? 'video/mp4',
+    name: asset.fileName ?? `intro-video-${Date.now()}.mp4`,
+    durationSec: typeof asset.duration === 'number' ? asset.duration : undefined,
+    fileSize: typeof asset.fileSize === 'number' ? asset.fileSize : undefined,
+  };
+}
+
 export interface DeferredMediaPickerOptions extends MediaPickerCallbacks {
   onBefore?: () => void;
 }

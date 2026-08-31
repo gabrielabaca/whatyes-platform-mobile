@@ -97,6 +97,29 @@ export const addProductStyles = StyleSheet.create({
     color: ADD_PRODUCT_COLORS.muted,
     textAlign: 'center',
   },
+  /**
+   * Banner de fotos de la PANTALLA de catálogo (Figma 636:26573 / 636:28305).
+   * 147px de alto, radio 12, borde #DDD, imagen cover. No usarlo en el drawer
+   * en vivo: ese sheet comparte `photoRow`/`photoThumb` y no tiene altura para
+   * un 16:9 sobre el stream.
+   */
+  photoBannerBlock: {
+    width: '100%',
+    gap: 8,
+  },
+  photoBanner: {
+    width: '100%',
+    height: 147,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: ADD_PRODUCT_COLORS.border,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  photoBannerImage: {
+    width: '100%',
+    height: '100%',
+  },
   photoRow: {
     flexDirection: 'row',
     gap: 8,

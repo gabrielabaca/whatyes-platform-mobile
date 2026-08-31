@@ -104,6 +104,36 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
     modalRef.current?.dismiss();
   };
 
+  /**
+   * Navegación atrás del header (opt-in de GlassModalHeader).
+   *
+   * - email: primer paso, sin chevron; la X cierra.
+   * - code: vuelve a email y limpia el OTP tipeado (el mail es readonly).
+   * - password: vuelve a code, no a email. `changePasswordVerifyCode` solo valida
+   *   (`verify_forgot_password_code`); el código se marca usado recién en
+   *   `reset_password` / confirm. Volver a code no quema el OTP.
+   */
+  const handleBack = () => {
+    if (loading) {
+      return;
+    }
+    if (step === 'password') {
+      setNewPassword('');
+      setConfirmPassword('');
+      setShowNewPassword(false);
+      setShowConfirmPassword(false);
+      setPasswordError(null);
+      setConfirmError(null);
+      setStep('code');
+      return;
+    }
+    if (step === 'code') {
+      setCode('');
+      setCodeError(null);
+      setStep('email');
+    }
+  };
+
   const handleSendCode = async () => {
     if (!userEmail.trim() || loading) {
       return;
@@ -258,7 +288,12 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
       scrollStyle={styles.contentScroll}
       contentContainerStyle={styles.contentScrollInner}
       header={
-        <GlassModalHeader title={t(titleKey)} onClose={handleClose} closeDisabled={loading} />
+        <GlassModalHeader
+          title={t(titleKey)}
+          onClose={handleClose}
+          onBack={step === 'email' ? undefined : handleBack}
+          closeDisabled={loading}
+        />
       }
       subHeader={
         <RNText style={styles.subtitle}>

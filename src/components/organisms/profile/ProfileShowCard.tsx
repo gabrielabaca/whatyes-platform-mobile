@@ -40,9 +40,22 @@ function formatScheduled(epochSec: number): string {
 export interface ProfileShowCardProps {
   show: UserShowItem;
   onPress?: () => void;
+  /**
+   * Campana interactiva en shows agendados. Sin `onNotifyPress` queda decorativa
+   * (dashboard propio). El toggle suscribe al vendedor, no al show puntual.
+   */
+  onNotifyPress?: () => void;
+  notifySelected?: boolean;
+  notifyLoading?: boolean;
 }
 
-export const ProfileShowCard: React.FC<ProfileShowCardProps> = ({ show, onPress }) => {
+export const ProfileShowCard: React.FC<ProfileShowCardProps> = ({
+  show,
+  onPress,
+  onNotifyPress,
+  notifySelected = false,
+  notifyLoading = false,
+}) => {
   const { width } = useWindowDimensions();
   /**
    * Sólo se tematizan las superficies que quedan a la vista sin miniatura (fondo de la
@@ -60,20 +73,15 @@ export const ProfileShowCard: React.FC<ProfileShowCardProps> = ({ show, onPress 
   const thumb = show.thumbnail_url;
   const title = show.name ?? show.stream_name ?? 'Show';
   const subtitle = show.description ?? show.name ?? '';
+  const cardStyle = [
+    styles.card,
+    { width: cardW, height: CARD_H },
+    isDark ? { backgroundColor: d.surface } : null,
+    isEnded && styles.cardEnded,
+  ];
 
-  return (
-    <TouchableOpacity
-      activeOpacity={0.88}
-      onPress={onPress}
-      // Un show terminado no lleva a ningún lado (no hay VOD): que no dé ni feedback táctil.
-      disabled={!isLive}
-      style={[
-        styles.card,
-        { width: cardW, height: CARD_H },
-        isDark ? { backgroundColor: d.surface } : null,
-        isEnded && styles.cardEnded,
-      ]}
-    >
+  const body = (
+    <>
       {thumb ? (
         <Image source={{ uri: thumb }} style={styles.thumb} resizeMode="cover" />
       ) : (
@@ -95,8 +103,8 @@ export const ProfileShowCard: React.FC<ProfileShowCardProps> = ({ show, onPress 
         </Defs>
         <Rect width="100%" height="100%" fill="url(#profile-show-overlay)" rx={16} />
       </Svg>
-      <View style={styles.overlay}>
-        <View style={styles.topRow}>
+      <View style={styles.overlay} pointerEvents="box-none">
+        <View style={styles.topRow} pointerEvents="box-none">
           {isLive ? (
             <View style={styles.liveBadge}>
               <View style={styles.liveDot} />
@@ -121,9 +129,31 @@ export const ProfileShowCard: React.FC<ProfileShowCardProps> = ({ show, onPress 
               </RNText>
             </View>
           ) : isDraft ? (
-            <View style={styles.notifyBtn}>
-              <IconBell size={16} color="#FFFFFF" strokeWidth={2} />
-            </View>
+            onNotifyPress ? (
+              <TouchableOpacity
+                style={[
+                  styles.notifyBtn,
+                  notifySelected && styles.notifyBtnSelected,
+                  notifyLoading && styles.notifyBtnDisabled,
+                ]}
+                onPress={onNotifyPress}
+                disabled={notifyLoading}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel={t(
+                  notifySelected
+                    ? 'profile.notifySellerShowA11yOn'
+                    : 'profile.notifySellerShowA11y',
+                )}
+                accessibilityState={{ selected: notifySelected }}
+              >
+                <IconBell size={16} color="#FFFFFF" strokeWidth={2} />
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.notifyBtn}>
+                <IconBell size={16} color="#FFFFFF" strokeWidth={2} />
+              </View>
+            )
           ) : null}
         </View>
         <View style={styles.bottomText}>
@@ -135,8 +165,18 @@ export const ProfileShowCard: React.FC<ProfileShowCardProps> = ({ show, onPress 
           </RNText>
         </View>
       </View>
-    </TouchableOpacity>
+    </>
   );
+
+  if (isLive) {
+    return (
+      <TouchableOpacity activeOpacity={0.88} onPress={onPress} style={cardStyle}>
+        {body}
+      </TouchableOpacity>
+    );
+  }
+
+  return <View style={cardStyle}>{body}</View>;
 };
 
 const styles = StyleSheet.create({
@@ -235,6 +275,12 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(217,217,217,0.2)',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  notifyBtnSelected: {
+    backgroundColor: PRIMARY,
+  },
+  notifyBtnDisabled: {
+    opacity: 0.6,
   },
   bottomText: {
     gap: 4,

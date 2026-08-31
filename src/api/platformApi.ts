@@ -153,6 +153,45 @@ export async function uploadRoomCover(photo: {
 }
 
 /**
+ * Sube el video de intro del vivo; devuelve la URL pública en S3 (campo `intro_video_url` del POST /rooms).
+ */
+export async function uploadRoomIntroVideo(video: {
+  uri: string;
+  type?: string;
+  name?: string;
+}): Promise<string> {
+  const token = await storage.getAccessToken();
+  if (!token) {
+    throw new ApiError(401, 'No access token');
+  }
+  const form = new FormData();
+  form.append('video', {
+    uri: video.uri,
+    type: video.type || 'video/mp4',
+    name: video.name || 'live-intro.mp4',
+  } as unknown as Blob);
+
+  const res = await fetch(`${PLATFORM_HTTP_URL}/me/rooms/intro-video`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: form,
+  });
+  const data = (await res.json().catch(() => ({}))) as {
+    detail?: unknown;
+    intro_video_url?: string;
+  };
+  if (!res.ok) {
+    const d = data.detail;
+    const msg = typeof d === 'string' ? d : `uploadRoomIntroVideo: ${res.status}`;
+    throw new ApiError(res.status, msg, data);
+  }
+  if (!data.intro_video_url?.trim()) {
+    throw new ApiError(res.status, 'Sin URL de video');
+  }
+  return data.intro_video_url.trim();
+}
+
+/**
  * Sube snapshot del stream y actualiza `rooms.cover_url` (solo room en vivo, owner).
  */
 export async function uploadLiveRoomCover(

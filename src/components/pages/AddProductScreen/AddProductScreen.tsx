@@ -68,31 +68,50 @@ export const AddProductScreen: React.FC<AddProductScreenProps> = ({ onCancel, on
             <ImageUp size={24} color="#71717B" />
           </TouchableOpacity>
         ) : (
-          <View style={addProductStyles.photoRow}>
-            {form.photos.map((p) => (
-              <View key={p.uri} style={addProductStyles.photoThumb}>
-                <Image source={{ uri: p.uri }} style={addProductStyles.photoThumbImage} />
-                <TouchableOpacity
-                  style={addProductStyles.photoRemoveBtn}
-                  onPress={() => form.removePhoto(p.uri)}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  accessibilityLabel={t('addProduct.removePhoto')}
-                >
-                  <X size={14} color="#FFFFFF" strokeWidth={2.5} />
-                </TouchableOpacity>
-              </View>
-            ))}
-            {form.canAddMorePhotos ? (
+          <View style={addProductStyles.photoBannerBlock}>
+            <View style={addProductStyles.photoBanner}>
+              <Image
+                source={{ uri: form.photos[0].uri }}
+                style={addProductStyles.photoBannerImage}
+                resizeMode="cover"
+              />
               <TouchableOpacity
-                style={addProductStyles.photoAddTile}
-                onPress={form.pickPhotos}
-                activeOpacity={0.85}
+                style={addProductStyles.photoRemoveBtn}
+                onPress={() => form.removePhoto(form.photos[0].uri)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityLabel={t('addProduct.removePhoto')}
               >
-                <Plus size={20} color="#685CF0" />
-                <RNText style={addProductStyles.photoAddTileLabel}>
-                  {t('addProduct.addMorePhotos')}
-                </RNText>
+                <X size={14} color="#FFFFFF" strokeWidth={2.5} />
               </TouchableOpacity>
+            </View>
+            {form.photos.length > 1 || form.canAddMorePhotos ? (
+              <View style={addProductStyles.photoRow}>
+                {form.photos.slice(1).map((p) => (
+                  <View key={p.uri} style={addProductStyles.photoThumb}>
+                    <Image source={{ uri: p.uri }} style={addProductStyles.photoThumbImage} />
+                    <TouchableOpacity
+                      style={addProductStyles.photoRemoveBtn}
+                      onPress={() => form.removePhoto(p.uri)}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      accessibilityLabel={t('addProduct.removePhoto')}
+                    >
+                      <X size={14} color="#FFFFFF" strokeWidth={2.5} />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+                {form.canAddMorePhotos ? (
+                  <TouchableOpacity
+                    style={addProductStyles.photoAddTile}
+                    onPress={form.pickPhotos}
+                    activeOpacity={0.85}
+                  >
+                    <Plus size={20} color="#685CF0" />
+                    <RNText style={addProductStyles.photoAddTileLabel}>
+                      {t('addProduct.addMorePhotos')}
+                    </RNText>
+                  </TouchableOpacity>
+                ) : null}
+              </View>
             ) : null}
           </View>
         )}
