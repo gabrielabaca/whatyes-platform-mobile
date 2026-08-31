@@ -135,7 +135,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
   };
 
   const handleSendCode = async () => {
-    if (!userEmail.trim() || loading) {
+    if (resendSecondsLeft > 0 || !userEmail.trim() || loading) {
       return;
     }
     setLoading(true);
@@ -185,13 +185,8 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
     try {
       await changePasswordVerifyCode(code.trim());
       setStep('password');
-    } catch (e) {
-      const msg =
-        e instanceof ApiError
-          ? e.message
-          : t('account.changePasswordModal.invalidCode');
-      setCodeError(msg);
-      startResendCooldown();
+    } catch {
+      setCodeError(t('account.changePasswordModal.invalidCode'));
     } finally {
       setLoading(false);
     }
@@ -222,11 +217,17 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
         [{ text: t('common.ok'), onPress: handleClose }]
       );
     } catch (e) {
-      const msg =
-        e instanceof ApiError
-          ? e.message
-          : t('account.changePasswordModal.saveError');
-      appAlert(t('common.error'), msg);
+      const raw = e instanceof ApiError ? e.message.toLowerCase() : '';
+      const isCodeError =
+        raw.includes('invalid code') ||
+        raw.includes('code expired') ||
+        raw.includes('expired');
+      appAlert(
+        t('common.error'),
+        isCodeError
+          ? t('account.changePasswordModal.invalidCode')
+          : t('account.changePasswordModal.saveError'),
+      );
     } finally {
       setLoading(false);
     }
@@ -308,7 +309,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
             ? renderPrimaryButton(
                 t('account.changePasswordModal.sendCode'),
                 handleSendCode,
-                loading
+                loading || resendSecondsLeft > 0
               )
             : null}
           {step === 'code'

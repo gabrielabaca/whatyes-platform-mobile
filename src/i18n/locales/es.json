@@ -924,6 +924,8 @@
     "setupVideoUploadError": "No se pudo subir el video.",
     "setupVideoTooLong": "El video no puede durar más de {{seconds}} segundos.",
     "setupVideoTooLarge": "El video supera el límite de 50 MB.",
+    "setupVideoInvalidType": "El formato del video no es válido. Usá MP4 o MOV.",
+    "setupVideoDurationUnknown": "No pudimos verificar la duración del video. Probá con otro archivo.",
     "setupVideoSourceTitle": "Agregar un video",
     "setupVideoSourceSubtitle": "Máximo {{seconds}} segundos. Se usa cuando el vivo está en pausa.",
     "setupRecordVideo": "Grabar video",

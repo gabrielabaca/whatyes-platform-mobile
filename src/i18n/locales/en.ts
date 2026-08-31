@@ -941,6 +941,8 @@ export default {
     setupVideoUploadError: 'The video could not be uploaded.',
     setupVideoTooLong: 'The video cannot be longer than {{seconds}} seconds.',
     setupVideoTooLarge: 'The video exceeds the 50 MB limit.',
+    setupVideoInvalidType: 'The video format is not valid. Use MP4 or MOV.',
+    setupVideoDurationUnknown: "We couldn't verify the video duration. Try another file.",
     setupVideoSourceTitle: 'Add a video',
     setupVideoSourceSubtitle: 'Maximum {{seconds}} seconds. Used when the live is paused.',
     setupRecordVideo: 'Record video',

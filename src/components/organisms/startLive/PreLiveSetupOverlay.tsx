@@ -5,7 +5,7 @@ import ConfettiCannon from 'react-native-confetti-cannon';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { ImagePickerResponse } from 'react-native-image-picker';
 import Video from 'react-native-video';
-import { launchPhotoCameraNow, launchPhotoLibraryNow, launchVideoCameraNow, launchVideoLibraryNow, videoFromPickerResponse } from '../../../utils/mediaPicker';
+import { launchPhotoCameraNow, launchPhotoLibraryNow, launchVideoCameraNow, launchVideoLibraryNow, videoFromPickerResponse, type PickerVideo } from '../../../utils/mediaPicker';
 import {
   ActivityIndicator,
   Animated,
@@ -57,6 +57,7 @@ type Drawer = 'none' | 'frequency' | 'moderators' | 'categories' | 'saleFormat' 
 /** Intro sin transcodificar: 15 s en cliente, 50 MB en servidor. */
 const INTRO_VIDEO_MAX_DURATION_SEC = 15;
 const INTRO_VIDEO_MAX_BYTES = 50 * 1024 * 1024;
+const INTRO_VIDEO_DURATION_PROBE_MS = 5000;
 
 const preLiveSheetPanelExtra: ViewStyle = {
   paddingTop: 28,
@@ -76,6 +77,21 @@ const LIVE_LAUNCH_CONFETTI_COLORS = [
 
 /** Animación de entrada del overlay: mismos valores que StreamBottomSheet. */
 const SHEET_SPRING = { tension: 68, friction: 12 } as const;
+
+function introVideoUploadErrorKey(
+  e: unknown,
+): 'startLive.setupVideoTooLarge' | 'startLive.setupVideoInvalidType' | 'startLive.setupVideoUploadError' {
+  const raw = e instanceof ApiError || e instanceof Error ? e.message : '';
+  const lower = raw.toLowerCase();
+  const status = e instanceof ApiError ? e.status : 0;
+  if (status === 413 || lower.includes('exceeds') || lower.includes('50mb')) {
+    return 'startLive.setupVideoTooLarge';
+  }
+  if (lower.includes('content type') || lower.includes('invalid video')) {
+    return 'startLive.setupVideoInvalidType';
+  }
+  return 'startLive.setupVideoUploadError';
+}
 
 function sanitizeWords(words: string[]): string[] {
   return Array.from(new Set(words.map((w) => w.trim().toLowerCase()).filter(Boolean))).slice(0, 50);
@@ -409,6 +425,9 @@ export const PreLiveSetupOverlay: React.FC<{
   const insets = useSafeAreaInsets();
   const { categories } = useInterestCategories();
   const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const durationProbeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingDurationProbeVideoRef = useRef<PickerVideo | null>(null);
+  const applyProbedDurationRef = useRef<(durationSec: number | null) => void>(() => {});
   /** Entrada deslizando desde abajo, igual que las bases de sheet (el Modal no anima). */
   const slideAnim = useRef(new Animated.Value(1)).current;
   const [drawer, setDrawer] = useState<Drawer>('none');
@@ -436,6 +455,8 @@ export const PreLiveSetupOverlay: React.FC<{
   );
   const [videoStagingUri, setVideoStagingUri] = useState<string | null>(null);
   const [videoUploading, setVideoUploading] = useState(false);
+  const [durationProbeUri, setDurationProbeUri] = useState<string | null>(null);
+  const videoBusy = videoUploading || durationProbeUri != null;
 
   const clearLaunchTimers = useCallback(() => {
     if (countdownIntervalRef.current) {
@@ -459,13 +480,34 @@ export const PreLiveSetupOverlay: React.FC<{
     setLiveIntroVideoUrl(initialConfig.introVideoUrl ?? null);
     setVideoStagingUri(null);
     setVideoUploading(false);
+    setDurationProbeUri(null);
+    pendingDurationProbeVideoRef.current = null;
+    if (durationProbeTimeoutRef.current) {
+      clearTimeout(durationProbeTimeoutRef.current);
+      durationProbeTimeoutRef.current = null;
+    }
   }, [visible, initialConfig.coverUrl, initialConfig.introVideoUrl]);
 
   useEffect(() => {
     if (!visible) {
       setMediaPickerActive(false);
+      if (durationProbeTimeoutRef.current) {
+        clearTimeout(durationProbeTimeoutRef.current);
+        durationProbeTimeoutRef.current = null;
+      }
+      pendingDurationProbeVideoRef.current = null;
+      setDurationProbeUri(null);
     }
   }, [visible]);
+
+  useEffect(
+    () => () => {
+      if (durationProbeTimeoutRef.current) {
+        clearTimeout(durationProbeTimeoutRef.current);
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!visible) {
@@ -596,19 +638,42 @@ export const PreLiveSetupOverlay: React.FC<{
         setVideoStagingUri(null);
       } catch (e) {
         setVideoStagingUri(null);
-        const msg =
-          e instanceof ApiError
-            ? e.message
-            : e instanceof Error
-              ? e.message
-              : t('startLive.setupVideoUploadError');
-        appAlert(t('common.error'), msg);
+        appAlert(t('common.error'), t(introVideoUploadErrorKey(e)));
       } finally {
         setVideoUploading(false);
       }
     },
     [t],
   );
+
+  const applyProbedDuration = useCallback(
+    (durationSec: number | null) => {
+      const pending = pendingDurationProbeVideoRef.current;
+      if (durationProbeTimeoutRef.current) {
+        clearTimeout(durationProbeTimeoutRef.current);
+        durationProbeTimeoutRef.current = null;
+      }
+      pendingDurationProbeVideoRef.current = null;
+      setDurationProbeUri(null);
+      if (!pending) {
+        return;
+      }
+      if (durationSec == null || !Number.isFinite(durationSec) || durationSec <= 0) {
+        appAlert(t('common.error'), t('startLive.setupVideoDurationUnknown'));
+        return;
+      }
+      if (durationSec > INTRO_VIDEO_MAX_DURATION_SEC) {
+        appAlert(
+          t('common.error'),
+          t('startLive.setupVideoTooLong', { seconds: INTRO_VIDEO_MAX_DURATION_SEC }),
+        );
+        return;
+      }
+      void submitIntroVideo(pending);
+    },
+    [submitIntroVideo, t],
+  );
+  applyProbedDurationRef.current = applyProbedDuration;
 
   const handlePickedIntroVideo = useCallback(
     (response: ImagePickerResponse) => {
@@ -625,6 +690,18 @@ export const PreLiveSetupOverlay: React.FC<{
       }
       if (video.fileSize != null && video.fileSize > INTRO_VIDEO_MAX_BYTES) {
         appAlert(t('common.error'), t('startLive.setupVideoTooLarge'));
+        return;
+      }
+      if (video.durationSec == null) {
+        if (durationProbeTimeoutRef.current) {
+          clearTimeout(durationProbeTimeoutRef.current);
+          durationProbeTimeoutRef.current = null;
+        }
+        pendingDurationProbeVideoRef.current = video;
+        setDurationProbeUri(video.uri);
+        durationProbeTimeoutRef.current = setTimeout(() => {
+          applyProbedDurationRef.current(null);
+        }, INTRO_VIDEO_DURATION_PROBE_MS);
         return;
       }
       void submitIntroVideo(video);
@@ -709,6 +786,22 @@ export const PreLiveSetupOverlay: React.FC<{
         <KeyboardAccessoryAppearanceProvider appearance="dark">
         <View style={styles.overlay}>
           <GlassBackdrop />
+          {durationProbeUri ? (
+            <Video
+              source={{ uri: durationProbeUri }}
+              paused
+              muted
+              repeat={false}
+              pointerEvents="none"
+              style={styles.durationProbeVideo}
+              onLoad={(data) =>
+                applyProbedDurationRef.current(
+                  typeof data.duration === 'number' ? data.duration : null,
+                )
+              }
+              onError={() => applyProbedDurationRef.current(null)}
+            />
+          ) : null}
           <Animated.View style={[styles.sheet, { transform: [{ translateY }] }]}>
             <KeyboardDismissScrollView
               style={styles.scrollBody}
@@ -837,9 +930,9 @@ export const PreLiveSetupOverlay: React.FC<{
                         styles.coverCardTouch,
                         !!(liveIntroVideoUrl || videoStagingUri) && styles.coverCardTouchFilled,
                       ]}
-                      onPress={() => !videoUploading && setDrawer('videoSource')}
+                      onPress={() => !videoBusy && setDrawer('videoSource')}
                       activeOpacity={0.85}
-                      disabled={videoUploading}
+                      disabled={videoBusy}
                       accessibilityRole="button"
                       accessibilityLabel={t('startLive.setupAddVideoA11y')}
                     >
@@ -858,13 +951,13 @@ export const PreLiveSetupOverlay: React.FC<{
                           <RNText style={styles.mediaText}>{t('startLive.setupAddVideo')}</RNText>
                         </>
                       )}
-                      {videoUploading ? (
+                      {videoBusy ? (
                         <View style={styles.coverUploadingOverlay}>
                           <ActivityIndicator size="large" color={themeColors.glass.text} />
                         </View>
                       ) : null}
                     </TouchableOpacity>
-                    {(liveIntroVideoUrl || videoStagingUri) && !videoUploading ? (
+                    {(liveIntroVideoUrl || videoStagingUri) && !videoBusy ? (
                       <TouchableOpacity
                         style={styles.coverClearBtn}
                         onPress={() => {
@@ -929,7 +1022,7 @@ export const PreLiveSetupOverlay: React.FC<{
               <StartLivePrimaryButton
                 label={t('startLive.saveCta')}
                 onPress={startCountdown}
-                disabled={!title.trim() || !categoryUuid || coverUploading || videoUploading}
+                disabled={!title.trim() || !categoryUuid || coverUploading || videoBusy}
               />
               <TouchableOpacity style={styles.cancelButton} onPress={handleLeavePreLive} activeOpacity={0.85}>
                 <RNText style={styles.cancelText}>{t('common.cancel')}</RNText>
@@ -1229,6 +1322,12 @@ const styles = StyleSheet.create({
   },
   coverThumb: {
     ...StyleSheet.absoluteFillObject,
+  },
+  durationProbeVideo: {
+    position: 'absolute',
+    width: 1,
+    height: 1,
+    opacity: 0,
   },
   coverUploadingOverlay: {
     ...StyleSheet.absoluteFillObject,
