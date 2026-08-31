@@ -81,6 +81,131 @@ export async function updateOwnProfile(
   return data as UserPublicProfile;
 }
 
+export interface ProfileImageUpload {
+  uri: string;
+  type?: string;
+  name?: string;
+}
+
+async function uploadProfileImage(
+  path: string,
+  photo: ProfileImageUpload,
+  accessToken?: string
+): Promise<string> {
+  const token = accessToken ?? (await storage.getAccessToken());
+  if (!token) {
+    throw new ApiError(401, 'No autenticado');
+  }
+  const form = new FormData();
+  form.append('photo', {
+    uri: photo.uri,
+    type: photo.type || 'image/jpeg',
+    name: photo.name || 'photo.jpg',
+  } as unknown as Blob);
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: form,
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const detail = typeof data.detail === 'string' ? data.detail : data.message;
+    throw new ApiError(res.status, detail || 'Error al subir la imagen', data);
+  }
+  return data.url as string;
+}
+
+export async function uploadOwnAvatar(
+  photo: ProfileImageUpload,
+  accessToken?: string
+): Promise<string> {
+  return uploadProfileImage('/auth/profile/avatar', photo, accessToken);
+}
+
+export async function uploadOwnCover(
+  photo: ProfileImageUpload,
+  accessToken?: string
+): Promise<string> {
+  return uploadProfileImage('/auth/profile/cover', photo, accessToken);
+}
+
+export async function uploadReviewImages(
+  photos: ProfileImageUpload[],
+  accessToken?: string
+): Promise<string[]> {
+  const token = accessToken ?? (await storage.getAccessToken());
+  if (!token) {
+    throw new ApiError(401, 'No autenticado');
+  }
+  const form = new FormData();
+  photos.forEach((photo, index) => {
+    form.append('images', {
+      uri: photo.uri,
+      type: photo.type || 'image/jpeg',
+      name: photo.name || `review-${index}.jpg`,
+    } as unknown as Blob);
+  });
+  const res = await fetch(`${API_BASE_URL}/auth/profile/review-images`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: form,
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const detail = typeof data.detail === 'string' ? data.detail : data.message;
+    throw new ApiError(res.status, detail || 'Error al subir imágenes', data);
+  }
+  return (data.image_urls as string[]) ?? [];
+}
+
+export interface CreateSupportTicketPayload {
+  message: string;
+  subject?: string | null;
+  evidence?: ProfileImageUpload[];
+}
+
+export interface SupportTicket {
+  uuid: string;
+  subject?: string | null;
+  message: string;
+  status: string;
+  evidence_urls: string[];
+  created_at: number;
+}
+
+export async function createSupportTicket(
+  payload: CreateSupportTicketPayload,
+  accessToken?: string
+): Promise<SupportTicket> {
+  const token = accessToken ?? (await storage.getAccessToken());
+  if (!token) {
+    throw new ApiError(401, 'No autenticado');
+  }
+  const form = new FormData();
+  form.append('message', payload.message);
+  if (payload.subject?.trim()) {
+    form.append('subject', payload.subject.trim());
+  }
+  (payload.evidence ?? []).forEach((photo, index) => {
+    form.append('evidence', {
+      uri: photo.uri,
+      type: photo.type || 'image/jpeg',
+      name: photo.name || `evidence-${index}.jpg`,
+    } as unknown as Blob);
+  });
+  const res = await fetch(`${API_BASE_URL}/auth/support/tickets`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: form,
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const detail = typeof data.detail === 'string' ? data.detail : data.message;
+    throw new ApiError(res.status, detail || 'Error al enviar el mensaje', data);
+  }
+  return data as SupportTicket;
+}
+
 export async function followUser(
   userUuid: string,
   accessToken?: string
@@ -115,6 +240,7 @@ export interface UserReviewListItem {
   created_at: number;
   product_label?: string | null;
   product_image_url?: string | null;
+  product_image_urls?: string[];
 }
 
 export interface UserReviewsListResponse {
@@ -132,6 +258,7 @@ export interface CreateUserReviewPayload {
   comment?: string | null;
   product_label?: string | null;
   product_image_url?: string | null;
+  product_image_urls?: string[];
 }
 
 export async function getUserReviews(

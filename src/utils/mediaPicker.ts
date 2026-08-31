@@ -31,6 +31,22 @@ export function singlePhotoFromPicker(response: ImagePickerResponse): PickerPhot
   return photosFromPickerResponse(response)[0] ?? null;
 }
 
+/** URI local del picker (file/content/ph) vs URL ya persistida en S3. */
+export function isLocalMediaUri(uri?: string | null): boolean {
+  if (!uri) {
+    return false;
+  }
+  return !/^https?:\/\//i.test(uri.trim());
+}
+
+export function photoFromUri(
+  uri: string,
+  name: string,
+  type = 'image/jpeg'
+): PickerPhoto {
+  return { uri, type, name };
+}
+
 export interface MediaPickerCallbacks {
   onAfter?: () => void;
   onError?: (message: string) => void;

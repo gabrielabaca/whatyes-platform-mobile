@@ -18,7 +18,7 @@ import {
   Text as RNText,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { Copy, Pause, Play, Star, Tag, Video as VideoIcon } from 'lucide-react-native';
+import { Copy, Pause, Play, Star, Tag, Video as VideoIcon, ImageUp, X } from 'lucide-react-native';
 import Video from 'react-native-video';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { IconChevronLeft, IconShare, IconBell, IconChat } from '../../icons';
@@ -32,6 +32,7 @@ import { PurchaseClipViewer } from '../../organisms/purchases/PurchaseClipViewer
 import {
   getUserPublicProfile,
   createUserReview,
+  uploadReviewImages,
   type UserPublicProfile,
 } from '../../../api/profileApi';
 import { isHandle } from '../../../utils/handle';
@@ -57,6 +58,8 @@ import { themeColors } from '../../../theme/colors';
 import { useTheme } from '../../../context/ThemeContext';
 import { APP_DOWNLOAD_URL } from '../../../constants/externalLinks';
 import { appAlert } from '../../../alerts';
+import { launchPhotoLibraryNow, photoFromUri } from '../../../utils/mediaPicker';
+import { deferMediaPicker } from '../../../utils/deferMediaPicker';
 
 const PRIMARY = themeColors.primary;
 /** Paleta oscura: se aplica inline sobre los estilos estáticos (claro sin cambios). */
@@ -67,6 +70,7 @@ const GOLD = '#EAB308';
 const DANGER = themeColors.danger;
 const CARD_BG = '#FAFAFF';
 const ROW_BG = '#EFEFFA';
+const MAX_REVIEW_IMAGES = 4;
 
 function formatDateTime(epochSec: number, locale: string): string {
   const d = new Date(epochSec * 1000);
@@ -126,6 +130,7 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
   const [reviewMessage, setReviewMessage] = useState('');
   const [reviewSending, setReviewSending] = useState(false);
   const [reviewSent, setReviewSent] = useState(false);
+  const [reviewImageUris, setReviewImageUris] = useState<string[]>([]);
   const [clipPaused, setClipPaused] = useState(true);
   const [clipDuration, setClipDuration] = useState<number | null>(null);
   const [clipError, setClipError] = useState(false);
@@ -260,13 +265,20 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
     if (reviewRating < 1 || reviewSending) return;
     setReviewSending(true);
     try {
+      let uploaded: string[] = [];
+      if (reviewImageUris.length > 0) {
+        uploaded = await uploadReviewImages(
+          reviewImageUris.map((uri, index) => photoFromUri(uri, `review-${index}.jpg`))
+        );
+      }
       // El formulario captura una sola calificación: envío y producto quedan sin
       // dato a propósito para no inflar esos promedios con un valor no calificado.
       await createUserReview(sellerId, {
         rating_general: reviewRating,
         comment: reviewMessage.trim() || null,
         product_label: purchase.product_title,
-        product_image_url: purchase.product_image_url ?? null,
+        product_image_url: uploaded[0] ?? purchase.product_image_url ?? null,
+        product_image_urls: uploaded.length > 0 ? uploaded : undefined,
       });
       setReviewSent(true);
     } catch (e) {
@@ -275,6 +287,31 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
     } finally {
       setReviewSending(false);
     }
+  };
+
+  const pickReviewImages = () => {
+    if (reviewSending || reviewImageUris.length >= MAX_REVIEW_IMAGES) {
+      return;
+    }
+    deferMediaPicker(() => {
+      launchPhotoLibraryNow(
+        { mediaType: 'photo', selectionLimit: MAX_REVIEW_IMAGES - reviewImageUris.length },
+        (response) => {
+          const uris =
+            response.assets
+              ?.map((asset) => asset.uri)
+              .filter((uri): uri is string => Boolean(uri)) ?? [];
+          if (uris.length === 0) {
+            return;
+          }
+          setReviewImageUris((prev) => [...prev, ...uris].slice(0, MAX_REVIEW_IMAGES));
+        },
+      );
+    });
+  };
+
+  const removeReviewImage = (uri: string) => {
+    setReviewImageUris((prev) => prev.filter((item) => item !== uri));
   };
 
   const locale = i18n.language || 'es';
@@ -868,6 +905,67 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
                 placeholderTextColor={isDark ? D.textMuted : MUTED}
                 multiline
               />
+              <RNText style={[styles.reviewFieldLabel, darkMuted]}>
+                {t('activity.reviewImages')}
+              </RNText>
+              <View style={[styles.reviewImagesBox, darkHairline, darkRow]}>
+                {reviewImageUris.length === 0 ? (
+                  <>
+                    <RNText style={[styles.reviewImagesHint, darkMuted]}>
+                      {t('activity.reviewImagesHint')}
+                    </RNText>
+                    <TouchableOpacity
+                      onPress={pickReviewImages}
+                      activeOpacity={0.85}
+                      disabled={reviewSending}
+                      hitSlop={12}
+                      accessibilityRole="button"
+                      accessibilityLabel={t('activity.reviewAddImage')}
+                    >
+                      <ImageUp
+                        size={24}
+                        color={isDark ? D.textMuted : MUTED}
+                        strokeWidth={2}
+                      />
+                    </TouchableOpacity>
+                  </>
+                ) : (
+                  <View style={styles.reviewImagesPreviewRow}>
+                    {reviewImageUris.map((uri) => (
+                      <View key={uri} style={styles.reviewImageThumbWrap}>
+                        <Image source={{ uri }} style={styles.reviewImageThumb} />
+                        <TouchableOpacity
+                          style={styles.reviewImageRemove}
+                          onPress={() => removeReviewImage(uri)}
+                          disabled={reviewSending}
+                          hitSlop={8}
+                          accessibilityRole="button"
+                          accessibilityLabel={t('activity.reviewRemoveImage')}
+                        >
+                          <X size={12} color="#FFFFFF" strokeWidth={2.5} />
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                    {reviewImageUris.length < MAX_REVIEW_IMAGES ? (
+                      <TouchableOpacity
+                        style={[styles.reviewImageAddMore, darkHairline]}
+                        onPress={pickReviewImages}
+                        activeOpacity={0.85}
+                        disabled={reviewSending}
+                        hitSlop={8}
+                        accessibilityRole="button"
+                        accessibilityLabel={t('activity.reviewAddImage')}
+                      >
+                        <ImageUp
+                          size={20}
+                          color={isDark ? D.textMuted : MUTED}
+                          strokeWidth={2}
+                        />
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
+                )}
+              </View>
               <TouchableOpacity
                 style={[
                   styles.followBtn,
@@ -1569,6 +1667,62 @@ const styles = StyleSheet.create({
     color: TEXT,
     textAlignVertical: 'top',
     backgroundColor: '#FFFFFF',
+  },
+  reviewImagesBox: {
+    minHeight: 120,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E4E4E7',
+    backgroundColor: ROW_BG,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+  },
+  reviewImagesHint: {
+    fontFamily: FONT_FAMILY.regular,
+    fontSize: 12,
+    lineHeight: 16,
+    color: MUTED,
+    textAlign: 'center',
+  },
+  reviewImagesPreviewRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    justifyContent: 'center',
+    width: '100%',
+  },
+  reviewImageThumbWrap: {
+    width: 72,
+    height: 72,
+  },
+  reviewImageThumb: {
+    width: 72,
+    height: 72,
+    borderRadius: 8,
+  },
+  reviewImageRemove: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  reviewImageAddMore: {
+    width: 72,
+    height: 72,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E4E4E7',
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   reviewThanks: {
     fontFamily: FONT_FAMILY.semibold,

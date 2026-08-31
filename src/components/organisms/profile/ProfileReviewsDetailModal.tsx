@@ -95,13 +95,19 @@ export const ProfileReviewsDetailModal: React.FC<ProfileReviewsDetailModalProps>
             </RNText>
           ) : null}
 
-          {review.product_image_url ? (
+          {(review.product_image_urls?.length
+            ? review.product_image_urls
+            : review.product_image_url
+              ? [review.product_image_url]
+              : []
+          ).map((uri, index) => (
             <Image
-              source={{ uri: review.product_image_url }}
+              key={`${uri}-${index}`}
+              source={{ uri }}
               style={styles.productImage}
               resizeMode="cover"
             />
-          ) : null}
+          ))}
         </View>
       ))}
     </GlassFullScreenModal>

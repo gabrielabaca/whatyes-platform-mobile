@@ -25,7 +25,7 @@ import { deferMediaPicker } from '../../../utils/deferMediaPicker';
 import { IconUser } from '../../icons';
 import { FONT_FAMILY } from '../../../theme/typography';
 import { themeColors } from '../../../theme/colors';
-import { updateOwnProfile, type UserPublicProfile } from '../../../api/profileApi';
+import { updateOwnProfile, uploadOwnAvatar, uploadOwnCover, type UserPublicProfile } from '../../../api/profileApi';
 import { appAlert } from '../../../alerts';
 import { useAuth } from '../../../hooks/useAuth';
 import {
@@ -33,6 +33,7 @@ import {
   clampToGraphemes,
   graphemeCount,
 } from '../../../utils/grapheme';
+import { isLocalMediaUri, photoFromUri } from '../../../utils/mediaPicker';
 
 const COVER_H = 164;
 
@@ -60,6 +61,7 @@ export const EditProfileDrawer: React.FC<EditProfileDrawerProps> = ({
   const [bio, setBio] = useState(profile.bio ?? '');
   const emailLabel = user?.email ?? '';
   const [avatarUri, setAvatarUri] = useState(initialAvatarUri);
+  const [coverUriState, setCoverUriState] = useState(coverUri);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -67,14 +69,18 @@ export const EditProfileDrawer: React.FC<EditProfileDrawerProps> = ({
       setDisplayName(profile.display_name);
       setBio(clampToGraphemes(profile.bio ?? '', BIO_EDIT_MAX_GRAPHEMES));
       setAvatarUri(initialAvatarUri);
+      setCoverUriState(coverUri);
     }
-  }, [visible, profile, initialAvatarUri]);
+  }, [visible, profile, initialAvatarUri, coverUri]);
 
   const handleClose = () => {
     modalRef.current?.dismiss();
   };
 
   const pickAvatar = () => {
+    if (saving) {
+      return;
+    }
     deferMediaPicker(() => {
       launchPhotoLibraryNow({ mediaType: 'photo' }, (response) => {
         const uri = response.assets?.[0]?.uri;
@@ -85,7 +91,20 @@ export const EditProfileDrawer: React.FC<EditProfileDrawerProps> = ({
     });
   };
 
-  // TODO: subir `avatarUri` al guardar — falta el endpoint de avatar en service-users.
+  const pickCover = () => {
+    if (saving) {
+      return;
+    }
+    deferMediaPicker(() => {
+      launchPhotoLibraryNow({ mediaType: 'photo' }, (response) => {
+        const uri = response.assets?.[0]?.uri;
+        if (uri) {
+          setCoverUriState(uri);
+        }
+      });
+    });
+  };
+
   const handleSave = async () => {
     const trimmedName = displayName.trim();
     if (!trimmedName) {
@@ -94,6 +113,12 @@ export const EditProfileDrawer: React.FC<EditProfileDrawerProps> = ({
     }
     setSaving(true);
     try {
+      if (avatarUri && isLocalMediaUri(avatarUri)) {
+        await uploadOwnAvatar(photoFromUri(avatarUri, 'avatar.jpg'));
+      }
+      if (coverUriState && isLocalMediaUri(coverUriState)) {
+        await uploadOwnCover(photoFromUri(coverUriState, 'cover.jpg'));
+      }
       await updateOwnProfile({
         name: trimmedName,
         bio: bio.trim() || null,
@@ -144,12 +169,21 @@ export const EditProfileDrawer: React.FC<EditProfileDrawerProps> = ({
       }
     >
             <View style={[styles.coverWrap, { height: COVER_H }]}>
-              {coverUri ? (
-                <Image source={{ uri: coverUri }} style={styles.coverImage} resizeMode="cover" />
+              {coverUriState ? (
+                <Image source={{ uri: coverUriState }} style={styles.coverImage} resizeMode="cover" />
               ) : (
                 <View style={[styles.coverImage, styles.coverFallback]} />
               )}
               <CoverGradient />
+              <TouchableOpacity
+                style={styles.coverCameraBtn}
+                onPress={pickCover}
+                disabled={saving}
+                accessibilityRole="button"
+                accessibilityLabel={t('profile.editCoverA11y')}
+              >
+                <Camera size={22} color={themeColors.glass.text} strokeWidth={2} />
+              </TouchableOpacity>
               <View style={[styles.coverInner, styles.coverInnerPadBottom]}>
                 <View style={styles.avatarRow}>
                   {avatarUri ? (
@@ -162,7 +196,9 @@ export const EditProfileDrawer: React.FC<EditProfileDrawerProps> = ({
                   <TouchableOpacity
                     style={styles.cameraBtn}
                     onPress={pickAvatar}
+                    disabled={saving}
                     accessibilityRole="button"
+                    accessibilityLabel={t('profile.editAvatarA11y')}
                   >
                     <Camera size={22} color={themeColors.glass.text} strokeWidth={2} />
                   </TouchableOpacity>
@@ -296,6 +332,18 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.55)',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  coverCameraBtn: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 3,
   },
   form: {
     flex: 1,
