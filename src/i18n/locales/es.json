@@ -350,8 +350,7 @@
       "send": "Enviar",
       "cancel": "Cancelar",
       "messageRequired": "Escribe un mensaje antes de enviar.",
-      "sendSuccess": "Mensaje enviado. Te vamos a responder a la brevedad.",
-      "sendError": "No se pudo enviar el mensaje. Intentá de nuevo."
+      "sendNotAvailable": "El envío de mensajes estará disponible pronto."
     },
     "terms": "Términos y Condiciones",
     "privacy": "Política de Privacidad",

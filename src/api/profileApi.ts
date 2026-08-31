@@ -158,54 +158,6 @@ export async function uploadReviewImages(
   return (data.image_urls as string[]) ?? [];
 }
 
-export interface CreateSupportTicketPayload {
-  message: string;
-  subject?: string | null;
-  evidence?: ProfileImageUpload[];
-}
-
-export interface SupportTicket {
-  uuid: string;
-  subject?: string | null;
-  message: string;
-  status: string;
-  evidence_urls: string[];
-  created_at: number;
-}
-
-export async function createSupportTicket(
-  payload: CreateSupportTicketPayload,
-  accessToken?: string
-): Promise<SupportTicket> {
-  const token = accessToken ?? (await storage.getAccessToken());
-  if (!token) {
-    throw new ApiError(401, 'No autenticado');
-  }
-  const form = new FormData();
-  form.append('message', payload.message);
-  if (payload.subject?.trim()) {
-    form.append('subject', payload.subject.trim());
-  }
-  (payload.evidence ?? []).forEach((photo, index) => {
-    form.append('evidence', {
-      uri: photo.uri,
-      type: photo.type || 'image/jpeg',
-      name: photo.name || `evidence-${index}.jpg`,
-    } as unknown as Blob);
-  });
-  const res = await fetch(`${API_BASE_URL}/auth/support/tickets`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}` },
-    body: form,
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    const detail = typeof data.detail === 'string' ? data.detail : data.message;
-    throw new ApiError(res.status, detail || 'Error al enviar el mensaje', data);
-  }
-  return data as SupportTicket;
-}
-
 export async function followUser(
   userUuid: string,
   accessToken?: string

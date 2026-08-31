@@ -1,5 +1,6 @@
 /**
  * Contacto — Figma 536-23051
+ * UI completa; envío al backend pendiente.
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -8,7 +9,6 @@ import {
   TouchableOpacity,
   Text as RNText,
   Image,
-  ActivityIndicator,
 } from 'react-native';
 import { AppTextInput } from '../../atoms/AppTextInput';
 import { ImageUp } from 'lucide-react-native';
@@ -23,8 +23,6 @@ import { GlassModalHeader } from '../profile/GlassModalHeader';
 import { FONT_FAMILY } from '../../../theme/typography';
 import { themeColors } from '../../../theme/colors';
 import { appAlert } from '../../../alerts';
-import { createSupportTicket } from '../../../api/profileApi';
-import { photoFromUri } from '../../../utils/mediaPicker';
 
 const MAX_EVIDENCE = 4;
 
@@ -40,7 +38,6 @@ export const ContactModal: React.FC<ContactModalProps> = ({ visible, onClose }) 
   const [message, setMessage] = useState('');
   const [evidenceUris, setEvidenceUris] = useState<string[]>([]);
   const [interactionsReady, setInteractionsReady] = useState(false);
-  const [sending, setSending] = useState(false);
 
   const resetState = useCallback(() => {
     setMessage('');
@@ -58,14 +55,11 @@ export const ContactModal: React.FC<ContactModalProps> = ({ visible, onClose }) 
   }, [visible, resetState]);
 
   const handleClose = () => {
-    if (sending) {
-      return;
-    }
     modalRef.current?.dismiss();
   };
 
   const handlePickEvidence = () => {
-    if (!interactionsReady || sending || evidenceUris.length >= MAX_EVIDENCE) {
+    if (!interactionsReady || evidenceUris.length >= MAX_EVIDENCE) {
       return;
     }
     deferMediaPicker(() => {
@@ -85,32 +79,15 @@ export const ContactModal: React.FC<ContactModalProps> = ({ visible, onClose }) 
     });
   };
 
-  const handleSend = async () => {
-    if (!message.trim() || sending) {
-      if (!message.trim()) {
-        appAlert(t('common.appName'), t('account.contactModal.messageRequired'));
-      }
+  const handleSend = () => {
+    if (!message.trim()) {
+      appAlert(t('common.appName'), t('account.contactModal.messageRequired'));
       return;
     }
-    setSending(true);
-    try {
-      await createSupportTicket({
-        message: message.trim(),
-        evidence: evidenceUris.map((uri, index) =>
-          photoFromUri(uri, `evidence-${index}.jpg`)
-        ),
-      });
-      appAlert(t('common.appName'), t('account.contactModal.sendSuccess'));
-      modalRef.current?.dismiss();
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : t('account.contactModal.sendError');
-      appAlert(t('common.appName'), msg);
-    } finally {
-      setSending(false);
-    }
+    appAlert(t('common.appName'), t('account.contactModal.sendNotAvailable'));
   };
 
-  const canSend = message.trim().length > 0 && !sending;
+  const canSend = message.trim().length > 0;
 
   return (
     <GlassFullScreenModal
@@ -123,36 +100,21 @@ export const ContactModal: React.FC<ContactModalProps> = ({ visible, onClose }) 
       scrollStyle={styles.contentScroll}
       contentContainerStyle={styles.contentScrollInner}
       header={
-        <GlassModalHeader
-          title={t('account.contactModal.title')}
-          onClose={handleClose}
-          closeDisabled={sending}
-        />
+        <GlassModalHeader title={t('account.contactModal.title')} onClose={handleClose} />
       }
       footer={
         <View style={styles.footer}>
           <TouchableOpacity
             style={[styles.primaryBtn, !canSend && styles.primaryBtnDisabled]}
-            onPress={() => {
-              void handleSend();
-            }}
+            onPress={handleSend}
             disabled={!canSend}
             activeOpacity={0.88}
           >
-            {sending ? (
-              <ActivityIndicator color={themeColors.glass.text} />
-            ) : (
-              <RNText style={styles.primaryBtnText}>
-                {t('account.contactModal.send')}
-              </RNText>
-            )}
+            <RNText style={styles.primaryBtnText}>
+              {t('account.contactModal.send')}
+            </RNText>
           </TouchableOpacity>
-          <TouchableOpacity
-            onPress={handleClose}
-            hitSlop={12}
-            activeOpacity={0.75}
-            disabled={sending}
-          >
+          <TouchableOpacity onPress={handleClose} hitSlop={12} activeOpacity={0.75}>
             <RNText style={styles.cancelText}>{t('account.contactModal.cancel')}</RNText>
           </TouchableOpacity>
         </View>

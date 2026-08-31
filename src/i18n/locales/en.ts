@@ -351,8 +351,7 @@ export default {
       "send": "Send",
       "cancel": "Cancel",
       "messageRequired": "Please write a message before sending.",
-      "sendSuccess": "Message sent. We'll get back to you soon.",
-      "sendError": "Could not send the message. Please try again."
+      "sendNotAvailable": "Message sending will be available soon."
     },
     "terms": "Terms & conditions",
     "privacy": "Privacy policy",
