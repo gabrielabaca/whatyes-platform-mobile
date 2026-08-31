@@ -52,6 +52,24 @@ export interface MediaPickerCallbacks {
   onError?: (message: string) => void;
 }
 
+/**
+ * iOS Photos can return HEIC with mediaType 'photo' and quality 1 / mode 'auto'.
+ * quality + max size + 'compatible' transcodes to JPEG before upload.
+ */
+const STILL_PHOTO_DEFAULTS: Partial<ImageLibraryOptions & CameraOptions> = {
+  quality: 0.9,
+  maxWidth: 2048,
+  maxHeight: 2048,
+  assetRepresentationMode: 'compatible',
+};
+
+function withStillPhotoDefaults<T extends ImageLibraryOptions | CameraOptions>(options: T): T {
+  if (options.mediaType === 'video') {
+    return options;
+  }
+  return { ...STILL_PHOTO_DEFAULTS, ...options } as T;
+}
+
 function finishPicker(
   response: ImagePickerResponse,
   onResult: (response: ImagePickerResponse) => void,
@@ -74,7 +92,9 @@ export function launchPhotoLibraryNow(
   onResult: (response: ImagePickerResponse) => void,
   callbacks?: MediaPickerCallbacks,
 ): void {
-  launchImageLibrary(options, (response) => finishPicker(response, onResult, callbacks));
+  launchImageLibrary(withStillPhotoDefaults(options), (response) =>
+    finishPicker(response, onResult, callbacks)
+  );
 }
 
 /** Lanza la cámara del sistema de inmediato (usar tras cerrar modales). */
@@ -83,7 +103,9 @@ export function launchPhotoCameraNow(
   onResult: (response: ImagePickerResponse) => void,
   callbacks?: MediaPickerCallbacks,
 ): void {
-  launchCamera(options, (response) => finishPicker(response, onResult, callbacks));
+  launchCamera(withStillPhotoDefaults(options), (response) =>
+    finishPicker(response, onResult, callbacks)
+  );
 }
 
 /** Galería de video (no altera los pickers de foto). */

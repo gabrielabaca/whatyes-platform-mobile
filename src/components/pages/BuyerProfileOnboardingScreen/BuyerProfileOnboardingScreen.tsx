@@ -15,8 +15,8 @@ import { KeyboardDismissScrollView } from '../../atoms/KeyboardDismissScrollView
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { ArrowLeft, UserRound } from 'lucide-react-native';
-import { launchImageLibrary } from 'react-native-image-picker';
 import { Text } from '../../atoms/Text';
+import { launchPhotoLibraryNow } from '../../../utils/mediaPicker';
 import { Button } from '../../atoms/Button';
 import { FONT_FAMILY } from '../../../theme/typography';
 import { useTheme } from '../../../context/ThemeContext';
@@ -57,7 +57,7 @@ export const BuyerProfileOnboardingScreen: React.FC<BuyerProfileOnboardingScreen
   const [busy, setBusy] = useState(false);
 
   const pickImage = () => {
-    launchImageLibrary({ mediaType: 'photo' }, (response) => {
+    launchPhotoLibraryNow({ mediaType: 'photo' }, (response) => {
       if (response.didCancel || response.errorMessage) {
         return;
       }
