@@ -3,13 +3,14 @@
  * Pantalla para ingresar el código de verificación recibido por correo
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   View,
   KeyboardAvoidingView,
   Platform,
   TouchableOpacity,
+  type TextInput as RNTextInput,
 } from 'react-native';
 import { AppTextInput } from '../../atoms/AppTextInput';
 import { KeyboardDismissScrollView } from '../../atoms/KeyboardDismissScrollView';
@@ -24,6 +25,10 @@ import type { VerifyUserResponse } from '../../../api/types';
 import { storage } from '../../../utils/storage';
 import { FONT_FAMILY } from '../../../theme/typography';
 import { appAlert } from '../../../alerts';
+
+/** Mismo cooldown de reenvío que ChangePasswordModal (no los 40 s del Figma: ese
+ *  contador pertenece al flujo por enlace que no existe; ver ForgotPasswordScreen). */
+const RESEND_COOLDOWN_SEC = 60;
 
 export type VerificationOrigin = 'register' | 'forgotPassword';
 
@@ -63,8 +68,21 @@ export const VerificationCodeScreen: React.FC<VerificationCodeScreenProps> = ({
   const [code, setCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isResending, setIsResending] = useState(false);
+  /** Arranca corriendo: al montar, quien navegó acá acaba de mandar un código. */
+  const [resendSecondsLeft, setResendSecondsLeft] = useState(RESEND_COOLDOWN_SEC);
+  const codeInputRef = useRef<RNTextInput>(null);
   const codeDigits = code.slice(0, otpLength).split('');
   const activeIndex = Math.min(codeDigits.length, otpLength - 1);
+
+  useEffect(() => {
+    if (resendSecondsLeft <= 0) {
+      return;
+    }
+    const id = setInterval(() => {
+      setResendSecondsLeft((s) => (s <= 1 ? 0 : s - 1));
+    }, 1000);
+    return () => clearInterval(id);
+  }, [resendSecondsLeft]);
 
   const handleVerify = async () => {
     if (!code || code.trim().length !== otpLength) {
@@ -130,6 +148,9 @@ export const VerificationCodeScreen: React.FC<VerificationCodeScreenProps> = ({
   };
 
   const handleResendCode = async () => {
+    if (resendSecondsLeft > 0 || isResending) {
+      return;
+    }
     setIsResending(true);
     try {
       if (origin === 'forgotPassword') {
@@ -139,6 +160,7 @@ export const VerificationCodeScreen: React.FC<VerificationCodeScreenProps> = ({
       }
       appAlert(t('verification.resendTitle'), t('verification.resendBody'));
       setCode('');
+      setResendSecondsLeft(RESEND_COOLDOWN_SEC);
     } catch (error) {
       if (error instanceof ApiError) {
         appAlert(t('common.error'), error.message);
@@ -173,7 +195,10 @@ export const VerificationCodeScreen: React.FC<VerificationCodeScreenProps> = ({
             </Text>
 
             <View className="items-center mb-10">
+              {/* El input real es este (oculto): los slots de abajo son solo el dibujo.
+                  Por eso el lector de pantalla interactúa acá y no con los slots. */}
               <AppTextInput
+                ref={codeInputRef}
                 value={code}
                 onChangeText={(value) => setCode(value.replace(/[^0-9]/g, '').slice(0, otpLength))}
                 keyboardType="number-pad"
@@ -181,10 +206,13 @@ export const VerificationCodeScreen: React.FC<VerificationCodeScreenProps> = ({
                 autoFocus
                 textContentType="oneTimeCode"
                 autoComplete="one-time-code"
+                accessibilityLabel={t('verification.codeInputLabel')}
                 style={{ position: 'absolute', opacity: 0, width: 1, height: 1, fontFamily: FONT_FAMILY.regular }}
               />
 
               <View
+                accessible={false}
+                importantForAccessibility="no-hide-descendants"
                 className={`flex-row items-center justify-center flex-wrap ${origin === 'forgotPassword' ? 'gap-2' : 'gap-[18px]'}`}
               >
                 {Array.from({ length: otpLength }, (_, index) => index).map((index) => {
@@ -196,7 +224,7 @@ export const VerificationCodeScreen: React.FC<VerificationCodeScreenProps> = ({
                     <TouchableOpacity
                       key={index}
                       activeOpacity={1}
-                      onPress={() => {}}
+                      onPress={() => codeInputRef.current?.focus()}
                       className={`${slotSize} rounded-full items-center justify-center border`}
                       style={{ borderColor: isActive ? c.borderFocus : c.border }}
                     >
@@ -227,13 +255,19 @@ export const VerificationCodeScreen: React.FC<VerificationCodeScreenProps> = ({
             <View className="items-center mt-4">
               <Text className="text-[#4C4E55] dark:text-night-muted text-[12px]">
                 {t('verification.noReceivedPrompt')}{' '}
-                <Text
-                  className="text-primary-600 text-[12px] font-bold"
-                  accessibilityRole="link"
-                  onPress={isResending ? undefined : () => void handleResendCode()}
-                >
-                  {isResending ? t('verification.resending') : t('verification.resend')}
-                </Text>
+                {resendSecondsLeft > 0 ? (
+                  <Text className="text-[#7D7E83] dark:text-night-muted text-[12px] font-bold">
+                    {t('verification.resendIn', { seconds: resendSecondsLeft })}
+                  </Text>
+                ) : (
+                  <Text
+                    className="text-primary-600 text-[12px] font-bold"
+                    accessibilityRole="link"
+                    onPress={isResending ? undefined : () => void handleResendCode()}
+                  >
+                    {isResending ? t('verification.resending') : t('verification.resend')}
+                  </Text>
+                )}
               </Text>
             </View>
           </View>

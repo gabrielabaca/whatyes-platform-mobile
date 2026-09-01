@@ -171,6 +171,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                     onPress={() => setShowPassword(!showPassword)}
                     className="absolute right-4 top-0 bottom-0 justify-center"
                     disabled={isLoading}
+                    accessibilityRole="button"
+                    accessibilityLabel={showPassword ? t('common.hidePassword') : t('common.showPassword')}
                   >
                     {showPassword ? (
                       <EyeOff size={18} color={c.text} />
@@ -208,6 +210,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               <TouchableOpacity
                 onPress={onNavigateToForgotPassword}
                 className="items-center mt-3"
+                accessibilityRole="link"
               >
                 <Text className="text-primary-600 text-[12px] font-bold">{t('login.forgotPassword')}</Text>
               </TouchableOpacity>
@@ -224,6 +227,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 onPress={() => handleSocial('google')}
                 disabled={isLoading}
                 activeOpacity={0.8}
+                accessibilityRole="button"
                 className="border border-[#02050F] dark:border-white rounded-full min-h-[52px] px-6 flex-row items-center justify-center"
               >
                 <View className="w-6 h-6 mr-2 items-center justify-center">
@@ -236,6 +240,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                   onPress={() => handleSocial('apple')}
                   disabled={isLoading}
                   activeOpacity={0.8}
+                  accessibilityRole="button"
                   className="border border-[#02050F] dark:border-white rounded-full min-h-[52px] px-6 flex-row items-center justify-center"
                 >
                   <View className="w-6 h-6 mr-2 items-center justify-center">
@@ -249,7 +254,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
             <View className="mt-12 items-center">
               <Text className="text-[#4C4E55] dark:text-night-muted text-[12px]">
                 {t('login.noAccount')}{' '}
-                <Text className="text-primary-600 text-[12px] font-bold" onPress={onNavigateToRegister}>
+                <Text
+                  className="text-primary-600 text-[12px] font-bold"
+                  accessibilityRole="link"
+                  onPress={onNavigateToRegister}
+                >
                   {t('login.register')}
                 </Text>
               </Text>

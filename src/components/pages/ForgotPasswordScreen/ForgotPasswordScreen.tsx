@@ -185,8 +185,9 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
                 40s", link final "Cancelar" sin paso de código). El backend real
                 (authApi.resetPassword) exige `hash_code`, así que el flujo intercala la
                 pantalla de verificación con un código de 4 dígitos. Acá se sigue el
-                Figma en títulos, labels y botones, pero el copy habla de código, el
-                reenvío vive en VerificationCodeScreen y no hay contador de 40 s.
+                Figma en títulos, labels y botones, pero el copy habla de código y el
+                reenvío vive en VerificationCodeScreen, con el cooldown de 60 s de
+                ChangePasswordModal (no los 40 s del enlace dibujado).
                 No "corregirlo" hacia el enlace sin un cambio de backend. */}
             <AuthHeader
               title={
@@ -301,6 +302,8 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
                       onPress={() => setShowNewPassword(!showNewPassword)}
                       className="absolute right-4 top-0 bottom-0 justify-center"
                       disabled={isLoading}
+                      accessibilityRole="button"
+                      accessibilityLabel={showNewPassword ? t('common.hidePassword') : t('common.showPassword')}
                     >
                       {showNewPassword ? (
                         <EyeOff size={18} color={c.text} />
@@ -338,6 +341,8 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
                       onPress={() => setShowConfirmPassword(!showConfirmPassword)}
                       className="absolute right-4 top-0 bottom-0 justify-center"
                       disabled={isLoading}
+                      accessibilityRole="button"
+                      accessibilityLabel={showConfirmPassword ? t('common.hidePassword') : t('common.showPassword')}
                     >
                       {showConfirmPassword ? (
                         <EyeOff size={18} color={c.text} />

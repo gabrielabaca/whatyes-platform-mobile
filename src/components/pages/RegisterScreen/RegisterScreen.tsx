@@ -470,6 +470,13 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                 <TouchableOpacity
                   activeOpacity={0.9}
                   disabled={isLoading}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('register.buyerBirthday')}
+                  accessibilityValue={{
+                    text: birthdayDate
+                      ? formatBirthdayDisplay(birthdayDate)
+                      : t('register.birthdayPlaceholder'),
+                  }}
                   onPress={() => {
                     setBuyerFocus('birthday');
                     setShowBirthdayPicker(true);
@@ -554,6 +561,8 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                     onPress={() => setShowBuyerPw(!showBuyerPw)}
                     className="absolute right-4 top-0 bottom-0 justify-center"
                     disabled={isLoading}
+                    accessibilityRole="button"
+                    accessibilityLabel={showBuyerPw ? t('common.hidePassword') : t('common.showPassword')}
                   >
                     {showBuyerPw ? (
                       <EyeOff size={18} color={c.text} />
@@ -600,6 +609,8 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                     onPress={() => setShowBuyerPw2(!showBuyerPw2)}
                     className="absolute right-4 top-0 bottom-0 justify-center"
                     disabled={isLoading}
+                    accessibilityRole="button"
+                    accessibilityLabel={showBuyerPw2 ? t('common.hidePassword') : t('common.showPassword')}
                   >
                     {showBuyerPw2 ? (
                       <EyeOff size={18} color={c.text} />
