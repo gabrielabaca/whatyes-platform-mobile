@@ -418,6 +418,9 @@ export const StreamAddCardDrawer: React.FC<StreamAddCardDrawerProps> = ({
         style={styles.termsRow}
         onPress={() => setTermsAccepted((v) => !v)}
         activeOpacity={0.8}
+        accessibilityRole="checkbox"
+        accessibilityLabel={t('stream.wallet.termsText')}
+        accessibilityState={{ checked: termsAccepted }}
       >
         <View style={[styles.checkbox, termsAccepted && styles.checkboxOn]}>
           {termsAccepted ? <Check size={12} color={themeColors.glass.text} /> : null}
