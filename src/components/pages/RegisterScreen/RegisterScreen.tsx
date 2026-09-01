@@ -76,8 +76,9 @@ function isAdult(birthDate: Date): boolean {
 
 /**
  * Valor inicial del picker (no del campo): el campo arranca vacío con placeholder
- * DD/MM/AAAA (Figma 1109:2802); esta fecha solo evita que el picker abra en hoy,
- * que con el mínimo de 18 años obligaría a scrollear dos décadas.
+ * DD/MM/AAAA (Figma 1109:2802). Esta fecha solo evita que el picker abra en hoy —
+ * el registro exige 18+, así que casi cualquier cumpleaños real queda a décadas
+ * de scroll. La validación de edad sigue en `isAdult`, no acá.
  */
 const DEFAULT_BIRTHDAY = new Date(1999, 2, 16);
 
@@ -505,7 +506,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                   visible={showBirthdayPicker}
                   title={t('register.buyerBirthday')}
                   mode="date"
-                  value={birthdayDate ?? DEFAULT_BIRTHDAY}
+                  value={birthdayDate ?? new Date(DEFAULT_BIRTHDAY)}
                   onChange={(d) => {
                     setBirthdayDate(d);
                     if (buyerBirthdayError) setBuyerBirthdayError(null);

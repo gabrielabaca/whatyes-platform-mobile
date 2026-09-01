@@ -98,7 +98,7 @@ export const BuyerProfileOnboardingScreen: React.FC<BuyerProfileOnboardingScreen
           <View className="flex-1 px-6 pt-4 pb-8">
             <AuthHeader title={t('buyerOnboarding.profileTitle')} onBack={onBack} className="mb-8" />
 
-            <Text className="text-center text-[#4C4E55] text-[14px] leading-[22px] mb-8">
+            <Text className="text-center text-[#4C4E55] dark:text-night-muted text-[14px] leading-[22px] mb-8">
               {t('buyerOnboarding.profileSubtitle')}
             </Text>
 
