@@ -18,6 +18,7 @@ import {
 } from '../profile/GlassFullScreenModal';
 import { GlassModalHeader } from '../profile/GlassModalHeader';
 import { AppOptionPickerSheet } from '../../molecules/AppOptionPickerSheet';
+import { IconAddLocation } from '../../icons';
 import { FONT_FAMILY } from '../../../theme/typography';
 import { themeColors } from '../../../theme/colors';
 import { COUNTRIES } from '../../molecules/CountrySelect/CountrySelect';
@@ -280,8 +281,12 @@ export const ShippingAddressModal: React.FC<ShippingAddressModalProps> = ({
           activeOpacity={0.75}
           style={styles.locationLinkWrap}
           disabled={detectingLocation}
+          accessibilityRole="button"
+          accessibilityLabel={t('account.shippingAddress.useLocation')}
+          accessibilityState={{ disabled: detectingLocation, busy: detectingLocation }}
         >
           <View style={styles.locationLinkRow}>
+            <IconAddLocation size={20} color={themeColors.gold} />
             <RNText style={styles.locationLink}>
               {detectingLocation
                 ? t('account.shippingAddress.locationDetecting')
@@ -301,6 +306,7 @@ export const ShippingAddressModal: React.FC<ShippingAddressModalProps> = ({
               label={t('account.shippingAddress.fullName')}
               value={fullName}
               onChangeText={setFullName}
+              placeholder={t('account.shippingAddress.fullNamePlaceholder')}
             />
             <SelectField
               label={t('account.shippingAddress.country')}
@@ -312,7 +318,15 @@ export const ShippingAddressModal: React.FC<ShippingAddressModalProps> = ({
               label={t('account.shippingAddress.address')}
               value={addressLine1}
               onChangeText={setAddressLine1}
+              placeholder={t('account.shippingAddress.addressPlaceholder')}
             />
+            {/*
+              Ciudad y Estado quedan como texto libre aunque el Figma (1210-3155/3163) los
+              dibuja como listas cerradas: no existe catálogo de ciudades/provincias en
+              ningún servicio, y el camino definido (2026-09-01) es autocompletado de
+              dirección completa con Geoapify en service_delivery — Tanda Direcciones.
+              No convertirlos en selects.
+            */}
             <FormField
               label={t('account.shippingAddress.city')}
               value={city}
@@ -330,6 +344,7 @@ export const ShippingAddressModal: React.FC<ShippingAddressModalProps> = ({
               value={postalCode}
               onChangeText={setPostalCode}
               keyboardType="default"
+              placeholder={t('account.shippingAddress.postalCodePlaceholder')}
             />
 
             <TouchableOpacity

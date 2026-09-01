@@ -25,5 +25,7 @@ export {
   IconHelpCircle,
   IconLogOut,
   IconVideo,
+  IconAddLocation,
+  IconAddAPhoto,
   type SvgIconProps,
 } from './Icons';

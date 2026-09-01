@@ -41,7 +41,7 @@ function cardTokenWarning(card: SavedCard): { expired: boolean; days: number } |
   return undefined;
 }
 
-function cardBrandLabel(paymentMethodId: string): string {
+export function cardBrandLabel(paymentMethodId: string): string {
   const id = paymentMethodId.toLowerCase();
   if (id.includes('visa')) return 'Visa';
   if (id.includes('master')) return 'Mastercard';

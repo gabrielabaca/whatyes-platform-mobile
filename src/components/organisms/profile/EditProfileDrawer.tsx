@@ -19,10 +19,9 @@ import {
 } from './GlassFullScreenModal';
 import { GlassModalHeader } from './GlassModalHeader';
 import { useTranslation } from 'react-i18next';
-import { Camera } from 'lucide-react-native';
 import { launchPhotoLibraryNow } from '../../../utils/mediaPicker';
 import { deferMediaPicker } from '../../../utils/deferMediaPicker';
-import { IconUser } from '../../icons';
+import { IconAddAPhoto, IconUser } from '../../icons';
 import { FONT_FAMILY } from '../../../theme/typography';
 import { themeColors } from '../../../theme/colors';
 import { updateOwnProfile, uploadOwnAvatar, uploadOwnCover, type UserPublicProfile } from '../../../api/profileApi';
@@ -175,32 +174,40 @@ export const EditProfileDrawer: React.FC<EditProfileDrawerProps> = ({
                 <View style={[styles.coverImage, styles.coverFallback]} />
               )}
               <CoverGradient />
-              <TouchableOpacity
-                style={styles.coverCameraBtn}
-                onPress={pickCover}
-                disabled={saving}
-                accessibilityRole="button"
-                accessibilityLabel={t('profile.editCoverA11y')}
-              >
-                <Camera size={22} color={themeColors.glass.text} strokeWidth={2} />
-              </TouchableOpacity>
               <View style={[styles.coverInner, styles.coverInnerPadBottom]}>
+                {/* Dos disparadores (Figma 1195-1586): badge add_a_photo pisando el avatar
+                   (1121-10840) para la foto de perfil, y el botón de 40 a la derecha de la
+                   fila (1121-10376) para la portada. */}
                 <View style={styles.avatarRow}>
-                  {avatarUri ? (
-                    <Image source={{ uri: avatarUri }} style={styles.avatar} />
-                  ) : (
-                    <View style={styles.avatarFallback}>
-                      <IconUser size={28} color="#02050F" strokeWidth={2} />
-                    </View>
-                  )}
+                  <View style={styles.avatarWrap}>
+                    {avatarUri ? (
+                      <Image source={{ uri: avatarUri }} style={styles.avatar} />
+                    ) : (
+                      <View style={styles.avatarFallback}>
+                        <IconUser size={28} color="#02050F" strokeWidth={2} />
+                      </View>
+                    )}
+                    <TouchableOpacity
+                      style={styles.avatarBadge}
+                      onPress={pickAvatar}
+                      disabled={saving}
+                      hitSlop={12}
+                      accessibilityRole="button"
+                      accessibilityLabel={t('profile.editAvatarA11y')}
+                      accessibilityState={{ disabled: saving }}
+                    >
+                      <IconAddAPhoto size={24} color={themeColors.glass.text} />
+                    </TouchableOpacity>
+                  </View>
                   <TouchableOpacity
-                    style={styles.cameraBtn}
-                    onPress={pickAvatar}
+                    style={styles.coverPhotoBtn}
+                    onPress={pickCover}
                     disabled={saving}
                     accessibilityRole="button"
-                    accessibilityLabel={t('profile.editAvatarA11y')}
+                    accessibilityLabel={t('profile.editCoverA11y')}
+                    accessibilityState={{ disabled: saving }}
                   >
-                    <Camera size={22} color={themeColors.glass.text} strokeWidth={2} />
+                    <IconAddAPhoto size={24} color={themeColors.glass.text} />
                   </TouchableOpacity>
                 </View>
               </View>
@@ -325,25 +332,29 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  cameraBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    alignItems: 'center',
-    justifyContent: 'center',
+  avatarWrap: {
+    width: 56,
+    height: 56,
   },
-  coverCameraBtn: {
+  avatarBadge: {
     position: 'absolute',
-    top: 12,
-    right: 12,
+    right: -4,
+    bottom: -4,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(217,217,217,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  coverPhotoBtn: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(0,0,0,0.55)',
+    backgroundColor: 'rgba(217,217,217,0.2)',
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 3,
   },
   form: {
     flex: 1,

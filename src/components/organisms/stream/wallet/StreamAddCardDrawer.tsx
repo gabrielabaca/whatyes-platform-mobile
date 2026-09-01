@@ -8,8 +8,9 @@ import {
 } from 'react-native';
 import { AppTextInput } from '../../../atoms/AppTextInput';
 import { useTranslation } from 'react-i18next';
-import { Check } from 'lucide-react-native';
+import { Check, Eye, EyeOff } from 'lucide-react-native';
 import { StreamBottomSheet, streamSheetStyles } from '../StreamBottomSheet';
+import { cardBrandLabel } from './StreamPaymentMethodsDrawer';
 import { CountrySelect } from '../../../molecules/CountrySelect/CountrySelect';
 import { FONT_FAMILY } from '../../../../theme/typography';
 import { themeColors } from '../../../../theme/colors';
@@ -78,6 +79,8 @@ export const StreamAddCardDrawer: React.FC<StreamAddCardDrawerProps> = ({
   const [postalCode, setPostalCode] = useState('');
   const [country, setCountry] = useState('Argentina');
   const [termsAccepted, setTermsAccepted] = useState(false);
+  const [cvcVisible, setCvcVisible] = useState(false);
+  const [detectedBrand, setDetectedBrand] = useState<string | null>(null);
 
   useEffect(() => {
     if (!visible) {
@@ -90,6 +93,8 @@ export const StreamAddCardDrawer: React.FC<StreamAddCardDrawerProps> = ({
       setCardCvc('');
       setPostalCode('');
       setTermsAccepted(false);
+      setCvcVisible(false);
+      setDetectedBrand(null);
       return;
     }
     let cancelled = false;
@@ -117,6 +122,32 @@ export const StreamAddCardDrawer: React.FC<StreamAddCardDrawerProps> = ({
       cancelled = true;
     };
   }, [visible, onClose, t]);
+
+  /**
+   * Marca en vivo dentro del input del número (Figma 1196-10085). Se consulta una vez
+   * por BIN (6 dígitos): la misma API que valida al enviar, sin repetir por tecla.
+   */
+  const bin = cardNumber.replace(/\D/g, '').slice(0, 6);
+  useEffect(() => {
+    if (!publicKey || bin.length < 6) {
+      setDetectedBrand(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const method = await detectPaymentMethod(publicKey, bin);
+        if (!cancelled) {
+          setDetectedBrand(method ? cardBrandLabel(method.id) : null);
+        }
+      } catch {
+        if (!cancelled) setDetectedBrand(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [publicKey, bin]);
 
   /** Códigos de `cause` de la API de tokenización → mensaje accionable. */
   const mpCauseMessage = useCallback(
@@ -292,46 +323,67 @@ export const StreamAddCardDrawer: React.FC<StreamAddCardDrawerProps> = ({
       </Field>
 
       <Field label={t('stream.wallet.cardNumberLabel')}>
+        <View style={styles.inputRow}>
+          <AppTextInput
+            style={styles.inputBare}
+            value={cardNumber}
+            onChangeText={(v) => setCardNumber(formatCardNumber(v))}
+            keyboardType="number-pad"
+            autoComplete="cc-number"
+            maxLength={23}
+            placeholderTextColor={themeColors.glass.placeholder}
+            placeholder={t('stream.wallet.cardNumberPlaceholder')}
+          />
+          {/* El Figma pone el isologo de la marca (148-1738); el proyecto no tiene esos
+             assets y no se descargan de terceros: se muestra la marca como texto. */}
+          {detectedBrand ? (
+            <View style={styles.brandBadge}>
+              <RNText style={styles.brandBadgeText}>{detectedBrand}</RNText>
+            </View>
+          ) : null}
+        </View>
+      </Field>
+
+      <Field label={t('stream.wallet.cardExpiryLabel')}>
         <AppTextInput
           style={styles.input}
-          value={cardNumber}
-          onChangeText={(v) => setCardNumber(formatCardNumber(v))}
+          value={cardExpiry}
+          onChangeText={(v) => setCardExpiry(formatExpiry(v))}
           keyboardType="number-pad"
-          autoComplete="cc-number"
-          maxLength={23}
+          maxLength={5}
           placeholderTextColor={themeColors.glass.placeholder}
-          placeholder={t('stream.wallet.cardNumberPlaceholder')}
+          placeholder="00/00"
         />
       </Field>
 
-      <View style={styles.inlineRow}>
-        <View style={styles.inlineField}>
-          <Field label={t('stream.wallet.cardExpiryLabel')}>
-            <AppTextInput
-              style={styles.input}
-              value={cardExpiry}
-              onChangeText={(v) => setCardExpiry(formatExpiry(v))}
-              keyboardType="number-pad"
-              maxLength={5}
-              placeholderTextColor={themeColors.glass.placeholder}
-              placeholder="MM/AA"
-            />
-          </Field>
+      <Field label={t('stream.wallet.cardCvcLabel')}>
+        <View style={styles.inputRow}>
+          <AppTextInput
+            style={styles.inputBare}
+            value={cardCvc}
+            onChangeText={(v) => setCardCvc(v.replace(/\D/g, '').slice(0, 4))}
+            keyboardType="number-pad"
+            maxLength={4}
+            secureTextEntry={!cvcVisible}
+            placeholderTextColor={themeColors.glass.placeholder}
+            placeholder="000"
+          />
+          <TouchableOpacity
+            onPress={() => setCvcVisible((v) => !v)}
+            hitSlop={12}
+            accessibilityRole="button"
+            accessibilityLabel={t(
+              cvcVisible ? 'stream.wallet.cardCvcHideA11y' : 'stream.wallet.cardCvcShowA11y'
+            )}
+          >
+            {cvcVisible ? (
+              <Eye size={18} color={themeColors.glass.text} strokeWidth={2} />
+            ) : (
+              <EyeOff size={18} color={themeColors.glass.text} strokeWidth={2} />
+            )}
+          </TouchableOpacity>
         </View>
-        <View style={styles.inlineField}>
-          <Field label={t('stream.wallet.cardCvcLabel')}>
-            <AppTextInput
-              style={styles.input}
-              value={cardCvc}
-              onChangeText={(v) => setCardCvc(v.replace(/\D/g, '').slice(0, 4))}
-              keyboardType="number-pad"
-              maxLength={4}
-              placeholderTextColor={themeColors.glass.placeholder}
-              placeholder="CVC"
-            />
-          </Field>
-        </View>
-      </View>
+      </Field>
 
       <RNText style={streamSheetStyles.sectionLabel}>
         {t('stream.wallet.billingSection')}
@@ -358,6 +410,7 @@ export const StreamAddCardDrawer: React.FC<StreamAddCardDrawerProps> = ({
           onChangeText={setPostalCode}
           keyboardType="number-pad"
           placeholderTextColor={themeColors.glass.placeholder}
+          placeholder="000000"
         />
       </Field>
 
@@ -407,12 +460,37 @@ const styles = StyleSheet.create({
     color: themeColors.glass.text,
     backgroundColor: themeColors.glass.inputBg,
   },
-  inlineRow: {
+  inputRow: {
     flexDirection: 'row',
-    gap: 12,
+    alignItems: 'center',
+    gap: 10,
+    borderWidth: 1,
+    borderColor: themeColors.glass.border,
+    borderRadius: 1000,
+    paddingHorizontal: 16,
+    backgroundColor: themeColors.glass.inputBg,
   },
-  inlineField: {
+  inputBare: {
     flex: 1,
+    paddingVertical: 14,
+    fontFamily: FONT_FAMILY.bold,
+    fontSize: 12,
+    color: themeColors.glass.text,
+  },
+  brandBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    backgroundColor: themeColors.glass.inputBg,
+    borderWidth: 1,
+    borderColor: themeColors.glass.border,
+  },
+  brandBadgeText: {
+    fontFamily: FONT_FAMILY.bold,
+    fontSize: 10,
+    lineHeight: 14,
+    color: themeColors.glass.text,
+    includeFontPadding: false,
   },
   termsRow: {
     flexDirection: 'row',
