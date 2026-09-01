@@ -754,7 +754,7 @@
       "countryLabel": "País",
       "postalLabel": "Código Postal",
       "termsText": "Al agregar tu tarjeta como método de pago, aceptas los términos y políticas de PulpoLive para cargar futuras compras en esta tarjeta.",
-      "addCardSubmit": "Agregar",
+      "addCardSubmit": "Guardar",
       "successTitle": "¡Listo!",
       "successMessage": "Tu método de pago quedó configurado correctamente.",
       "successCardMessage": "Tu tarjeta se guardó correctamente.",

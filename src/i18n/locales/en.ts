@@ -755,7 +755,7 @@ export default {
       "countryLabel": "Country",
       "postalLabel": "Postal Code",
       "termsText": "By adding your card as a payment method, you agree to PulpoLive terms and policies for future charges on this card.",
-      "addCardSubmit": "Add",
+      "addCardSubmit": "Save",
       "successTitle": "All set!",
       "successMessage": "Your payment method was configured successfully.",
       "successCardMessage": "Your card was saved successfully.",
