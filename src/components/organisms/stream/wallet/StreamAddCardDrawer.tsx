@@ -5,6 +5,7 @@ import {
   TouchableOpacity,
   Text as RNText,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { AppTextInput } from '../../../atoms/AppTextInput';
 import { useTranslation } from 'react-i18next';
@@ -80,7 +81,11 @@ export const StreamAddCardDrawer: React.FC<StreamAddCardDrawerProps> = ({
   const [country, setCountry] = useState('Argentina');
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [cvcVisible, setCvcVisible] = useState(false);
-  const [detectedBrand, setDetectedBrand] = useState<string | null>(null);
+  const [detectedBrand, setDetectedBrand] = useState<{
+    label: string;
+    logoUrl: string | null;
+  } | null>(null);
+  const [brandLogoFailed, setBrandLogoFailed] = useState(false);
 
   useEffect(() => {
     if (!visible) {
@@ -129,6 +134,7 @@ export const StreamAddCardDrawer: React.FC<StreamAddCardDrawerProps> = ({
    */
   const bin = cardNumber.replace(/\D/g, '').slice(0, 6);
   useEffect(() => {
+    setBrandLogoFailed(false);
     if (!publicKey || bin.length < 6) {
       setDetectedBrand(null);
       return;
@@ -138,7 +144,11 @@ export const StreamAddCardDrawer: React.FC<StreamAddCardDrawerProps> = ({
       try {
         const method = await detectPaymentMethod(publicKey, bin);
         if (!cancelled) {
-          setDetectedBrand(method ? cardBrandLabel(method.id) : null);
+          setDetectedBrand(
+            method
+              ? { label: cardBrandLabel(method.id), logoUrl: method.secureThumbnail }
+              : null
+          );
         }
       } catch {
         if (!cancelled) setDetectedBrand(null);
@@ -334,12 +344,28 @@ export const StreamAddCardDrawer: React.FC<StreamAddCardDrawerProps> = ({
             placeholderTextColor={themeColors.glass.placeholder}
             placeholder={t('stream.wallet.cardNumberPlaceholder')}
           />
-          {/* El Figma pone el isologo de la marca (148-1738); el proyecto no tiene esos
-             assets y no se descargan de terceros: se muestra la marca como texto. */}
+          {/* Isologo oficial de MP (secure_thumbnail del response de cuotas) sobre
+             pastilla blanca: varios logos son oscuros y desaparecerían sobre el glass.
+             Si MP no manda logo o la imagen falla, la marca se muestra como texto. */}
           {detectedBrand ? (
-            <View style={styles.brandBadge}>
-              <RNText style={styles.brandBadgeText}>{detectedBrand}</RNText>
-            </View>
+            detectedBrand.logoUrl && !brandLogoFailed ? (
+              <View
+                style={styles.brandLogoPill}
+                accessible
+                accessibilityLabel={detectedBrand.label}
+              >
+                <Image
+                  source={{ uri: detectedBrand.logoUrl }}
+                  style={styles.brandLogo}
+                  resizeMode="contain"
+                  onError={() => setBrandLogoFailed(true)}
+                />
+              </View>
+            ) : (
+              <View style={styles.brandBadge}>
+                <RNText style={styles.brandBadgeText}>{detectedBrand.label}</RNText>
+              </View>
+            )
           ) : null}
         </View>
       </Field>
@@ -479,6 +505,19 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.bold,
     fontSize: 12,
     color: themeColors.glass.text,
+  },
+  brandLogoPill: {
+    width: 34,
+    height: 24,
+    borderRadius: 4,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 2,
+  },
+  brandLogo: {
+    width: '100%',
+    height: '100%',
   },
   brandBadge: {
     paddingHorizontal: 8,

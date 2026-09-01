@@ -24,6 +24,8 @@ export class MpCardTokenError extends Error {
 export interface DetectedPaymentMethod {
   id: string;
   issuerId: string | null;
+  /** Isologo oficial de la marca servido por MP; null si la respuesta no lo trae. */
+  secureThumbnail: string | null;
 }
 
 export async function detectPaymentMethod(
@@ -37,13 +39,19 @@ export async function detectPaymentMethod(
   const params = `public_key=${encodeURIComponent(publicKey)}&bin=${encodeURIComponent(bin)}&amount=100`;
   const res = await fetch(`${MP_API}/v1/payment_methods/installments?${params}`);
   const data = (await res.json().catch(() => null)) as
-    | { payment_method_id?: string; issuer?: { id?: string | number } }[]
+    | {
+        payment_method_id?: string;
+        issuer?: { id?: string | number };
+        secure_thumbnail?: string;
+      }[]
     | null;
   const first = res.ok && Array.isArray(data) ? data[0] : undefined;
   if (!first?.payment_method_id) return null;
   return {
     id: String(first.payment_method_id),
     issuerId: first.issuer?.id != null ? String(first.issuer.id) : null,
+    // Solo secure_thumbnail (https): el `thumbnail` http lo bloquea ATS en iOS.
+    secureThumbnail: first.secure_thumbnail?.trim() || null,
   };
 }
 
