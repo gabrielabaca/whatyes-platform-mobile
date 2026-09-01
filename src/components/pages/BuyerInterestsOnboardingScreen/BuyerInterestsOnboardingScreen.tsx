@@ -3,16 +3,14 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { View, TouchableOpacity, ActivityIndicator, ScrollView } from 'react-native';
+import { View, ActivityIndicator, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft } from 'lucide-react-native';
 import { Text } from '../../atoms/Text';
 import { Button } from '../../atoms/Button';
+import { AuthHeader } from '../../molecules/auth';
 import { InterestCategoryGrid } from '../../organisms/home/InterestCategoryGrid';
 import { useInterestCategories } from '../../../hooks/useInterestCategories';
-import { useTheme } from '../../../context/ThemeContext';
-import { themeColors } from '../../../theme/colors';
 
 const H_PADDING = 16;
 
@@ -31,8 +29,6 @@ export const BuyerInterestsOnboardingScreen: React.FC<BuyerInterestsOnboardingSc
   onContinue,
 }) => {
   const { t } = useTranslation();
-  const { isDark } = useTheme();
-  const c = isDark ? themeColors.dark : themeColors.light;
   const { categories: items, loadOnce, isLoading, isLoaded, loadError } = useInterestCategories();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
@@ -69,23 +65,7 @@ export const BuyerInterestsOnboardingScreen: React.FC<BuyerInterestsOnboardingSc
         showsVerticalScrollIndicator={false}
       >
         <View className="flex-1 px-4 pt-4 pb-8">
-          <View className="flex-row items-center justify-between mb-8">
-            {onBack ? (
-              <TouchableOpacity
-                onPress={onBack}
-                className="w-8 h-8 items-start justify-center"
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <ArrowLeft size={22} color={c.text} />
-              </TouchableOpacity>
-            ) : (
-              <View className="w-8 h-8" />
-            )}
-            <Text className="text-[20px] font-bold text-[#02050F] dark:text-white">
-              {t('buyerOnboarding.interestsTitle')}
-            </Text>
-            <View className="w-8 h-8" />
-          </View>
+          <AuthHeader title={t('buyerOnboarding.interestsTitle')} onBack={onBack} className="mb-8" />
 
           <Text className="text-center text-[#4C4E55] dark:text-night-muted text-[14px] leading-[22px] mb-6">
             {t('buyerOnboarding.interestsSubtitle')}

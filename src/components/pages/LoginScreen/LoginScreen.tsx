@@ -8,11 +8,12 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeft, Eye, EyeOff } from 'lucide-react-native';
+import { Eye, EyeOff } from 'lucide-react-native';
 import { Text } from '../../atoms/Text';
 import { Button } from '../../atoms/Button';
 import { AppTextInput } from '../../atoms/AppTextInput';
 import { KeyboardDismissScrollView } from '../../atoms/KeyboardDismissScrollView';
+import { AuthHeader } from '../../molecules/auth';
 import { useAuth } from '../../../hooks/useAuth';
 import { ApiError } from '../../../api';
 import type { SocialProvider } from '../../../api/types';
@@ -66,8 +67,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
     setPasswordError(null);
     setEmailError(null);
 
+    // Campos vacíos: error inline por campo (mismo patrón que validateBuyerForm en
+    // RegisterScreen). El botón queda siempre habilitado — criterio unificado de auth.
     if (!email.trim() || !password) {
-      appAlert(t('common.error'), t('login.fillAllFields'));
+      if (!email.trim()) setEmailError(t('register.fillRequired'));
+      if (!password) setPasswordError(t('register.fillRequired'));
       return;
     }
 
@@ -114,22 +118,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
           showsVerticalScrollIndicator={false}
         >
           <View className="flex-1 px-6 pt-4 pb-6">
-            <View className="flex-row items-center justify-between mt-2 mb-10">
-              {onBack ? (
-                <TouchableOpacity
-                  onPress={onBack}
-                  className="w-8 h-8 items-start justify-center"
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                  <ArrowLeft size={22} color={c.text} />
-                </TouchableOpacity>
-              ) : (
-                <View className="w-8 h-8" />
-              )}
-
-              <Text className="text-[20px] font-bold text-[#02050F] dark:text-white">{t('login.title')}</Text>
-              <View className="w-8 h-8" />
-            </View>
+            <AuthHeader title={t('login.title')} onBack={onBack} className="mt-2 mb-10" />
 
             <View className="mb-7 mt-4">
               <View className="relative">
@@ -212,7 +201,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 size="large"
                 onPress={handleLogin}
                 activeOpacity={0.9}
-                disabled={!email || !password || isLoading}
+                disabled={isLoading}
                 className="w-full rounded-full"
               />
 

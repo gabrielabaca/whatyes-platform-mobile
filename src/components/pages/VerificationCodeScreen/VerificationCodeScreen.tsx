@@ -14,7 +14,7 @@ import {
 import { AppTextInput } from '../../atoms/AppTextInput';
 import { KeyboardDismissScrollView } from '../../atoms/KeyboardDismissScrollView';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeft } from 'lucide-react-native';
+import { AuthHeader } from '../../molecules/auth';
 import { Text } from '../../atoms/Text';
 import { Button } from '../../atoms/Button';
 import { useTheme } from '../../../context/ThemeContext';
@@ -161,19 +161,7 @@ export const VerificationCodeScreen: React.FC<VerificationCodeScreenProps> = ({
           showsVerticalScrollIndicator={false}
         >
           <View className="flex-1 px-6 pt-4 pb-6">
-            <View className="flex-row items-center justify-between mt-2 mb-10">
-              <TouchableOpacity
-                onPress={onBack}
-                className="w-8 h-8 items-start justify-center"
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <ArrowLeft size={22} color={c.text} />
-              </TouchableOpacity>
-              <Text className="text-[20px] font-bold" style={{ color: c.text }}>
-                {t('verification.title')}
-              </Text>
-              <View className="w-8 h-8" />
-            </View>
+            <AuthHeader title={t('verification.title')} onBack={onBack} className="mt-2 mb-10" />
 
             <Text
               className="text-center text-[14px] leading-[22px] mb-10"
@@ -210,13 +198,15 @@ export const VerificationCodeScreen: React.FC<VerificationCodeScreenProps> = ({
                       activeOpacity={1}
                       onPress={() => {}}
                       className={`${slotSize} rounded-full items-center justify-center border`}
-                      style={{ borderColor: isActive ? '#49A9E1' : c.border }}
+                      style={{ borderColor: isActive ? c.borderFocus : c.border }}
                     >
+                      {/* Figma 1109:2183: el slot activo va vacío (solo borde resaltado);
+                          el guion bajo es para los slots que todavía no tocan. */}
                       <Text
                         className="text-[20px] font-bold"
                         style={{ color: hasValue ? c.text : c.textMuted }}
                       >
-                        {hasValue ? codeDigits[index] : '_'}
+                        {hasValue ? codeDigits[index] : isActive ? '' : '_'}
                       </Text>
                     </TouchableOpacity>
                   );
@@ -229,37 +219,23 @@ export const VerificationCodeScreen: React.FC<VerificationCodeScreenProps> = ({
               variant="primary"
               size="large"
               loading={isLoading}
-              disabled={code.length !== otpLength || isLoading}
+              disabled={isLoading}
               onPress={handleVerify}
               className="w-full min-h-[52px] rounded-full"
             />
 
-            <View className="items-center mt-3 gap-1">
+            <View className="items-center mt-4">
               <Text className="text-[#4C4E55] dark:text-night-muted text-[12px]">
-                {t('verification.noReceivedPrompt')}
+                {t('verification.noReceivedPrompt')}{' '}
+                <Text
+                  className="text-primary-600 text-[12px] font-bold"
+                  accessibilityRole="link"
+                  onPress={isResending ? undefined : () => void handleResendCode()}
+                >
+                  {isResending ? t('verification.resending') : t('verification.resend')}
+                </Text>
               </Text>
-              <Button
-                title={isResending ? t('verification.resending') : t('verification.resend')}
-                variant="ghost"
-                size="small"
-                loading={isResending}
-                disabled={isResending}
-                onPress={handleResendCode}
-                titleClassName="text-[12px] font-bold"
-                className="min-h-[36px] px-2"
-              />
             </View>
-
-            {onBack ? (
-              <Button
-                title={t('verification.back')}
-                variant="ghost"
-                size="small"
-                onPress={onBack}
-                titleClassName="text-[12px] text-[#4C4E55] dark:text-night-muted underline"
-                className="mt-6 self-center min-h-[36px] px-2"
-              />
-            ) : null}
           </View>
         </KeyboardDismissScrollView>
       </KeyboardAvoidingView>

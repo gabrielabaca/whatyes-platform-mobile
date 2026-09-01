@@ -14,7 +14,8 @@ import {
 import { AppTextInput } from '../../atoms/AppTextInput';
 import { KeyboardDismissScrollView } from '../../atoms/KeyboardDismissScrollView';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeft, Eye, EyeOff } from 'lucide-react-native';
+import { Check, Eye, EyeOff } from 'lucide-react-native';
+import { AuthHeader } from '../../molecules/auth';
 import { Text } from '../../atoms/Text';
 import { Button } from '../../atoms/Button';
 import { forgotPasswordRequest, resetPassword, ApiError } from '../../../api';
@@ -87,7 +88,15 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
     setNewPasswordError(null);
     setConfirmPasswordError(null);
 
-    if (!code || !newPassword || !confirmPassword) {
+    // Campos vacíos: error inline por campo (mismo criterio que Login y Crear Cuenta).
+    if (!newPassword || !confirmPassword) {
+      if (!newPassword) setNewPasswordError(t('register.fillRequired'));
+      if (!confirmPassword) setConfirmPasswordError(t('register.fillRequired'));
+      return;
+    }
+
+    // Sin código no hay reset posible: solo puede pasar si algo rompió el flujo del OTP.
+    if (!code) {
       appAlert(t('common.error'), t('forgotPassword.fillAll'));
       return;
     }
@@ -171,19 +180,23 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
           showsVerticalScrollIndicator={false}
         >
           <View className="flex-1 px-6 pt-4 pb-6">
-            <View className="flex-row items-center justify-between mt-2 mb-8">
-              <TouchableOpacity
-                onPress={handleBack}
-                className="w-8 h-8 items-start justify-center"
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <ArrowLeft size={22} color={c.text} />
-              </TouchableOpacity>
-              <Text className="text-[20px] font-bold text-[#02050F] dark:text-white">
-                {step === 'request' ? t('forgotPassword.titleRequest') : t('forgotPassword.titleReset')}
-              </Text>
-              <View className="w-8 h-8" />
-            </View>
+            {/* Figma 1109:2387 / 1118:4638 diseña este flujo con un ENLACE por email
+                ("Te enviaremos un enlace", "¿No recibiste el enlace? Reenviar enlace en
+                40s", link final "Cancelar" sin paso de código). El backend real
+                (authApi.resetPassword) exige `hash_code`, así que el flujo intercala la
+                pantalla de verificación con un código de 4 dígitos. Acá se sigue el
+                Figma en títulos, labels y botones, pero el copy habla de código, el
+                reenvío vive en VerificationCodeScreen y no hay contador de 40 s.
+                No "corregirlo" hacia el enlace sin un cambio de backend. */}
+            <AuthHeader
+              title={
+                step === 'request'
+                  ? t('forgotPassword.titleRequest')
+                  : t('forgotPassword.titleReset')
+              }
+              onBack={handleBack}
+              className="mt-2 mb-8"
+            />
 
             {step === 'request' && (
               <>
@@ -220,11 +233,11 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
                 </View>
 
                 <Button
-                  title={t('common.continue')}
+                  title={t('forgotPassword.requestCta')}
                   variant="primary"
                   size="large"
                   loading={isLoading}
-                  disabled={!email.trim() || isLoading}
+                  disabled={isLoading}
                   onPress={handleRequestCode}
                   activeOpacity={0.9}
                   className="w-full rounded-full"
@@ -235,7 +248,7 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
             {step === 'reset' && (
               <View className="mb-6">
                 <Text className="text-center text-[#4C4E55] dark:text-night-muted text-[14px] leading-[22px] mb-6">
-                  {t('forgotPassword.subtitleReset', { email })}
+                  {t('forgotPassword.subtitleReset')}
                 </Text>
 
                 <View className="mb-6">
@@ -264,6 +277,9 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
                   </View>
                 </View>
                 <View className="mb-6">
+                  <Text className="text-[10px] text-[#34363E] dark:text-night-muted mb-2">
+                    {t('common.password')}
+                  </Text>
                   <View className="relative">
                     <AppTextInput
                       value={newPassword}
@@ -298,7 +314,10 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
                       {newPasswordError}
                     </Text>
                   ) : null}
-                  <View className="relative mt-3">
+                  <Text className="text-[10px] text-[#34363E] dark:text-night-muted mb-2 mt-3">
+                    {t('register.confirmPassword')}
+                  </Text>
+                  <View className="relative">
                     <AppTextInput
                       value={confirmPassword}
                       onChangeText={(v) => {
@@ -332,36 +351,62 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
                       {confirmPasswordError}
                     </Text>
                   ) : null}
+
+                  <View className="flex-row gap-2 mt-3">
+                    <View className="mt-0.5">
+                      <Check size={14} color={themeColors.success} strokeWidth={3} />
+                    </View>
+                    <Text className="flex-1 text-[10px] leading-[18px] text-[#4C4E55] dark:text-night-muted tracking-[0.05px]">
+                      {t('register.passwordPolicyHint')}
+                    </Text>
+                  </View>
                 </View>
 
                 <Button
-                  title={t('common.continue')}
+                  title={t('forgotPassword.resetCta')}
                   variant="primary"
                   size="large"
                   loading={isLoading}
-                  disabled={!code || !newPassword || !confirmPassword || isLoading}
+                  disabled={isLoading}
                   onPress={handleResetPassword}
                   activeOpacity={0.9}
                   className="w-full rounded-full"
                 />
 
-                <TouchableOpacity onPress={handleRequestCode} className="items-center mt-3">
-                  <Text className="text-primary-600 text-[12px] font-bold">{t('forgotPassword.resendCode')}</Text>
-                </TouchableOpacity>
+                {/* Figma: link único "Cancelar". El reenvío del código no va acá:
+                    vive en VerificationCodeScreen, a un "volver" de distancia. */}
+                <Button
+                  title={t('common.cancel')}
+                  variant="ghost"
+                  size="medium"
+                  disabled={isLoading}
+                  onPress={onBackToLogin}
+                  titleClassName="text-[16px] font-semibold"
+                  className="mt-4 self-center"
+                />
               </View>
             )}
             
             {step === 'request' && (
-              <View className="flex-1" />
+              <>
+                <View className="flex-1" />
+                {/* El pie del Figma ("¿No recibiste el enlace? Reenviar enlace en 40s")
+                    describe el flujo por enlace que no existe; ver el comentario del
+                    header. Este pie da la salida real: volver al login. */}
+                <View className="items-center mt-6">
+                  <Text className="text-[#4C4E55] dark:text-night-muted text-[12px]">
+                    {t('forgotPassword.footerRemember')}
+                    <Text
+                      className="text-primary-600 text-[12px] font-bold"
+                      accessibilityRole="link"
+                      onPress={onBackToLogin}
+                    >
+                      {t('forgotPassword.signIn')}
+                    </Text>
+                  </Text>
+                </View>
+              </>
             )}
-            <View className="items-center mt-6">
-              <Text className="text-[#4C4E55] dark:text-night-muted text-[12px]">
-                {step === 'request' ? t('forgotPassword.footerRemember') : t('forgotPassword.footerBackLogin')}
-                <Text className="text-primary-600 text-[12px] font-bold" onPress={onBackToLogin}>
-                  {t('forgotPassword.signIn')}
-                </Text>
-              </Text>
-            </View>
           </View>
         </KeyboardDismissScrollView>
       </KeyboardAvoidingView>

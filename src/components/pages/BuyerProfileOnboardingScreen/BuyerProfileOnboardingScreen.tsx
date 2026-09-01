@@ -14,8 +14,9 @@ import { AppTextInput } from '../../atoms/AppTextInput';
 import { KeyboardDismissScrollView } from '../../atoms/KeyboardDismissScrollView';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, UserRound } from 'lucide-react-native';
+import { UserRound } from 'lucide-react-native';
 import { Text } from '../../atoms/Text';
+import { AuthHeader } from '../../molecules/auth';
 import { launchPhotoLibraryNow } from '../../../utils/mediaPicker';
 import { Button } from '../../atoms/Button';
 import { FONT_FAMILY } from '../../../theme/typography';
@@ -49,7 +50,6 @@ export const BuyerProfileOnboardingScreen: React.FC<BuyerProfileOnboardingScreen
 }) => {
   const { t } = useTranslation();
   const { isDark } = useTheme();
-  const c = isDark ? themeColors.dark : themeColors.light;
   const [name, setName] = useState(initialName ?? '');
   const [lastName, setLastName] = useState(initialLastName ?? '');
   const [photo, setPhoto] = useState<BuyerProfilePayload['photo'] | undefined>();
@@ -96,23 +96,7 @@ export const BuyerProfileOnboardingScreen: React.FC<BuyerProfileOnboardingScreen
           showsVerticalScrollIndicator={false}
         >
           <View className="flex-1 px-6 pt-4 pb-8">
-            <View className="flex-row items-center justify-between mb-8">
-              {onBack ? (
-                <TouchableOpacity
-                  onPress={onBack}
-                  className="w-8 h-8 items-start justify-center"
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                  <ArrowLeft size={22} color={c.text} />
-                </TouchableOpacity>
-              ) : (
-                <View className="w-8 h-8" />
-              )}
-              <Text className="text-[20px] font-bold text-[#02050F] dark:text-white">
-                {t('buyerOnboarding.profileTitle')}
-              </Text>
-              <View className="w-8 h-8" />
-            </View>
+            <AuthHeader title={t('buyerOnboarding.profileTitle')} onBack={onBack} className="mb-8" />
 
             <Text className="text-center text-[#4C4E55] text-[14px] leading-[22px] mb-8">
               {t('buyerOnboarding.profileSubtitle')}

@@ -16,7 +16,8 @@ import { AppTextInput } from '../../atoms/AppTextInput';
 import { KeyboardDismissScrollView } from '../../atoms/KeyboardDismissScrollView';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppDatePickerSheet } from '../../molecules/AppDatePickerSheet';
-import { ArrowLeft, CalendarDays, Check, Eye, EyeOff } from 'lucide-react-native';
+import { AuthHeader } from '../../molecules/auth';
+import { CalendarDays, Check, Eye, EyeOff } from 'lucide-react-native';
 import { Text } from '../../atoms/Text';
 import { Button } from '../../atoms/Button';
 import { VerificationCodeScreen } from '../VerificationCodeScreen';
@@ -73,6 +74,11 @@ function isAdult(birthDate: Date): boolean {
   return birthDate <= cutoff;
 }
 
+/**
+ * Valor inicial del picker (no del campo): el campo arranca vacío con placeholder
+ * DD/MM/AAAA (Figma 1109:2802); esta fecha solo evita que el picker abra en hoy,
+ * que con el mínimo de 18 años obligaría a scrollear dos décadas.
+ */
 const DEFAULT_BIRTHDAY = new Date(1999, 2, 16);
 
 interface RegisterScreenProps {
@@ -173,7 +179,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
 
   const { isDark } = useTheme();
   const c = isDark ? themeColors.dark : themeColors.light;
-  const [birthdayDate, setBirthdayDate] = useState(() => new Date(DEFAULT_BIRTHDAY));
+  const [birthdayDate, setBirthdayDate] = useState<Date | null>(null);
   const [showBirthdayPicker, setShowBirthdayPicker] = useState(false);
   const [buyerFocus, setBuyerFocus] = useState<'email' | 'birthday' | 'password' | 'confirm' | null>(null);
   const [showBuyerPw, setShowBuyerPw] = useState(false);
@@ -201,6 +207,10 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
       return false;
     }
 
+    if (!birthdayDate) {
+      setBuyerBirthdayError(t('register.fillRequired'));
+      return false;
+    }
     if (!isAdult(birthdayDate)) {
       setBuyerBirthdayError(t('register.underageError'));
       return false;
@@ -237,7 +247,8 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
   };
 
   const handleRegister = async () => {
-    if (!validateBuyerForm()) return;
+    // `!birthdayDate` repite lo que validateBuyerForm ya garantizó, solo para narrowing.
+    if (!validateBuyerForm() || !birthdayDate) return;
 
     setIsLoading(true);
     try {
@@ -393,7 +404,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
           setEmail('');
           setPassword('');
           setRepeatPassword('');
-          setBirthdayDate(new Date(DEFAULT_BIRTHDAY));
+          setBirthdayDate(null);
         }}
       />
     );
@@ -410,21 +421,11 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
           showsVerticalScrollIndicator={false}
         >
           <View className="flex-1 px-6 pt-8 pb-6">
-            <View className="flex-row items-center justify-between mb-8">
-              <TouchableOpacity
-                onPress={onBackToLogin}
-                className="w-8 h-8 items-start justify-center"
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <ArrowLeft size={22} color={c.text} />
-              </TouchableOpacity>
+            <AuthHeader title={t('register.createAccount')} onBack={onBackToLogin} className="mb-4" />
 
-              <Text className="text-center text-[#02050F] dark:text-white text-[20px] font-bold">
-                {t('register.createAccount')}
-              </Text>
-
-              <View className="w-8 h-8" />
-            </View>
+            <Text className="text-center text-[#4C4E55] dark:text-night-muted text-[14px] leading-[22px] mb-6">
+              {t('register.subtitle')}
+            </Text>
 
             <View className="mb-6 gap-3">
               <View>
@@ -481,11 +482,22 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                   }`}
                 >
                   <Text
-                    style={{ fontFamily: FONT_FAMILY.bold }}
-                    className="text-[12px] text-[#02050F] dark:text-white"
+                    style={{
+                      fontFamily: birthdayDate ? FONT_FAMILY.bold : FONT_FAMILY.regular,
+                      color: birthdayDate
+                        ? c.text
+                        : isDark
+                          ? themeColors.dark.textMuted
+                          : '#7D7E83',
+                    }}
+                    className="text-[12px]"
                   >
-                    {formatBirthdayDisplay(birthdayDate)}
+                    {birthdayDate
+                      ? formatBirthdayDisplay(birthdayDate)
+                      : t('register.birthdayPlaceholder')}
                   </Text>
+                  {/* El Figma (1109:2802) no dibuja este icono, pero el campo abre un
+                      picker y sin él parece un input de texto: se queda por affordance. */}
                   <CalendarDays size={18} color={c.text} />
                 </TouchableOpacity>
 
@@ -493,7 +505,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                   visible={showBirthdayPicker}
                   title={t('register.buyerBirthday')}
                   mode="date"
-                  value={birthdayDate}
+                  value={birthdayDate ?? DEFAULT_BIRTHDAY}
                   onChange={(d) => {
                     setBirthdayDate(d);
                     if (buyerBirthdayError) setBuyerBirthdayError(null);
@@ -611,6 +623,10 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                 </Text>
               </View>
 
+              {/* El Figma (1109:2554) no dibuja este aviso y rotula el botón "Continuar".
+                  El aviso es legal (Términos y Privacidad) y el botón dice "Aceptar y
+                  Continuar" porque es lo que ejecuta esa aceptación: van juntos y el
+                  Figma no manda sobre eso. No quitar uno sin el otro. */}
               <Text className="text-[12px] leading-5 text-[#4C4E55] dark:text-night-muted tracking-[0.06px] mt-4">
                 {t('register.termsNotice')}
               </Text>
@@ -625,18 +641,17 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                 className="mt-2 w-full min-h-[52px] rounded-full"
               />
 
-              <View className="items-center mt-6 gap-1">
+              <View className="items-center mt-6">
                 <Text className="text-[12px] text-[#4C4E55] dark:text-night-muted">
-                  {t('register.hasAccount')}
+                  {t('register.hasAccount')}{' '}
+                  <Text
+                    className="text-primary-600 text-[12px] font-bold"
+                    accessibilityRole="link"
+                    onPress={onBackToLogin}
+                  >
+                    {t('register.signIn')}
+                  </Text>
                 </Text>
-                <Button
-                  title={t('register.signIn')}
-                  variant="ghost"
-                  size="small"
-                  onPress={onBackToLogin}
-                  titleClassName="text-[12px] font-semibold"
-                  className="min-h-[36px] px-2"
-                />
               </View>
             </View>
           </View>

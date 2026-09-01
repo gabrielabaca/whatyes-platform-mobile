@@ -59,6 +59,7 @@ export default {
   },
   "register": {
     "createAccount": "Create account",
+    "subtitle": "Enter your details to start buying and selling on PulpoLive",
     "personalInfo": "Personal information",
     "clientInfo": "Client information",
     "email": "Email",
@@ -98,6 +99,7 @@ export default {
     "createFailed": "Could not create account. Please try again.",
     "emailAlreadyInUse": "This email is already in use. Sign in or use another email.",
     "buyerBirthday": "Birthday",
+    "birthdayPlaceholder": "DD/MM/YYYY",
     "passwordPolicyHint": "Password must be at least 8 characters",
     "termsNotice": "By tapping accept and continue, you agree to PulpoLive Terms of Service and acknowledge the Privacy Policy",
     "acceptContinue": "Accept and continue",
@@ -105,11 +107,13 @@ export default {
     "underageError": "You must be at least 18 years old to create an account"
   },
   "forgotPassword": {
-    "titleRequest": "Forgot password",
-    "titleReset": "Reset password",
-    "subtitleRequest": "Enter the email linked to your PulpoLive account and we will send you a link",
-    "subtitleReset": "Enter the code sent to {{email}} and your new password",
+    "titleRequest": "Recover password",
+    "titleReset": "Recover password",
+    "subtitleRequest": "Confirm the email linked to your PulpoLive account. We will send you a code to recover your password",
+    "subtitleReset": "Enter your new password",
     "emailLabel": "Email",
+    "requestCta": "Recover password",
+    "resetCta": "Update password",
     "emailPlaceholder": "example@email.com",
     "verificationCodeLabel": "Verification code",
     "newPassword": "New password",
