@@ -21,7 +21,7 @@ import { AppOptionPickerSheet } from '../../molecules/AppOptionPickerSheet';
 import { IconAddLocation } from '../../icons';
 import { FONT_FAMILY } from '../../../theme/typography';
 import { themeColors } from '../../../theme/colors';
-import { COUNTRIES } from '../../molecules/CountrySelect/CountrySelect';
+import { COUNTRIES, COUNTRY_CODES_FILTER } from '../../molecules/CountrySelect/CountrySelect';
 import { AddressAutocompleteField } from '../../molecules/AddressAutocompleteField';
 import { useAuth } from '../../../hooks/useAuth';
 import {
@@ -210,17 +210,18 @@ export const ShippingAddressModal: React.FC<ShippingAddressModalProps> = ({
   const selectedCountry = COUNTRIES.find((c) => c.name === country || c.code === country);
 
   const applySuggestion = (suggestion: AddressSuggestion) => {
+    const code = suggestion.country_code?.toUpperCase();
+    const match = code ? COUNTRIES.find((c) => c.code === code) : undefined;
+    if (!match) {
+      return;
+    }
     if (suggestion.address_line.trim() || suggestion.formatted.trim()) {
       setAddressLine1(suggestion.address_line.trim() || suggestion.formatted.trim());
     }
     if (suggestion.city.trim()) setCity(suggestion.city.trim());
     if (suggestion.state.trim()) setState(suggestion.state.trim());
     if (suggestion.postal_code.trim()) setPostalCode(suggestion.postal_code.trim());
-    const code = suggestion.country_code?.toUpperCase();
-    if (code) {
-      const match = COUNTRIES.find((c) => c.code === code);
-      if (match) setCountry(match.name);
-    }
+    setCountry(match.name);
   };
 
   return (
@@ -342,7 +343,7 @@ export const ShippingAddressModal: React.FC<ShippingAddressModalProps> = ({
               value={addressLine1}
               onChangeText={setAddressLine1}
               placeholder={t('account.shippingAddress.addressPlaceholder')}
-              countryCode={selectedCountry?.code}
+              countryCode={selectedCountry?.code ?? COUNTRY_CODES_FILTER}
               onSelectSuggestion={applySuggestion}
             />
             <FormField

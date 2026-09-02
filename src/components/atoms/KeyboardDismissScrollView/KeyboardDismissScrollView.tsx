@@ -95,28 +95,41 @@ export const KeyboardDismissScrollView = React.forwardRef<ScrollView, KeyboardDi
     }, []);
 
     /**
+     * Scroll para que el borde inferior del nodo + margen quede sobre el teclado
+     * (o el borde del scroll si hay footer fijo). No-op si el teclado está cerrado.
+     */
+    const ensureNodeVisible = useCallback(
+      (
+        node: {
+          measureInWindow?: (cb: (x: number, y: number, w: number, h: number) => void) => void;
+        } | null,
+      ) => {
+        const kb = kbRef.current;
+        if (!node?.measureInWindow || !kb.visible) return;
+        node.measureInWindow((_x, y, _w, h) => {
+          if (h === 0 || !kbRef.current.visible) return;
+          const limit = Math.min(kbRef.current.top, viewportBottomRef.current);
+          const delta = y + h + keyboardAwareBottomMargin - limit;
+          if (delta > 1) {
+            scrollRef.current?.scrollTo({
+              y: Math.max(0, offsetYRef.current + delta),
+              animated: true,
+            });
+          }
+        });
+      },
+      [keyboardAwareBottomMargin],
+    );
+
+    /**
      * Auto-scroll al input enfocado si su borde inferior + margen pasa el límite de lo
      * visible: el teclado, o el borde del scroll si hay algo fijo por encima del teclado
      * (footer con CTA), lo que venga primero.
      */
     const ensureFocusedVisible = useCallback(() => {
-      const input = focusedInputRef.current as
-        | (TextInput & { measureInWindow?: (cb: (x: number, y: number, w: number, h: number) => void) => void })
-        | null;
-      const kb = kbRef.current;
-      if (!input?.measureInWindow || !kb.visible || !ownsFocusRef.current) return;
-      input.measureInWindow((_x, y, _w, h) => {
-        if (h === 0 || !kbRef.current.visible) return;
-        const limit = Math.min(kbRef.current.top, viewportBottomRef.current);
-        const delta = y + h + keyboardAwareBottomMargin - limit;
-        if (delta > 1) {
-          scrollRef.current?.scrollTo({
-            y: Math.max(0, offsetYRef.current + delta),
-            animated: true,
-          });
-        }
-      });
-    }, [keyboardAwareBottomMargin]);
+      if (!ownsFocusRef.current) return;
+      ensureNodeVisible(focusedInputRef.current);
+    }, [ensureNodeVisible]);
 
     /**
      * Recalcula inset + visibilidad midiendo geometría REAL en ventana. Idempotente:
@@ -209,8 +222,9 @@ export const KeyboardDismissScrollView = React.forwardRef<ScrollView, KeyboardDi
           ownsFocusRef.current = false;
           scheduleRefresh();
         },
+        ensureNodeVisible,
       }),
-      [scheduleRefresh],
+      [ensureNodeVisible, scheduleRefresh],
     );
 
     const handleScroll = useCallback(

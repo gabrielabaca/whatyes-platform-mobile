@@ -53,6 +53,9 @@ export const COUNTRIES: Country[] = [
   { code: 'NZ', name: 'Nueva Zelanda', flag: '🇳🇿' },
 ];
 
+/** Unión de ISO2 de COUNTRIES para filtrar Geoapify cuando el form no eligió país. */
+export const COUNTRY_CODES_FILTER = COUNTRIES.map((c) => c.code).join(',');
+
 interface CountrySelectProps {
   label?: string;
   value?: string;

@@ -6,6 +6,9 @@
  *
  * Si el proxy está caído, sin cuota o sin key, no muestra nada y el campo
  * sigue siendo texto libre.
+ *
+ * Solo consulta cuando el cambio vino del teclado: abrir edición con una
+ * dirección cargada o rellenar por GPS no dispara la lista.
  */
 import React, { useEffect, useRef, useState } from 'react';
 import {
@@ -18,6 +21,7 @@ import {
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { AppTextInput } from '../atoms/AppTextInput';
+import { useKeyboardAwareScroll } from '../atoms/KeyboardDismissScrollView/keyboardAwareScrollContext';
 import { FONT_FAMILY } from '../../theme/typography';
 import { themeColors } from '../../theme/colors';
 import { storage } from '../../utils/storage';
@@ -37,7 +41,7 @@ export interface AddressAutocompleteFieldProps {
   value: string;
   onChangeText: (v: string) => void;
   placeholder?: string;
-  /** ISO 3166-1 alpha-2 del país ya elegido; sesga las sugerencias. */
+  /** ISO 3166-1 alpha-2, uno o varios separados por coma. */
   countryCode?: string | null;
   onSelectSuggestion: (suggestion: AddressSuggestion) => void;
 }
@@ -51,13 +55,19 @@ export const AddressAutocompleteField: React.FC<AddressAutocompleteFieldProps> =
   onSelectSuggestion,
 }) => {
   const { t, i18n } = useTranslation();
+  const keyboardScroll = useKeyboardAwareScroll();
   const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([]);
   const [loading, setLoading] = useState(false);
-  const selectedLineRef = useRef<string | null>(null);
+  const typedFromKeyboardRef = useRef(false);
+  const suggestionsWrapRef = useRef<View>(null);
+
+  useEffect(() => {
+    typedFromKeyboardRef.current = false;
+  }, []);
 
   useEffect(() => {
     const q = value.trim();
-    if (q.length < MIN_QUERY_LENGTH || q === selectedLineRef.current) {
+    if (!typedFromKeyboardRef.current || q.length < MIN_QUERY_LENGTH) {
       setSuggestions([]);
       setLoading(false);
       return;
@@ -74,7 +84,11 @@ export const AddressAutocompleteField: React.FC<AddressAutocompleteFieldProps> =
             return;
           }
           const lang = (i18n.language || 'es').slice(0, 2);
-          const res = await autocompleteAddress(token, q, countryCode, ac.signal, lang);
+          const res = await autocompleteAddress(token, q, {
+            countryCode,
+            signal: ac.signal,
+            lang,
+          });
           if (ac.signal.aborted) return;
           setSuggestions(res.status === 'ok' ? res.suggestions : []);
         } catch (err) {
@@ -95,15 +109,12 @@ export const AddressAutocompleteField: React.FC<AddressAutocompleteFieldProps> =
   }, [value, countryCode, i18n.language]);
 
   const handleChange = (next: string) => {
-    if (selectedLineRef.current && next.trim() !== selectedLineRef.current) {
-      selectedLineRef.current = null;
-    }
+    typedFromKeyboardRef.current = true;
     onChangeText(next);
   };
 
   const handleSelect = (suggestion: AddressSuggestion) => {
-    const line = suggestion.address_line.trim() || suggestion.formatted.trim();
-    selectedLineRef.current = line;
+    typedFromKeyboardRef.current = false;
     setSuggestions([]);
     onSelectSuggestion(suggestion);
   };
@@ -134,9 +145,15 @@ export const AddressAutocompleteField: React.FC<AddressAutocompleteFieldProps> =
 
       {suggestions.length > 0 ? (
         <View
+          ref={suggestionsWrapRef}
           style={styles.suggestions}
           accessibilityRole="list"
           accessibilityLabel={t('account.shippingAddress.suggestionsLabel')}
+          onLayout={() => {
+            requestAnimationFrame(() => {
+              keyboardScroll?.ensureNodeVisible(suggestionsWrapRef.current);
+            });
+          }}
         >
           {suggestions.map((item, index) => {
             const title = item.formatted.trim() || item.address_line.trim();

@@ -888,22 +888,56 @@ function unavailableAutocomplete(): AddressAutocompleteResponse {
   return { status: 'unavailable', suggestions: [], attribution: GEOAPIFY_ATTRIBUTION };
 }
 
+const AUTOCOMPLETE_TIMEOUT_MS = 6000;
+const REVERSE_TIMEOUT_MS = 8000;
+
+function withTimeout(
+  ms: number,
+  external?: AbortSignal
+): { signal: AbortSignal; cleanup: () => void } {
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(), ms);
+  const onExternal = () => ac.abort();
+  if (external) {
+    if (external.aborted) {
+      ac.abort();
+    } else {
+      external.addEventListener('abort', onExternal);
+    }
+  }
+  return {
+    signal: ac.signal,
+    cleanup: () => {
+      clearTimeout(timer);
+      external?.removeEventListener('abort', onExternal);
+    },
+  };
+}
+
+export interface AutocompleteAddressOptions {
+  countryCode?: string | null;
+  signal?: AbortSignal;
+  lang?: string;
+}
+
 /**
  * Sugerencias de dirección (Geoapify vía service-platform → service_delivery).
  * Nunca lanza por falla del proveedor: status=unavailable y lista vacía, para que
- * el formulario de alta se pueda completar a mano. AbortError sí se propaga.
+ * el formulario de alta se pueda completar a mano. AbortError del caller sí se propaga.
  */
 export async function autocompleteAddress(
   accessToken: string,
   query: string,
-  countryCode?: string | null,
-  signal?: AbortSignal,
-  lang?: string
+  options?: AutocompleteAddressOptions
 ): Promise<AddressAutocompleteResponse> {
   const params = new URLSearchParams();
   params.set('q', query);
-  if (countryCode?.trim()) params.set('country', countryCode.trim().toUpperCase());
-  if (lang?.trim()) params.set('lang', lang.trim().slice(0, 2).toLowerCase());
+  const country = options?.countryCode?.trim();
+  if (country) params.set('country', country);
+  if (options?.lang?.trim()) {
+    params.set('lang', options.lang.trim().slice(0, 2).toLowerCase());
+  }
+  const { signal, cleanup } = withTimeout(AUTOCOMPLETE_TIMEOUT_MS, options?.signal);
   try {
     const res = await fetch(
       `${PLATFORM_HTTP_URL}/me/address-lookup/autocomplete?${params.toString()}`,
@@ -918,10 +952,15 @@ export async function autocompleteAddress(
     }
     return data;
   } catch (err) {
-    if (signal?.aborted || (err instanceof Error && err.name === 'AbortError')) {
+    if (options?.signal?.aborted) {
       throw err;
     }
+    if (err instanceof Error && err.name === 'AbortError') {
+      return unavailableAutocomplete();
+    }
     return unavailableAutocomplete();
+  } finally {
+    cleanup();
   }
 }
 
@@ -939,14 +978,24 @@ export async function reverseGeocodeAddress(
     lat: String(latitude),
     lon: String(longitude),
   });
-  const res = await fetch(
-    `${PLATFORM_HTTP_URL}/me/address-lookup/reverse?${params.toString()}`,
-    { headers: authHeaders(accessToken) }
-  );
-  if (!res.ok) {
-    throw new Error(`Reverse geocode failed: ${res.status}`);
+  const { signal, cleanup } = withTimeout(REVERSE_TIMEOUT_MS);
+  try {
+    const res = await fetch(
+      `${PLATFORM_HTTP_URL}/me/address-lookup/reverse?${params.toString()}`,
+      { headers: authHeaders(accessToken), signal }
+    );
+    if (!res.ok) {
+      throw new Error(`Reverse geocode failed: ${res.status}`);
+    }
+    return res.json() as Promise<ReverseGeocodeLookupResponse>;
+  } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') {
+      throw new Error('Reverse geocode failed: timeout');
+    }
+    throw err;
+  } finally {
+    cleanup();
   }
-  return res.json() as Promise<ReverseGeocodeLookupResponse>;
 }
 
 export interface RoomCatalogProductItem {
