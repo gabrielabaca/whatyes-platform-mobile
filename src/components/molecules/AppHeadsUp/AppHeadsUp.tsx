@@ -32,6 +32,16 @@ export interface AppHeadsUpMessage {
   kind: AppHeadsUpKind;
   title: string;
   body?: string | null;
+  /** Payload de la notificación (para navegar al destino, no solo al feed). */
+  notification?: {
+    type?: string | null;
+    actor_user_id?: string | null;
+    room_id?: string | null;
+    resource_type?: string | null;
+    resource_id?: string | null;
+    data?: Record<string, unknown> | null;
+  } | null;
+  conversationId?: string | null;
 }
 
 /** Cuánto queda en pantalla antes de irse solo. */
@@ -140,7 +150,12 @@ export function useAppHeadsUp() {
   const seqRef = useRef(0);
 
   const showHeadsUp = useCallback(
-    (kind: AppHeadsUpKind, title: string, body?: string | null) => {
+    (
+      kind: AppHeadsUpKind,
+      title: string,
+      body?: string | null,
+      extra?: Pick<AppHeadsUpMessage, 'notification' | 'conversationId'>
+    ) => {
       const cleanTitle = title?.trim();
       if (!cleanTitle) return;
       setHeadsUp({
@@ -148,6 +163,8 @@ export function useAppHeadsUp() {
         kind,
         title: cleanTitle,
         body: body?.trim() || null,
+        notification: extra?.notification ?? null,
+        conversationId: extra?.conversationId ?? null,
       });
     },
     []

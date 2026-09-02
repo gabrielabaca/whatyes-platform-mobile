@@ -17,6 +17,7 @@ import { BuyerKycModal } from '../../organisms/account/BuyerKycModal';
 import { AddProductScreen } from '../AddProductScreen';
 import {
   getMySalesSummary,
+  getMyPurchase,
   getStreamWatch,
   getUserShows,
   type PurchaseItem,
@@ -70,6 +71,8 @@ import {
 } from '../../organisms/home';
 import { appAlert } from '../../../alerts';
 import { loadNotificationPreferences, patchNotificationPreferences } from '../../../utils/notificationPreferences';
+import { destinationFromNotification, type NotificationNavTarget } from '../../../utils/notificationDestination';
+import { subscribePushDestination } from '../../../utils/pushDestination';
 
 interface HomeScreenProps {
   onStreamPress?: (stream: StreamData | any) => void;
@@ -104,7 +107,7 @@ type HomePath =
   /** returnTo: la campana está en varias pantallas; volver regresa a la de origen. */
   | { name: 'notifications'; returnTo: HomePath }
   /** Lista de chats (el ícono de mensajes, visible en las mismas pantallas). */
-  | { name: 'chat'; returnTo: HomePath };
+  | { name: 'chat'; returnTo: HomePath; conversationId?: string };
 
 /** Debe renderizarse dentro de GeneralLayout (BottomNavProvider). */
 const HomeNavBridge: React.FC<{
@@ -212,7 +215,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       showHeadsUp(
         'notification',
         notification.title?.trim() || t('notifications.defaultTitle'),
-        notification.body
+        notification.body,
+        { notification }
       );
     },
     [reloadNotificationsUnread, reloadChatUnread, showHeadsUp, t]
@@ -232,7 +236,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         : message.image_urls?.length
           ? t('chat.photoPreview')
           : '';
-      showHeadsUp('chat', t('chat.newMessageTitle'), preview);
+      showHeadsUp('chat', t('chat.newMessageTitle'), preview, {
+        conversationId: message.conversation_id,
+      });
     },
     [reloadChatUnread, user?.uuid, isReadingConversation, showHeadsUp, t]
   );
@@ -251,11 +257,72 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     onChatRead: handleRealtimeRead,
   });
 
+  const applyDestination = useCallback(
+    async (target: NotificationNavTarget) => {
+      if (target.kind === 'profile') {
+        setHomePath({ name: 'profile', userId: target.userId, returnTo: 'notifications' });
+        return;
+      }
+      if (target.kind === 'activity') {
+        setHomePath({ name: 'activity' });
+        return;
+      }
+      if (target.kind === 'chat') {
+        setHomePath((prev) =>
+          prev.name === 'chat'
+            ? { ...prev, conversationId: target.conversationId }
+            : { name: 'chat', returnTo: prev, conversationId: target.conversationId }
+        );
+        return;
+      }
+      if (target.kind === 'notifications') {
+        setHomePath((prev) =>
+          prev.name === 'notifications' ? prev : { name: 'notifications', returnTo: prev }
+        );
+        return;
+      }
+      if (target.kind === 'stream') {
+        onStreamPress?.({
+          id: target.roomId,
+          sellerName: target.sellerName || t('home.defaultRoomName'),
+          viewerCount: 0,
+          streamingTime: t('home.liveBadge'),
+        });
+        return;
+      }
+      if (target.kind === 'purchase') {
+        try {
+          const token = await storage.getAccessToken();
+          if (!token) return;
+          const purchase = await getMyPurchase(token, target.saleId);
+          setHomePath({ name: 'purchaseDetail', purchase });
+        } catch {
+          setHomePath({ name: 'activity' });
+        }
+      }
+    },
+    [onStreamPress, t]
+  );
+
+  useEffect(() => subscribePushDestination((target) => {
+    void applyDestination(target);
+  }), [applyDestination]);
+
   const openHeadsUpTarget = useCallback((message: AppHeadsUpMessage) => {
     dismissHeadsUp();
-    const target: HomePath['name'] = message.kind === 'chat' ? 'chat' : 'notifications';
-    setHomePath((prev) => (prev.name === target ? prev : { name: target, returnTo: prev }));
-  }, [dismissHeadsUp]);
+    if (message.kind === 'chat') {
+      void applyDestination({
+        kind: 'chat',
+        conversationId: message.conversationId || undefined,
+      });
+      return;
+    }
+    if (message.notification) {
+      void applyDestination(destinationFromNotification(message.notification));
+      return;
+    }
+    void applyDestination({ kind: 'notifications' });
+  }, [applyDestination, dismissHeadsUp]);
   // --- fin tiempo real ------------------------------------------------------
 
   // Datos del hub del vendedor (Figma 636-30524): total de ventas para la card
@@ -662,6 +729,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             <ChatListScreen
               onBack={() => setHomePath(homePath.returnTo)}
               onUnreadConversationsChange={setUnreadConversations}
+              initialConversationId={homePath.conversationId}
             />
           ) : null}
 
@@ -674,6 +742,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               }
               onOpenPurchase={(purchase) => setHomePath({ name: 'purchaseDetail', purchase })}
               onOpenActivity={() => setHomePath({ name: 'activity' })}
+              onOpenStream={(roomId, sellerName) => {
+                void applyDestination({ kind: 'stream', roomId, sellerName });
+              }}
+              onOpenChat={(conversationId) => {
+                void applyDestination({ kind: 'chat', conversationId });
+              }}
             />
           ) : null}
 

@@ -1904,6 +1904,36 @@ export async function updateNotificationPreferencesRemote(
   return res.json() as Promise<NotificationPreferencesRemote>;
 }
 
+export type PushDevicePlatform = 'ios' | 'android';
+
+export async function upsertPushDevice(
+  accessToken: string,
+  body: {
+    token: string;
+    platform: PushDevicePlatform;
+    app_version?: string;
+    locale?: string;
+  }
+): Promise<{ uuid: string; platform: string; reassigned: boolean }> {
+  const res = await fetch(`${PLATFORM_HTTP_URL}/me/push-devices`, {
+    method: 'PUT',
+    headers: authHeaders(accessToken),
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`upsertPushDevice: ${res.status}`);
+  return res.json() as Promise<{ uuid: string; platform: string; reassigned: boolean }>;
+}
+
+export async function deletePushDevice(accessToken: string, token: string): Promise<void> {
+  const res = await fetch(
+    `${PLATFORM_HTTP_URL}/me/push-devices/${encodeURIComponent(token)}`,
+    { method: 'DELETE', headers: authHeaders(accessToken) }
+  );
+  if (!res.ok && res.status !== 404) {
+    throw new Error(`deletePushDevice: ${res.status}`);
+  }
+}
+
 export async function getUserShows(
   accessToken: string,
   userId: string,

@@ -14,6 +14,7 @@ import {
   ensureFreshAccessToken,
   ApiError,
 } from '../api';
+import { unregisterCurrentPushToken } from '../hooks/usePushNotifications';
 import {
   signInWithGoogle,
   signInWithApple,
@@ -337,6 +338,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const logout = async () => {
     try {
       setIsLoading(true);
+      // Baja el token FCM mientras el access token todavía sirve. Si no, el
+      // teléfono sigue recibiendo avisos de esta cuenta.
+      await unregisterCurrentPushToken().catch(() => {});
       const refreshTokenValue = await storage.getRefreshToken();
       if (refreshTokenValue) {
         try {

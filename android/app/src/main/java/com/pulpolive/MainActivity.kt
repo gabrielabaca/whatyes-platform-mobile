@@ -1,5 +1,6 @@
 package com.pulpolive
 
+import android.content.Intent
 import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
@@ -21,6 +22,15 @@ class MainActivity : ReactActivity() {
     }
 
     SystemNavigationBar.hide(window)
+  }
+
+  /**
+   * singleTask: un tap en la notificación con la app viva llega acá, no a onCreate.
+   * Sin esto, RN Firebase no ve los extras del push y el destino se pierde.
+   */
+  override fun onNewIntent(intent: Intent) {
+    super.onNewIntent(intent)
+    setIntent(intent)
   }
 
   override fun onResume() {

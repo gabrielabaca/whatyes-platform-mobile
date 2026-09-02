@@ -66,4 +66,14 @@ import { AppRegistry } from 'react-native';
 import App from './App';
 import { name as appName } from './app.json';
 
+try {
+  // Debe registrarse en el entrypoint, no dentro de un componente: el tap en
+  // background llega acá. Si Firebase no está linkeado, se saltea.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const messaging = require('@react-native-firebase/messaging').default;
+  messaging().setBackgroundMessageHandler(async () => undefined);
+} catch {
+  // google-services.json / pods todavía no están.
+}
+
 AppRegistry.registerComponent(appName, () => App);

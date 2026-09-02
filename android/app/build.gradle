@@ -114,6 +114,8 @@ android {
         release {
             // Caution! In production, you need to generate your own keystore file.
             // see https://reactnative.dev/docs/signed-apk-android.
+            // FCM registration tokens do not depend on this keystore; the SHA-1
+            // fingerprints in Firebase (Google Sign-In / App Check) do.
             signingConfig signingConfigs.debug
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
@@ -135,4 +137,11 @@ dependencies {
     } else {
         implementation jscFlavor
     }
+}
+
+// google-services.json lo genera la consola de Firebase y NO está en el repo.
+// Sin el archivo el plugin rompe el build: aplicarlo solo cuando exista.
+def googleServicesFile = file("google-services.json")
+if (googleServicesFile.exists()) {
+    apply plugin: "com.google.gms.google-services"
 }

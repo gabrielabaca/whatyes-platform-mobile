@@ -47,6 +47,7 @@ import {
   type UserNotificationItem,
 } from '../../../api/platformApi';
 import { storage } from '../../../utils/storage';
+import { destinationFromNotification } from '../../../utils/notificationDestination';
 import { FONT_FAMILY } from '../../../theme/typography';
 import { themeColors } from '../../../theme/colors';
 import { useTheme } from '../../../context/ThemeContext';
@@ -94,6 +95,8 @@ export interface NotificationsScreenProps {
   onOpenProfile: (userId: string) => void;
   onOpenPurchase: (purchase: PurchaseItem) => void;
   onOpenActivity: () => void;
+  onOpenStream?: (roomId: string, sellerName?: string | null) => void;
+  onOpenChat?: (conversationId?: string) => void;
 }
 
 export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
@@ -102,6 +105,8 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
   onOpenProfile,
   onOpenPurchase,
   onOpenActivity,
+  onOpenStream,
+  onOpenChat,
 }) => {
   const { t, i18n } = useTranslation();
   const { isDark } = useTheme();
@@ -167,21 +172,30 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
       }
     }
 
-    // Deep-links solo hacia destinos que ya existen en la app.
-    if (item.type === 'new_follower' && item.actor_user_id) {
-      onOpenProfile(item.actor_user_id);
+    // Un solo mapeo (notificationDestination) para feed, heads-up y push.
+    const dest = destinationFromNotification(item);
+    if (dest.kind === 'profile') {
+      onOpenProfile(dest.userId);
       return;
     }
-    if (item.type === 'product_sold' || item.type === 'sale_paid') {
+    if (dest.kind === 'activity') {
       onOpenActivity();
       return;
     }
-    if (item.resource_type === 'sale' && item.resource_id && !openingPurchaseRef.current) {
+    if (dest.kind === 'stream') {
+      onOpenStream?.(dest.roomId, dest.sellerName);
+      return;
+    }
+    if (dest.kind === 'chat') {
+      onOpenChat?.(dest.conversationId);
+      return;
+    }
+    if (dest.kind === 'purchase' && !openingPurchaseRef.current) {
       openingPurchaseRef.current = true;
       try {
         const token = await storage.getAccessToken();
         if (!token) return;
-        onOpenPurchase(await getMyPurchase(token, item.resource_id));
+        onOpenPurchase(await getMyPurchase(token, dest.saleId));
       } catch {
         // La venta puede no ser visible como compra (o sin red): la fila queda leída.
       } finally {

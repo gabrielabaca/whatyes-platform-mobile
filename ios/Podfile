@@ -13,6 +13,12 @@ prepare_react_native_project!
 # as static libraries" al integrar el SDK de GoogleSignIn con la New Architecture.
 $RNGoogleSigninAsStaticLibrary = true
 
+# Firebase iOS entra por el mismo tronco que GoogleUtilities / AppCheckCore.
+# NO activamos `use_frameworks! :linkage => :static` de forma global: WebRTC y
+# AmazonIVSBroadcast se rompen con eso. `$RNFirebaseAsStaticFramework` +
+# modular_headers (abajo) es el camino que convive con el workaround de Sign-In.
+$RNFirebaseAsStaticFramework = true
+
 linkage = ENV['USE_FRAMEWORKS']
 if linkage != nil
   Pod::UI.puts "Configuring Pod with #{linkage}ally linked Frameworks".green
@@ -28,6 +34,12 @@ target 'PulpoLive' do
   pod 'GoogleUtilities', :modular_headers => true
   pod 'RecaptchaInterop', :modular_headers => true
   pod 'AppCheckCore', :modular_headers => true
+  # Firebase Messaging arrastra el mismo tronco (GoogleUtilities / nanopb).
+  pod 'FirebaseCore', :modular_headers => true
+  pod 'FirebaseCoreInternal', :modular_headers => true
+  pod 'FirebaseInstallations', :modular_headers => true
+  pod 'GoogleDataTransport', :modular_headers => true
+  pod 'nanopb', :modular_headers => true
 
   # Amazon IVS Broadcast SDK (Real-Time Stages): publisher del seller y
   # subscriber de viewers cuando la sala usa video_transport=ivs (IvsStage.m).

@@ -40,6 +40,8 @@ export interface ChatListScreenProps {
   onBack: () => void;
   /** Sincroniza el contador del badge del header (chats con no leídos). */
   onUnreadConversationsChange: (count: number) => void;
+  /** Si viene de un push / heads-up, abre este hilo al cargar. */
+  initialConversationId?: string;
 }
 
 const countUnread = (items: ConversationItem[]) =>
@@ -68,6 +70,7 @@ const ChatAvatar: React.FC<{ item: ConversationItem; isDark: boolean }> = ({ ite
 export const ChatListScreen: React.FC<ChatListScreenProps> = ({
   onBack,
   onUnreadConversationsChange,
+  initialConversationId,
 }) => {
   const { t } = useTranslation();
   const { isDark } = useTheme();
@@ -81,6 +84,7 @@ export const ChatListScreen: React.FC<ChatListScreenProps> = ({
   const [contentMatches, setContentMatches] = useState<ConversationItem[] | null>(null);
   const [openConversation, setOpenConversation] = useState<ConversationItem | null>(null);
   const searchSeqRef = useRef(0);
+  const autoOpenedRef = useRef<string | null>(null);
 
   const load = useCallback(
     async (asRefresh = false) => {
@@ -103,6 +107,16 @@ export const ChatListScreen: React.FC<ChatListScreenProps> = ({
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (!initialConversationId || items.length === 0) return;
+    if (autoOpenedRef.current === initialConversationId) return;
+    const match = items.find((it) => it.uuid === initialConversationId);
+    if (match) {
+      autoOpenedRef.current = initialConversationId;
+      setOpenConversation(match);
+    }
+  }, [initialConversationId, items]);
 
   // Búsqueda por contenido en el server, con debounce y descarte de respuestas viejas.
   useEffect(() => {

@@ -19,6 +19,12 @@ import { AlertProvider, appAlert } from './src/alerts';
 import { storage } from './src/utils/storage';
 import { isBuyerKycReturnUrl, notifyBuyerKycReturn } from './src/utils/buyerKycDeepLink';
 import { isMpWalletReturnUrl, notifyMpWalletReturn } from './src/utils/mpWalletDeepLink';
+import {
+  destinationFromDeepLink,
+  isNotificationDeepLink,
+} from './src/utils/notificationDeepLink';
+import { notifyPushDestination } from './src/utils/pushDestination';
+import { usePushNotifications } from './src/hooks/usePushNotifications';
 import { withTimeout } from './src/utils/withTimeout';
 import { getBuyerKycStatus, ApiError } from './src/api';
 import i18n from './src/i18n';
@@ -83,6 +89,7 @@ function AuthenticatedAppShell({
   setActiveStreamConfig: (c: StreamConfig | null) => void;
 }) {
   const wizard = useStartLiveWizard();
+  usePushNotifications(true);
 
   /**
    * KYC obligatorio para participar de un vivo (comprador) o transmitir (vendedor).
@@ -299,6 +306,11 @@ function AppNavigator() {
       }
       if (isMpWalletReturnUrl(url)) {
         notifyMpWalletReturn(url);
+        return;
+      }
+      if (isNotificationDeepLink(url)) {
+        const dest = destinationFromDeepLink(url);
+        if (dest) notifyPushDestination(dest);
       }
     };
     const sub = Linking.addEventListener('url', onUrl);
@@ -309,6 +321,11 @@ function AppNavigator() {
       }
       if (url && isMpWalletReturnUrl(url)) {
         notifyMpWalletReturn(url);
+        return;
+      }
+      if (url && isNotificationDeepLink(url)) {
+        const dest = destinationFromDeepLink(url);
+        if (dest) notifyPushDestination(dest);
       }
     });
     return () => sub.remove();

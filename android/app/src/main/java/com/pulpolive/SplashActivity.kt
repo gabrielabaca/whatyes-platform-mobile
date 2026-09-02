@@ -10,6 +10,10 @@ import androidx.appcompat.app.AppCompatActivity
 /**
  * Pantalla de carga con logo PulpoLive y versión.
  * Tras un breve delay inicia MainActivity (React Native).
+ *
+ * El launcher es esta activity, no MainActivity: un tap en una notificación FCM
+ * abre acá. Hay que copiar extras/data al Intent de MainActivity o el destino
+ * del push se pierde.
  */
 class SplashActivity : AppCompatActivity() {
 
@@ -22,9 +26,18 @@ class SplashActivity : AppCompatActivity() {
         versionLabel.text = "V${BuildConfig.VERSION_NAME}"
 
         Handler(Looper.getMainLooper()).postDelayed({
-            startActivity(Intent(this, MainActivity::class.java))
+            startActivity(buildMainIntent())
             finish()
         }, SPLASH_DELAY_MS)
+    }
+
+    private fun buildMainIntent(): Intent {
+        val next = Intent(this, MainActivity::class.java)
+        next.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        intent.extras?.let { next.putExtras(it) }
+        intent.data?.let { next.data = it }
+        intent.action?.let { next.action = it }
+        return next
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
