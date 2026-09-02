@@ -36,9 +36,15 @@ const MAX_EVIDENCE = 4;
 export interface ContactModalProps {
   visible: boolean;
   onClose: () => void;
+  /** Prefill del mensaje (p. ej. número de compra). Se aplica al abrir. */
+  initialMessage?: string;
 }
 
-export const ContactModal: React.FC<ContactModalProps> = ({ visible, onClose }) => {
+export const ContactModal: React.FC<ContactModalProps> = ({
+  visible,
+  onClose,
+  initialMessage,
+}) => {
   const { t } = useTranslation();
   const modalRef = useRef<GlassFullScreenModalHandle>(null);
 
@@ -59,9 +65,12 @@ export const ContactModal: React.FC<ContactModalProps> = ({ visible, onClose }) 
       return;
     }
     resetState();
+    if (initialMessage) {
+      setMessage(initialMessage);
+    }
     const interactionsTimer = setTimeout(() => setInteractionsReady(true), 500);
     return () => clearTimeout(interactionsTimer);
-  }, [visible, resetState]);
+  }, [visible, resetState, initialMessage]);
 
   const handleClose = () => {
     if (sending) {

@@ -43,7 +43,7 @@ function formatShortDate(epochSec: number, locale: string): string {
   }).format(new Date(epochSec * 1000));
 }
 
-type ActivityFilter = 'all' | 'recent' | 'lowestPrice';
+type ActivityFilter = 'all' | 'recent' | 'lowestPrice' | 'highestPrice';
 
 /** Última semana para el chip "Recientes". */
 const RECENT_WINDOW_S = 7 * 24 * 60 * 60;
@@ -81,6 +81,9 @@ export const ActivityScreen: React.FC<ActivityScreenProps> = ({
     if (filter === 'lowestPrice') {
       list.sort((a, b) => a.amount_cents - b.amount_cents);
     }
+    if (filter === 'highestPrice') {
+      list.sort((a, b) => b.amount_cents - a.amount_cents);
+    }
     return list;
   }, [items, filter]);
 
@@ -88,6 +91,7 @@ export const ActivityScreen: React.FC<ActivityScreenProps> = ({
     { key: 'all', label: t('activity.filterAll') },
     { key: 'recent', label: t('activity.filterRecent') },
     { key: 'lowestPrice', label: t('activity.filterLowestPrice') },
+    { key: 'highestPrice', label: t('activity.filterHighestPrice') },
   ];
 
   return (
@@ -103,7 +107,6 @@ export const ActivityScreen: React.FC<ActivityScreenProps> = ({
               style={[
                 styles.tab,
                 active && styles.tabActive,
-                active && isDark ? { borderBottomColor: d.text } : null,
               ]}
               onPress={() => setRole(key)}
             >
@@ -111,7 +114,7 @@ export const ActivityScreen: React.FC<ActivityScreenProps> = ({
                 style={[
                   styles.tabLabel,
                   active && styles.tabLabelActive,
-                  isDark ? { color: active ? d.text : d.textSecondary } : null,
+                  isDark && !active ? { color: d.textSecondary } : null,
                 ]}
               >
                 {key === 'purchases' ? t('activity.tabPurchases') : t('activity.tabSales')}
@@ -274,6 +277,11 @@ const ActivityCard: React.FC<{
             {t('activity.orderShort', { number: item.order_number.slice(-4) })}
           </RNText>
         </View>
+        {role === 'sales' ? (
+          <RNText style={styles.trophyWinner} numberOfLines={1}>
+            🏆 {counterpartName}
+          </RNText>
+        ) : null}
         <View style={styles.cardRow}>
           <View style={styles.statusChip}>
             {shipmentFailed ? (
@@ -322,7 +330,7 @@ const styles = StyleSheet.create({
     borderBottomColor: 'transparent',
   },
   tabActive: {
-    borderBottomColor: TEXT,
+    borderBottomColor: PRIMARY,
   },
   tabLabel: {
     fontFamily: FONT_FAMILY.semibold,
@@ -333,7 +341,7 @@ const styles = StyleSheet.create({
   },
   tabLabelActive: {
     fontFamily: FONT_FAMILY.bold,
-    color: TEXT,
+    color: PRIMARY,
   },
   filtersRow: {
     flexDirection: 'row',
@@ -438,6 +446,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 8,
+  },
+  trophyWinner: {
+    fontFamily: FONT_FAMILY.semibold,
+    fontSize: 13,
+    lineHeight: 16,
+    color: PRIMARY,
+    includeFontPadding: false,
   },
   counterpartChip: {
     flexDirection: 'row',

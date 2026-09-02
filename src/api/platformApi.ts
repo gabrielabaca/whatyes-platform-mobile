@@ -1453,6 +1453,37 @@ export interface PurchaseTracking {
   estimated_delivery_at?: number | null;
   delivered_at?: number | null;
   events: PurchaseTrackingEvent[];
+  carrier_name?: string | null;
+  carrier_tracking_url?: string | null;
+}
+
+export interface PurchaseShippingAddress {
+  full_name?: string | null;
+  address_line1?: string | null;
+  city?: string | null;
+  state?: string | null;
+  postal_code?: string | null;
+  country?: string | null;
+}
+
+export interface PurchasePaymentDetail {
+  sale_uuid: string;
+  order_number: string;
+  payment_status: string;
+  paid_at?: number | null;
+  payment_origin?: string | null;
+  card_brand?: string | null;
+  card_last4?: string | null;
+  installments?: number | null;
+  approved_at?: number | null;
+  provider_payment_id?: string | null;
+  subtotal_cents: number;
+  tax_cents?: number | null;
+  tax_rate_bp?: number | null;
+  shipping_cost_cents?: number | null;
+  total_cents: number;
+  currency: string;
+  shipping_address?: PurchaseShippingAddress | null;
 }
 
 /**
@@ -1469,6 +1500,19 @@ export async function getMyPurchaseTracking(
   );
   if (!res.ok) throw new Error(`getMyPurchaseTracking: ${res.status}`);
   return res.json() as Promise<PurchaseTracking>;
+}
+
+/** Desglose de pago de una compra propia. Sin intent responde montos y dirección. */
+export async function getMyPurchasePayment(
+  accessToken: string,
+  saleUuid: string
+): Promise<PurchasePaymentDetail> {
+  const res = await fetch(
+    `${PLATFORM_HTTP_URL}/me/purchases/${encodeURIComponent(saleUuid)}/payment`,
+    { headers: authHeaders(accessToken) }
+  );
+  if (!res.ok) throw new Error(`getMyPurchasePayment: ${res.status}`);
+  return res.json() as Promise<PurchasePaymentDetail>;
 }
 
 /** Ventas del vendedor autenticado (tab Ventas de Actividad). */

@@ -15,10 +15,11 @@ import {
   Linking,
   Platform,
   Share,
+  ScrollView,
   Text as RNText,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { Copy, Pause, Play, Star, Tag, Video as VideoIcon, ImageUp, X } from 'lucide-react-native';
+import { Copy, ExternalLink, Pause, Play, Star, Tag, Video as VideoIcon, ImageUp, X } from 'lucide-react-native';
 import Video from 'react-native-video';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { IconChevronLeft, IconShare, IconBell, IconChat } from '../../icons';
@@ -29,6 +30,7 @@ import { formatStreamPrice } from '../../atoms/stream/StreamPriceText';
 import { useSellerFollow } from '../../../hooks/useSellerFollow';
 import { useSellerNotifications } from '../../../hooks/useSellerNotifications';
 import { PurchaseClipViewer } from '../../organisms/purchases/PurchaseClipViewer';
+import { ContactModal } from '../../organisms/account/ContactModal';
 import {
   getUserPublicProfile,
   createUserReview,
@@ -37,9 +39,12 @@ import {
 } from '../../../api/profileApi';
 import { isHandle } from '../../../utils/handle';
 import {
+  getMyPurchasePayment,
   getMyPurchaseTracking,
   getUserProfileProducts,
   type PurchaseItem,
+  type PurchasePaymentDetail,
+  type PurchaseShippingAddress,
   type PurchaseTracking,
   type UserProfileProductItem,
 } from '../../../api/platformApi';
@@ -52,6 +57,11 @@ import { getPaymentIntentBySaleUuid, getPublicPaymentsConfig } from '../../../ap
 import { resolveMpWalletCheckoutUrl } from '../../../utils/mpWalletDeepLink';
 import { formatCompactCount } from '../../../utils/formatCount';
 import { writeClipboardText } from '../../../utils/clipboard';
+import {
+  BIO_PREVIEW_MAX_GRAPHEMES,
+  graphemeCount,
+  sliceGraphemes,
+} from '../../../utils/grapheme';
 import { storage } from '../../../utils/storage';
 import { FONT_FAMILY } from '../../../theme/typography';
 import { themeColors } from '../../../theme/colors';
@@ -98,6 +108,50 @@ function formatClipDuration(totalSeconds: number): string {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
 
+function capitalizeBrand(brand: string): string {
+  return brand.charAt(0).toUpperCase() + brand.slice(1).toLowerCase();
+}
+
+function formatMaskedCard(
+  brand: string | null | undefined,
+  last4: string | null | undefined
+): string | null {
+  const digits = (last4 ?? '').replace(/\D/g, '').slice(-4);
+  if (!digits) {
+    return null;
+  }
+  const name = brand?.trim() ? capitalizeBrand(brand.trim()) : '';
+  return name ? `${name} •••• ${digits}` : `•••• ${digits}`;
+}
+
+function formatShippingAddress(
+  addr: PurchaseShippingAddress | null | undefined
+): { value: string; subvalue?: string } | null {
+  if (!addr) {
+    return null;
+  }
+  const name = addr.full_name?.trim() || '';
+  const street = [addr.address_line1, addr.city]
+    .map((part) => part?.trim())
+    .filter(Boolean)
+    .join(', ');
+  const rest = [addr.state, addr.postal_code, addr.country]
+    .map((part) => part?.trim())
+    .filter(Boolean)
+    .join(', ');
+  const loc = [street, rest].filter(Boolean).join('\n');
+  if (name && loc) {
+    return { value: name, subvalue: loc };
+  }
+  if (name) {
+    return { value: name };
+  }
+  if (loc) {
+    return { value: street || rest, subvalue: street && rest ? rest : undefined };
+  }
+  return null;
+}
+
 export interface PurchaseDetailScreenProps {
   purchase: PurchaseItem;
   onBack: () => void;
@@ -139,11 +193,21 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
   const [pendingCheckoutUrl, setPendingCheckoutUrl] = useState<string | null>(null);
   /** Historial del envío; null mientras carga o si la venta no tiene envío. */
   const [tracking, setTracking] = useState<PurchaseTracking | null>(null);
+  const [paymentDetail, setPaymentDetail] = useState<PurchasePaymentDetail | null>(null);
+  const [contactVisible, setContactVisible] = useState(false);
+  const [bioExpanded, setBioExpanded] = useState(false);
 
   const sellerName =
     sellerProfile?.display_name?.trim() ||
     purchase.counterpart.name?.trim() ||
     t('activity.unknownUser');
+
+  const bioText = sellerProfile?.bio?.trim() ?? '';
+  const bioOverflows = graphemeCount(bioText) > BIO_PREVIEW_MAX_GRAPHEMES;
+  const displayedBio =
+    bioExpanded || !bioOverflows
+      ? bioText
+      : sliceGraphemes(bioText, BIO_PREVIEW_MAX_GRAPHEMES);
 
   const {
     isFollowing,
@@ -160,6 +224,10 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
   });
 
   useEffect(() => {
+    setBioExpanded(false);
+  }, [bioText]);
+
+  useEffect(() => {
     let cancelled = false;
     void (async () => {
       try {
@@ -167,13 +235,17 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
         if (!token) return;
         const [profile, products] = await Promise.all([
           getUserPublicProfile(sellerId, token).catch(() => null),
-          getUserProfileProducts(token, sellerId, { limit: 4 }).catch(
+          getUserProfileProducts(token, sellerId, { limit: 8 }).catch(
             () => [] as UserProfileProductItem[]
           ),
         ]);
         if (cancelled) return;
         if (profile) setSellerProfile(profile);
-        setSimilarProducts(products.filter((p) => p.title !== purchase.product_title));
+        setSimilarProducts(
+          products
+            .filter((p) => String(p.room_uuid) !== String(purchase.product_id))
+            .slice(0, 3)
+        );
       } catch {
         // Información complementaria: no bloquea el detalle.
       }
@@ -181,7 +253,7 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [sellerId, purchase.product_title]);
+  }, [sellerId, purchase.product_id]);
 
   /**
    * Historial del envío: cada paso con su fecha. No se denormaliza en la compra,
@@ -198,6 +270,27 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
         if (!cancelled) setTracking(data);
       } catch {
         // El timeline funciona sin el historial: solo pierde las fechas.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [purchase.sale_uuid]);
+
+  /**
+   * Desglose de pago (método enmascarado, IVA, dirección, comprobante). Si falla,
+   * el bloque sigue mostrando lo que ya trae el prop `purchase`.
+   */
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const token = await storage.getAccessToken();
+        if (!token) return;
+        const data = await getMyPurchasePayment(token, purchase.sale_uuid);
+        if (!cancelled) setPaymentDetail(data);
+      } catch {
+        // Sin desglose: ID de orden, subtotal, envío y total salen del prop.
       }
     })();
     return () => {
@@ -446,6 +539,25 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
         ? t('activity.shippingFree')
         : formatStreamPrice(Math.round(shippingCents / 100), purchase.currency);
 
+  const orderNumberLabel = `#${purchase.order_number}`;
+  const maskedCard = formatMaskedCard(paymentDetail?.card_brand, paymentDetail?.card_last4);
+  const paymentMethodLabel = paymentDetail
+    ? maskedCard ?? t('activity.paymentMercadoPago')
+    : null;
+  const approvedEpoch = paymentDetail?.approved_at || paymentDetail?.paid_at || null;
+  const shippingAddressFmt = formatShippingAddress(paymentDetail?.shipping_address ?? null);
+  const taxCents = paymentDetail?.tax_cents;
+  const taxRateBp = paymentDetail?.tax_rate_bp;
+  const showTax = taxCents != null && taxCents > 0;
+  const taxLabel =
+    taxRateBp != null && taxRateBp > 0
+      ? t('activity.paymentTaxIncluded', { percent: Math.round(taxRateBp / 100) })
+      : t('activity.paymentTaxIncludedNoRate');
+  const taxAmountLabel = showTax
+    ? formatStreamPrice(Math.round((taxCents as number) / 100), purchase.currency)
+    : null;
+  const receiptId = paymentDetail?.provider_payment_id?.trim() || null;
+
   return (
     <View style={styles.root}>
       <View style={[styles.header, { paddingTop: insets.top ? 8 : 16 }]}>
@@ -646,7 +758,26 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
         {/* Estado del Envío */}
         <View style={[styles.card, darkCard]}>
           <View style={styles.shippingHeaderRow}>
-            <RNText style={[styles.cardTitle, darkText]}>{t('activity.shippingStatus')}</RNText>
+            <View style={styles.shippingTitleRow}>
+              <RNText style={[styles.cardTitle, darkText]}>{t('activity.shippingStatus')}</RNText>
+              {tracking?.carrier_name ? (
+                <RNText style={[styles.shippingCarrier, darkMuted]} numberOfLines={1}>
+                  {tracking.carrier_name}
+                </RNText>
+              ) : null}
+              {tracking?.carrier_tracking_url ? (
+                <TouchableOpacity
+                  onPress={() => {
+                    void Linking.openURL(tracking.carrier_tracking_url as string);
+                  }}
+                  hitSlop={8}
+                  accessibilityRole="link"
+                  accessibilityLabel={t('activity.shippingStatus')}
+                >
+                  <ExternalLink size={24} color={PRIMARY} strokeWidth={1.75} />
+                </TouchableOpacity>
+              ) : null}
+            </View>
             {/* Sin fecha de entrega el Figma no tiene estado vacío: se omite. */}
             {estimatedAt && !shipmentFailed && shippingReached < 3 ? (
               <RNText style={[styles.shippingEta, darkMuted]}>
@@ -753,18 +884,45 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
         {/* Detalle de Pago */}
         <View style={[styles.card, darkCard]}>
           <RNText style={[styles.cardTitle, darkText]}>{t('activity.paymentDetail')}</RNText>
-          <DetailRow
-            label={t('activity.orderId')}
-            value={`#PL-${purchase.order_number}`}
-          />
-          <DetailRow label={t('activity.paymentProduct')} value={productPriceLabel} />
+          <DetailRow label={t('activity.orderId')} value={orderNumberLabel} />
+          {paymentMethodLabel ? (
+            <DetailRow
+              label={t('activity.paymentMethod')}
+              value={paymentMethodLabel}
+              subvalue={
+                approvedEpoch
+                  ? t('activity.paymentApprovedOn', {
+                      date: formatDateTime(approvedEpoch, locale),
+                    })
+                  : undefined
+              }
+            />
+          ) : null}
+          {shippingAddressFmt ? (
+            <DetailRow
+              label={t('activity.shippingAddress')}
+              value={shippingAddressFmt.value}
+              subvalue={shippingAddressFmt.subvalue}
+            />
+          ) : null}
+          <DetailRow label={t('activity.paymentSubtotal')} value={productPriceLabel} />
           {shippingLabel != null ? (
             <DetailRow label={t('activity.paymentShipping')} value={shippingLabel} />
+          ) : null}
+          {showTax && taxAmountLabel ? (
+            <DetailRow label={taxLabel} value={taxAmountLabel} />
           ) : null}
           <View style={[styles.totalRow, darkHairline]}>
             <RNText style={[styles.totalLabel, darkText]}>{t('activity.totalPaid')}</RNText>
             <RNText style={[styles.totalValue, darkText]}>{totalLabel}</RNText>
           </View>
+          {receiptId ? (
+            <DetailRow
+              label={t('activity.paymentReceipt')}
+              value={receiptId}
+              onCopy={() => copyToClipboard(receiptId, t('activity.paymentReceipt'))}
+            />
+          ) : null}
         </View>
 
         {/* Información del vendedor */}
@@ -794,6 +952,13 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
                 {sellerProfile?.subtitle ? (
                   <RNText style={[styles.sellerSubtitle, darkMuted]} numberOfLines={1}>
                     {sellerProfile.subtitle}
+                  </RNText>
+                ) : null}
+                {sellerProfile ? (
+                  <RNText style={[styles.sellerFollowers, darkMuted]} numberOfLines={1}>
+                    {formatCompactCount(sellerProfile.followers_count)} {t('profile.followers')}
+                    {' · '}
+                    {formatCompactCount(sellerProfile.following_count)} {t('profile.following')}
                   </RNText>
                 ) : null}
               </View>
@@ -845,6 +1010,19 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
                 </RNText>
                 <RNText style={[styles.sellerStatLabel, darkMuted]}>{t('profile.sold')}</RNText>
               </View>
+            </View>
+          ) : null}
+
+          {bioText ? (
+            <View style={styles.sellerBioBlock}>
+              <RNText style={[styles.sellerBioText, darkMuted]}>{displayedBio}</RNText>
+              {bioOverflows ? (
+                <TouchableOpacity onPress={() => setBioExpanded((v) => !v)}>
+                  <RNText style={styles.sellerBioMore}>
+                    {bioExpanded ? t('profile.seeLess') : t('profile.seeMore')}
+                  </RNText>
+                </TouchableOpacity>
+              ) : null}
             </View>
           ) : null}
 
@@ -996,9 +1174,18 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
                 <RNText style={styles.reviewSeeAll}>{t('activity.seeAll')}</RNText>
               </TouchableOpacity>
             </View>
-            <View style={styles.similarRow}>
-              {similarProducts.slice(0, 2).map((product) => (
-                <View key={product.room_uuid} style={[styles.similarCard, darkRow]}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.similarRow}
+            >
+              {similarProducts.map((product) => (
+                <TouchableOpacity
+                  key={product.room_uuid}
+                  style={[styles.similarCard, darkRow]}
+                  activeOpacity={0.85}
+                  onPress={() => onOpenSellerProfile?.(sellerId)}
+                >
                   {product.thumbnail_url ? (
                     <Image
                       source={{ uri: product.thumbnail_url }}
@@ -1019,9 +1206,9 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
                       product.currency
                     )}
                   </RNText>
-                </View>
+                </TouchableOpacity>
               ))}
-            </View>
+            </ScrollView>
           </View>
         ) : null}
 
@@ -1030,7 +1217,7 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
           <RNText style={[styles.cardTitle, darkText]}>{t('activity.needHelp')}</RNText>
           <TouchableOpacity
             style={styles.followBtn}
-            onPress={() => appAlert(t('common.appName'), t('home.placeholderScreen'))}
+            onPress={() => setContactVisible(true)}
             activeOpacity={0.85}
           >
             <RNText style={styles.followBtnText}>{t('activity.contactSupport')}</RNText>
@@ -1060,6 +1247,12 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
           onClose={() => setClipViewerOpen(false)}
         />
       ) : null}
+
+      <ContactModal
+        visible={contactVisible}
+        onClose={() => setContactVisible(false)}
+        initialMessage={t('activity.supportPrefill', { number: purchase.order_number })}
+      />
     </View>
   );
 };
@@ -1067,25 +1260,39 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
 const DetailRow: React.FC<{
   label: string;
   value: string;
+  subvalue?: string;
   valueColor?: string;
   onCopy?: () => void;
-}> = ({ label, value, valueColor, onCopy }) => {
+}> = ({ label, value, subvalue, valueColor, onCopy }) => {
   const { isDark } = useTheme();
   return (
-    <View style={[styles.detailRow, isDark ? { backgroundColor: D.surfaceAlt } : null]}>
+    <View
+      style={[
+        styles.detailRow,
+        subvalue ? styles.detailRowTop : null,
+        isDark ? { backgroundColor: D.surfaceAlt } : null,
+      ]}
+    >
       <RNText style={[styles.detailLabel, isDark ? { color: D.textSecondary } : null]}>
         {label}
       </RNText>
       <View style={styles.detailValueWrap}>
-        <RNText
-          style={[
-            styles.detailValue,
-            isDark ? { color: D.text } : null,
-            valueColor ? { color: valueColor } : null,
-          ]}
-        >
-          {value}
-        </RNText>
+        <View style={styles.detailValueCol}>
+          <RNText
+            style={[
+              styles.detailValue,
+              isDark ? { color: D.text } : null,
+              valueColor ? { color: valueColor } : null,
+            ]}
+          >
+            {value}
+          </RNText>
+          {subvalue ? (
+            <RNText style={[styles.detailSubvalue, isDark ? { color: D.textSecondary } : null]}>
+              {subvalue}
+            </RNText>
+          ) : null}
+        </View>
         {onCopy ? (
           <TouchableOpacity onPress={onCopy} hitSlop={8}>
             <Copy size={16} color={PRIMARY} strokeWidth={2} />
@@ -1252,6 +1459,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 12,
   },
+  detailRowTop: {
+    alignItems: 'flex-start',
+  },
   detailLabel: {
     fontFamily: FONT_FAMILY.regular,
     fontSize: 13,
@@ -1271,6 +1481,20 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     color: TEXT,
     includeFontPadding: false,
+    textAlign: 'right',
+  },
+  detailValueCol: {
+    flexShrink: 1,
+    alignItems: 'flex-end',
+    gap: 2,
+  },
+  detailSubvalue: {
+    fontFamily: FONT_FAMILY.regular,
+    fontSize: 11,
+    lineHeight: 14,
+    color: MUTED,
+    includeFontPadding: false,
+    textAlign: 'right',
   },
   clipVideoWrap: {
     width: '100%',
@@ -1370,6 +1594,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 8,
+  },
+  shippingTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+    minWidth: 0,
+  },
+  shippingCarrier: {
+    fontFamily: FONT_FAMILY.semibold,
+    fontSize: 13,
+    lineHeight: 16,
+    color: MUTED,
+    includeFontPadding: false,
+    flexShrink: 1,
   },
   shippingEta: {
     fontFamily: FONT_FAMILY.semibold,
@@ -1540,9 +1779,9 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   sellerAvatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
   },
   sellerNameCol: {
     flex: 1,
@@ -1557,6 +1796,13 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
   },
   sellerSubtitle: {
+    fontFamily: FONT_FAMILY.regular,
+    fontSize: 12,
+    lineHeight: 16,
+    color: MUTED,
+    includeFontPadding: false,
+  },
+  sellerFollowers: {
     fontFamily: FONT_FAMILY.regular,
     fontSize: 12,
     lineHeight: 16,
@@ -1605,6 +1851,23 @@ const styles = StyleSheet.create({
     lineHeight: 14,
     color: MUTED,
     flexShrink: 1,
+    includeFontPadding: false,
+  },
+  sellerBioBlock: {
+    gap: 4,
+  },
+  sellerBioText: {
+    fontFamily: FONT_FAMILY.regular,
+    fontSize: 13,
+    lineHeight: 18,
+    color: MUTED,
+    includeFontPadding: false,
+  },
+  sellerBioMore: {
+    fontFamily: FONT_FAMILY.bold,
+    fontSize: 14,
+    lineHeight: 16,
+    color: PRIMARY,
     includeFontPadding: false,
   },
   followBtn: {
@@ -1734,9 +1997,10 @@ const styles = StyleSheet.create({
   similarRow: {
     flexDirection: 'row',
     gap: 12,
+    paddingRight: 4,
   },
   similarCard: {
-    flex: 1,
+    width: 160,
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
     overflow: 'hidden',
