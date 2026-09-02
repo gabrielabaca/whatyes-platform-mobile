@@ -11,6 +11,8 @@ import {
   ActivityIndicator,
   Text as RNText,
   useWindowDimensions,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
 } from 'react-native';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { BadgeCheck } from 'lucide-react-native';
@@ -52,6 +54,8 @@ import { appAlert } from '../../alerts';
 
 const COVER_H = 164;
 const H_PAD = 16;
+/** Distancia al fondo (px) a la que se pide la página siguiente de Shows/Productos. */
+const LOAD_MORE_PX = 320;
 const PRIMARY = '#685CF0';
 const LAVENDER = '#E7E7FF';
 const BORDER_LAVENDER = '#CBCEFF';
@@ -97,11 +101,18 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   const [bioExpanded, setBioExpanded] = useState(false);
   const [editDrawerOpen, setEditDrawerOpen] = useState(false);
   const { profile, loading, error, resolvedId, reload } = useUserProfile(userId);
-  const { shows, loading: showsLoading } = useUserShows(resolvedId, tab === 'shows');
-  const { items: profileProducts, loading: productsLoading } = useUserProfileProducts(
-    resolvedId,
-    tab === 'products'
-  );
+  const {
+    shows,
+    loading: showsLoading,
+    loadingMore: showsLoadingMore,
+    loadMore: loadMoreShows,
+  } = useUserShows(resolvedId, tab === 'shows');
+  const {
+    items: profileProducts,
+    loading: productsLoading,
+    loadingMore: productsLoadingMore,
+    loadMore: loadMoreProducts,
+  } = useUserProfileProducts(resolvedId, tab === 'products');
   const { data: reviewsData, loading: reviewsLoading } = useUserReviews(
     resolvedId,
     tab === 'reviews'
@@ -201,6 +212,18 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
     return rows;
   }, [shows]);
 
+  // Scroll infinito de Shows/Productos: cerca del fondo pide la página
+  // siguiente. Los guards de doble disparo y de fin de lista viven en el hook.
+  const handleScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    if (tab !== 'shows' && tab !== 'products') return;
+    const { contentOffset, layoutMeasurement, contentSize } = e.nativeEvent;
+    if (contentOffset.y + layoutMeasurement.height < contentSize.height - LOAD_MORE_PX) {
+      return;
+    }
+    if (tab === 'shows') loadMoreShows();
+    else loadMoreProducts();
+  };
+
   if (loading && !profile) {
     return (
       <View style={[styles.centered, darkBg]}>
@@ -254,6 +277,8 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
         bounces
         contentContainerStyle={styles.scrollContent}
         style={styles.scroll}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
       >
         {/* Cover 164px — Figma 536:23110 */}
         <View
@@ -551,6 +576,9 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                       ) : null}
                     </View>
                   ))}
+                  {showsLoadingMore ? (
+                    <ActivityIndicator color={PRIMARY} style={styles.showsLoader} />
+                  ) : null}
                 </View>
               )
             ) : null}
@@ -579,6 +607,9 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                       }
                     />
                   ))}
+                  {productsLoadingMore ? (
+                    <ActivityIndicator color={PRIMARY} style={styles.showsLoader} />
+                  ) : null}
                 </View>
               )
             ) : null}

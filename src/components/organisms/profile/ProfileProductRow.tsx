@@ -91,6 +91,9 @@ export const ProfileProductRow: React.FC<ProfileProductRowProps> = ({ item, onPr
       activeOpacity={onPress ? 0.88 : 1}
       onPress={onPress}
       disabled={!onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`${statusLabel}. ${item.title}`}
+      accessibilityState={{ disabled: !onPress }}
     >
       <View style={styles.thumbWrap}>
         {item.thumbnail_url ? (
@@ -124,7 +127,8 @@ export const ProfileProductRow: React.FC<ProfileProductRowProps> = ({ item, onPr
             <RNText style={[styles.articlesText, darkMuted]}>
               {t('profile.productArticles', { count: item.article_count })}
             </RNText>
-            <ChevronRight size={16} color={mutedColor} strokeWidth={2.5} />
+            {/* La flecha solo cuando la fila navega (hoy: en vivo → abre el stream). */}
+            {onPress ? <ChevronRight size={16} color={mutedColor} strokeWidth={2.5} /> : null}
           </View>
         </View>
 

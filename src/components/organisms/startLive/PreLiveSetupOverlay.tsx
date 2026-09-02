@@ -25,7 +25,6 @@ import {
   Check,
   CheckCircle2,
   ChevronDown,
-  Clock,
   ImagePlus,
   Search,
   UserRound,
@@ -843,7 +842,8 @@ export const PreLiveSetupOverlay: React.FC<{
                   <FieldLabel>{t('startLive.setupFieldTime')}</FieldLabel>
                   <TouchableOpacity style={styles.inputPill} onPress={() => setShowScheduleTimePicker(true)} activeOpacity={0.85}>
                     <RNText style={[styles.input, styles.inputTouchableText]}>{scheduledTimeDisplay}</RNText>
-                    <Clock size={18} color={themeColors.glass.textMuted} />
+                    {/* Figma 636:30954: sufijo "Hrs" en lugar de icono, mismo estilo que el valor */}
+                    <RNText style={styles.inputSuffix}>{t('startLive.setupTimeSuffix')}</RNText>
                   </TouchableOpacity>
                 </View>
                 <SelectField
@@ -1247,6 +1247,12 @@ const styles = StyleSheet.create({
   },
   inputTouchableText: {
     textAlignVertical: 'center',
+  },
+  inputSuffix: {
+    fontFamily: FONT_FAMILY.bold,
+    fontSize: 12,
+    lineHeight: 20,
+    color: themeColors.glass.text,
   },
   selectPill: {
     minHeight: 52,

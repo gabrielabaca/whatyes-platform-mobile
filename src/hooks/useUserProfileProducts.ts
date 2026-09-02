@@ -1,36 +1,27 @@
-import { useCallback, useEffect, useState } from 'react';
-import { getUserProfileProducts, type UserProfileProductItem } from '../api/platformApi';
-import { storage } from '../utils/storage';
+import {
+  getUserProfileProducts,
+  type UserProfileProductItem,
+} from '../api/platformApi';
+import { usePagedProfileList } from './usePagedProfileList';
+
+// Referencias estables a nivel módulo: si se pasaran inline, el hook paginado
+// re-dispararía su efecto en cada render.
+const fetchProductsPage = (
+  token: string,
+  userId: string,
+  options: { limit: number; offset: number }
+) => getUserProfileProducts(token, userId, options);
+
+const productKey = (item: UserProfileProductItem) => item.room_uuid;
 
 export function useUserProfileProducts(userId: string | null, enabled = true) {
-  const [items, setItems] = useState<UserProfileProductItem[]>([]);
-  const [loading, setLoading] = useState(false);
-
-  const load = useCallback(async () => {
-    if (!userId || !enabled) {
-      setItems([]);
-      return;
-    }
-    setLoading(true);
-    try {
-      const token = await storage.getAccessToken();
-      if (!token) {
-        setItems([]);
-        return;
-      }
-      const list = await getUserProfileProducts(token, userId, { limit: 20 });
-      setItems(list);
-    } catch (e) {
-      console.warn('[useUserProfileProducts]', e);
-      setItems([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [userId, enabled]);
-
-  useEffect(() => {
-    load().catch(() => {});
-  }, [load]);
-
-  return { items, loading, reload: load };
+  const { items, loading, loadingMore, hasMore, loadMore, reload } =
+    usePagedProfileList(
+      userId,
+      enabled,
+      fetchProductsPage,
+      productKey,
+      '[useUserProfileProducts]'
+    );
+  return { items, loading, loadingMore, hasMore, loadMore, reload };
 }

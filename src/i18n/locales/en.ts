@@ -916,6 +916,7 @@ export default {
     setupFieldNamePlaceholder: 'Name',
     setupFieldDate: 'Date',
     setupFieldTime: 'Time',
+    setupTimeSuffix: 'Hrs',
     setupFrequency: 'Frequency',
     setupFrequencyNone: "Don't repeat",
     setupFrequencyDaily: 'Daily',

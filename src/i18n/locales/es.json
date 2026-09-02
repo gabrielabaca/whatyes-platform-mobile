@@ -902,6 +902,7 @@
     "setupFieldNamePlaceholder": "Nombre",
     "setupFieldDate": "Fecha",
     "setupFieldTime": "Hora",
+    "setupTimeSuffix": "Hrs",
     "setupFrequency": "Frecuencia",
     "setupFrequencyNone": "No repetir",
     "setupFrequencyDaily": "Diariamente",
