@@ -7,8 +7,8 @@
  * Si el proxy está caído, sin cuota o sin key, no muestra nada y el campo
  * sigue siendo texto libre.
  *
- * Solo consulta cuando el cambio vino del teclado: abrir edición con una
- * dirección cargada o rellenar por GPS no dispara la lista.
+ * Solo consulta si `value` coincide con el último texto tipeado: abrir
+ * edición con una dirección cargada o rellenar por GPS no dispara la lista.
  */
 import React, { useEffect, useRef, useState } from 'react';
 import {
@@ -58,16 +58,13 @@ export const AddressAutocompleteField: React.FC<AddressAutocompleteFieldProps> =
   const keyboardScroll = useKeyboardAwareScroll();
   const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([]);
   const [loading, setLoading] = useState(false);
-  const typedFromKeyboardRef = useRef(false);
+  const lastTypedQueryRef = useRef<string | null>(null);
   const suggestionsWrapRef = useRef<View>(null);
 
   useEffect(() => {
-    typedFromKeyboardRef.current = false;
-  }, []);
-
-  useEffect(() => {
     const q = value.trim();
-    if (!typedFromKeyboardRef.current || q.length < MIN_QUERY_LENGTH) {
+    const lastTyped = lastTypedQueryRef.current;
+    if (lastTyped === null || q !== lastTyped.trim() || q.length < MIN_QUERY_LENGTH) {
       setSuggestions([]);
       setLoading(false);
       return;
@@ -109,12 +106,12 @@ export const AddressAutocompleteField: React.FC<AddressAutocompleteFieldProps> =
   }, [value, countryCode, i18n.language]);
 
   const handleChange = (next: string) => {
-    typedFromKeyboardRef.current = true;
+    lastTypedQueryRef.current = next;
     onChangeText(next);
   };
 
   const handleSelect = (suggestion: AddressSuggestion) => {
-    typedFromKeyboardRef.current = false;
+    lastTypedQueryRef.current = null;
     setSuggestions([]);
     onSelectSuggestion(suggestion);
   };

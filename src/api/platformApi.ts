@@ -955,9 +955,6 @@ export async function autocompleteAddress(
     if (options?.signal?.aborted) {
       throw err;
     }
-    if (err instanceof Error && err.name === 'AbortError') {
-      return unavailableAutocomplete();
-    }
     return unavailableAutocomplete();
   } finally {
     cleanup();
