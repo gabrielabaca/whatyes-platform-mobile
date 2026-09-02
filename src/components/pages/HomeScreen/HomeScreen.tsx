@@ -14,6 +14,7 @@ import { BuyerCategoryStreamsScreen } from '../BuyerCategoryStreamsScreen';
 import { BuyerAccountScreen } from '../BuyerAccountScreen';
 import { UserProfileScreen } from '../UserProfileScreen';
 import { BuyerKycModal } from '../../organisms/account/BuyerKycModal';
+import { AddProductScreen } from '../AddProductScreen';
 import {
   getMySalesSummary,
   getStreamWatch,

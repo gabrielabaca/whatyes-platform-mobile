@@ -12,6 +12,10 @@ export interface NotificationPreferences {
   all: boolean;
   shippingTracking: boolean;
   purchaseNotify: boolean;
+  /**
+   * Opt-in global "avisame cuando haya lives" (CTA vacío de Home).
+   * No hay UI para apagarlo una vez activado; el opt-out queda pendiente de diseño.
+   */
   notifyAnyLive: boolean;
 }
 
@@ -51,7 +55,7 @@ function parseCached(raw: string): NotificationPreferences {
   const shippingTracking = parsed.shippingTracking ?? true;
   const purchaseNotify = parsed.purchaseNotify ?? true;
   return {
-    all: parsed.all ?? shippingTracking && purchaseNotify,
+    all: parsed.all ?? (shippingTracking && purchaseNotify),
     shippingTracking,
     purchaseNotify,
     notifyAnyLive: parsed.notifyAnyLive ?? false,

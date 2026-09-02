@@ -67,12 +67,6 @@ export const BuyerCategoryStreamsScreen: React.FC<BuyerCategoryStreamsScreenProp
     sort: feedSort,
     pollIntervalMs: 15000,
   });
-  const popular = useBuyerLiveRoomPreviews({
-    interestCategoryUuid: category.uuid,
-    sort: 'viewers',
-    pollIntervalMs: null,
-    enabled: sort !== 'bestSellers',
-  });
 
   useEffect(() => {
     loadOnce().catch(() => {});
@@ -84,10 +78,13 @@ export const BuyerCategoryStreamsScreen: React.FC<BuyerCategoryStreamsScreenProp
     });
   }, [category.uuid]);
 
-  const popularPreviews = useMemo(() => {
-    const source = sort === 'bestSellers' ? previews : popular.previews;
-    return source.slice(0, 6);
-  }, [previews, popular.previews, sort]);
+  const popularPreviews = useMemo(
+    () =>
+      [...previews]
+        .sort((a, b) => (b.viewerCount ?? 0) - (a.viewerCount ?? 0))
+        .slice(0, 6),
+    [previews]
+  );
 
   /**
    * `hasResults` sigue siendo la fuente de verdad de la grilla (sectionHeader de Lives).
@@ -160,12 +157,7 @@ export const BuyerCategoryStreamsScreen: React.FC<BuyerCategoryStreamsScreenProp
       refreshControl={
         <RefreshControl
           refreshing={refreshing}
-          onRefresh={() => {
-            onRefresh();
-            if (sort !== 'bestSellers') {
-              popular.onRefresh();
-            }
-          }}
+          onRefresh={onRefresh}
           tintColor={themeColors.primary}
           colors={[themeColors.primary]}
         />

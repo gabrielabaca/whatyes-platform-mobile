@@ -53,7 +53,8 @@ export function useCategoryFollow({
     try {
       const token = await storage.getAccessToken();
       if (!token) {
-        throw new Error(t('common.error'));
+        appAlert(t('common.appName'), t('common.error'));
+        return;
       }
       if (isFollowing) {
         await unsubscribeCategoryNotifications(token, categoryUuid);
@@ -62,9 +63,8 @@ export function useCategoryFollow({
         await subscribeCategoryNotifications(token, categoryUuid);
         setIsFollowing(true);
       }
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : t('explore.followError');
-      appAlert(t('common.appName'), msg);
+    } catch {
+      appAlert(t('common.appName'), t('explore.followError'));
     } finally {
       setFollowLoading(false);
     }

@@ -42,7 +42,6 @@ export const StreamSellerHeader: React.FC<StreamSellerHeaderProps> = ({
   onExitPress,
 }) => {
   const { t } = useTranslation();
-  const displayRating = rating ?? 4.9;
   const displayName = sellerName.trim() || t('home.defaultRoomName');
 
   const handleFollow = () => {
@@ -70,10 +69,12 @@ export const StreamSellerHeader: React.FC<StreamSellerHeaderProps> = ({
         <RNText style={styles.name} numberOfLines={1}>
           {displayName}
         </RNText>
-        <View style={styles.ratingRow}>
-          <Star size={12} color={STREAM_COLORS.priceGold} fill={STREAM_COLORS.priceGold} />
-          <RNText style={styles.ratingText}>{displayRating.toFixed(1)}</RNText>
-        </View>
+        {rating != null && rating > 0 ? (
+          <View style={styles.ratingRow}>
+            <Star size={12} color={STREAM_COLORS.priceGold} fill={STREAM_COLORS.priceGold} />
+            <RNText style={styles.ratingText}>{rating.toFixed(1)}</RNText>
+          </View>
+        ) : null}
       </View>
     </>
   );

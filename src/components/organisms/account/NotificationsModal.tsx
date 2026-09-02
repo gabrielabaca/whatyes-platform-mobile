@@ -38,6 +38,8 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ visible,
     all: true,
     shippingTracking: true,
     purchaseNotify: true,
+    // Deuda: notifyAnyLive se activa desde el CTA vacío de Home y este modal
+    // no tiene control para apagarlo. La UI de opt-out queda pendiente de diseño.
     notifyAnyLive: false,
   });
   const [loading, setLoading] = useState(false);
