@@ -22,6 +22,7 @@ import { IconAddLocation } from '../../icons';
 import { FONT_FAMILY } from '../../../theme/typography';
 import { themeColors } from '../../../theme/colors';
 import { COUNTRIES } from '../../molecules/CountrySelect/CountrySelect';
+import { AddressAutocompleteField } from '../../molecules/AddressAutocompleteField';
 import { useAuth } from '../../../hooks/useAuth';
 import {
   createShippingAddress,
@@ -32,6 +33,7 @@ import {
   detectCurrentAddress,
   LocationPermissionDeniedError,
 } from '../../../services/locationAddress';
+import type { AddressSuggestion } from '../../../api/platformApi';
 import { appAlert } from '../../../alerts';
 
 export interface ShippingAddressModalProps {
@@ -207,6 +209,20 @@ export const ShippingAddressModal: React.FC<ShippingAddressModalProps> = ({
 
   const selectedCountry = COUNTRIES.find((c) => c.name === country || c.code === country);
 
+  const applySuggestion = (suggestion: AddressSuggestion) => {
+    if (suggestion.address_line.trim() || suggestion.formatted.trim()) {
+      setAddressLine1(suggestion.address_line.trim() || suggestion.formatted.trim());
+    }
+    if (suggestion.city.trim()) setCity(suggestion.city.trim());
+    if (suggestion.state.trim()) setState(suggestion.state.trim());
+    if (suggestion.postal_code.trim()) setPostalCode(suggestion.postal_code.trim());
+    const code = suggestion.country_code?.toUpperCase();
+    if (code) {
+      const match = COUNTRIES.find((c) => c.code === code);
+      if (match) setCountry(match.name);
+    }
+  };
+
   return (
       <GlassFullScreenModal
         ref={modalRef}
@@ -214,6 +230,7 @@ export const ShippingAddressModal: React.FC<ShippingAddressModalProps> = ({
         onClose={onClose}
         backdropAccessibilityLabel={t('account.shippingAddress.cancel')}
         dismissOnBackdropPress={false}
+        hideFooterOnKeyboard
         /**
          * El picker va acá y no como hermano del modal: en iOS un Modal hermano no se
          * presenta mientras este ya está presentado, y el desplegable no abriría.
@@ -314,19 +331,20 @@ export const ShippingAddressModal: React.FC<ShippingAddressModalProps> = ({
               placeholder={t('account.shippingAddress.selectPlaceholder')}
               onPress={() => setCountryPickerVisible(true)}
             />
-            <FormField
+            {/*
+              El Figma (1210-3155/3163) dibuja Ciudad y Estado como listas cerradas.
+              No hay catálogo: el usuario escribe la calle y las sugerencias de Geoapify
+              completan calle, ciudad, provincia y CP juntos. Los campos siguen
+              editables y el alta funciona sin autocompletado (caído, sin cuota o sin key).
+            */}
+            <AddressAutocompleteField
               label={t('account.shippingAddress.address')}
               value={addressLine1}
               onChangeText={setAddressLine1}
               placeholder={t('account.shippingAddress.addressPlaceholder')}
+              countryCode={selectedCountry?.code}
+              onSelectSuggestion={applySuggestion}
             />
-            {/*
-              Ciudad y Estado quedan como texto libre aunque el Figma (1210-3155/3163) los
-              dibuja como listas cerradas: no existe catálogo de ciudades/provincias en
-              ningún servicio, y el camino definido (2026-09-01) es autocompletado de
-              dirección completa con Geoapify en service_delivery — Tanda Direcciones.
-              No convertirlos en selects.
-            */}
             <FormField
               label={t('account.shippingAddress.city')}
               value={city}

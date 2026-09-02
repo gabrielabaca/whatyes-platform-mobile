@@ -1,12 +1,16 @@
 /**
  * Detección de dirección por GPS para los formularios de dirección/facturación.
  * Flujo: permiso de ubicación → posición actual → geocodificación inversa
- * (Nominatim / OpenStreetMap, sin API key) → campos normalizados del form.
+ * (Geoapify, vía service-platform → service_delivery) → campos del form.
+ *
+ * DetectedAddress no cambia: los consumidores siguen igual.
  */
 
 import { PermissionsAndroid, Platform } from 'react-native';
 import Geolocation from '@react-native-community/geolocation';
 import { COUNTRIES } from '../components/molecules/CountrySelect/CountrySelect';
+import { reverseGeocodeAddress, type AddressSuggestion } from '../api/platformApi';
+import { storage } from '../utils/storage';
 
 export interface DetectedAddress {
   /** Nombre de país como figura en COUNTRIES (compatible con el picker). */
@@ -65,46 +69,23 @@ function getCurrentCoords(): Promise<{ latitude: number; longitude: number }> {
   });
 }
 
-interface NominatimAddress {
-  house_number?: string;
-  road?: string;
-  city?: string;
-  town?: string;
-  village?: string;
-  municipality?: string;
-  state?: string;
-  province?: string;
-  region?: string;
-  postcode?: string;
-  country?: string;
-  country_code?: string;
-}
-
-async function reverseGeocode(latitude: number, longitude: number): Promise<NominatimAddress> {
-  const url =
-    `https://nominatim.openstreetmap.org/reverse?format=jsonv2` +
-    `&lat=${latitude}&lon=${longitude}&addressdetails=1`;
-  const res = await fetch(url, {
-    headers: {
-      // Requerido por la política de uso de Nominatim.
-      'User-Agent': 'PulpoLive/1.0 (soporte@pulpolive.com)',
-      'Accept-Language': 'es',
-    },
-  });
-  if (!res.ok) {
-    throw new Error(`Reverse geocode failed: ${res.status}`);
-  }
-  const data = await res.json();
-  return (data?.address ?? {}) as NominatimAddress;
-}
-
-function toCountryName(addr: NominatimAddress): string {
-  const code = addr.country_code?.toUpperCase();
+function toCountryName(suggestion: AddressSuggestion): string {
+  const code = suggestion.country_code?.toUpperCase();
   if (code) {
     const match = COUNTRIES.find((c) => c.code === code);
     if (match) return match.name;
   }
-  return addr.country ?? '';
+  return suggestion.country ?? '';
+}
+
+function toDetectedAddress(suggestion: AddressSuggestion): DetectedAddress {
+  return {
+    country: toCountryName(suggestion),
+    addressLine: suggestion.address_line?.trim() || '',
+    city: suggestion.city?.trim() || '',
+    state: suggestion.state?.trim() || '',
+    postalCode: suggestion.postal_code?.trim() || '',
+  };
 }
 
 /**
@@ -114,12 +95,13 @@ function toCountryName(addr: NominatimAddress): string {
 export async function detectCurrentAddress(): Promise<DetectedAddress> {
   await ensureAndroidPermission();
   const { latitude, longitude } = await getCurrentCoords();
-  const addr = await reverseGeocode(latitude, longitude);
-  return {
-    country: toCountryName(addr),
-    addressLine: [addr.road, addr.house_number].filter(Boolean).join(' ').trim(),
-    city: addr.city || addr.town || addr.village || addr.municipality || '',
-    state: addr.state || addr.province || addr.region || '',
-    postalCode: addr.postcode || '',
-  };
+  const token = await storage.getAccessToken();
+  if (!token) {
+    throw new Error('Reverse geocode failed: not authenticated');
+  }
+  const result = await reverseGeocodeAddress(token, latitude, longitude);
+  if (result.status !== 'ok' || !result.address) {
+    throw new Error(`Reverse geocode failed: ${result.status}`);
+  }
+  return toDetectedAddress(result.address);
 }

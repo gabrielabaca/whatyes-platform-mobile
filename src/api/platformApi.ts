@@ -846,6 +846,109 @@ export async function getProductShippingQuote(
   return res.json() as Promise<ProductShippingQuoteResponse>;
 }
 
+export type AddressLookupStatus = 'ok' | 'unavailable' | 'not_found';
+
+export interface AddressSuggestion {
+  formatted: string;
+  address_line: string;
+  city: string;
+  state: string;
+  postal_code: string;
+  country: string;
+  country_code: string;
+}
+
+export interface AddressLookupAttribution {
+  geoapify: string;
+  geoapify_url: string;
+  osm: string;
+  osm_url: string;
+}
+
+export interface AddressAutocompleteResponse {
+  status: 'ok' | 'unavailable';
+  suggestions: AddressSuggestion[];
+  attribution: AddressLookupAttribution;
+}
+
+export interface ReverseGeocodeLookupResponse {
+  status: AddressLookupStatus;
+  address: AddressSuggestion | null;
+  attribution: AddressLookupAttribution;
+}
+
+const GEOAPIFY_ATTRIBUTION: AddressLookupAttribution = {
+  geoapify: 'Powered by Geoapify',
+  geoapify_url: 'https://www.geoapify.com/',
+  osm: '© OpenStreetMap contributors',
+  osm_url: 'https://www.openstreetmap.org/copyright',
+};
+
+function unavailableAutocomplete(): AddressAutocompleteResponse {
+  return { status: 'unavailable', suggestions: [], attribution: GEOAPIFY_ATTRIBUTION };
+}
+
+/**
+ * Sugerencias de dirección (Geoapify vía service-platform → service_delivery).
+ * Nunca lanza por falla del proveedor: status=unavailable y lista vacía, para que
+ * el formulario de alta se pueda completar a mano. AbortError sí se propaga.
+ */
+export async function autocompleteAddress(
+  accessToken: string,
+  query: string,
+  countryCode?: string | null,
+  signal?: AbortSignal,
+  lang?: string
+): Promise<AddressAutocompleteResponse> {
+  const params = new URLSearchParams();
+  params.set('q', query);
+  if (countryCode?.trim()) params.set('country', countryCode.trim().toUpperCase());
+  if (lang?.trim()) params.set('lang', lang.trim().slice(0, 2).toLowerCase());
+  try {
+    const res = await fetch(
+      `${PLATFORM_HTTP_URL}/me/address-lookup/autocomplete?${params.toString()}`,
+      { headers: authHeaders(accessToken), signal }
+    );
+    if (!res.ok) {
+      return unavailableAutocomplete();
+    }
+    const data = (await res.json()) as AddressAutocompleteResponse;
+    if (data?.status !== 'ok' || !Array.isArray(data.suggestions)) {
+      return unavailableAutocomplete();
+    }
+    return data;
+  } catch (err) {
+    if (signal?.aborted || (err instanceof Error && err.name === 'AbortError')) {
+      throw err;
+    }
+    return unavailableAutocomplete();
+  }
+}
+
+/**
+ * Geocodificación inversa (GPS → campos de dirección) por el mismo proxy.
+ * Lanza si el proveedor no responde: el botón de ubicación ya tiene fallback
+ * a "completala manualmente".
+ */
+export async function reverseGeocodeAddress(
+  accessToken: string,
+  latitude: number,
+  longitude: number
+): Promise<ReverseGeocodeLookupResponse> {
+  const params = new URLSearchParams({
+    lat: String(latitude),
+    lon: String(longitude),
+  });
+  const res = await fetch(
+    `${PLATFORM_HTTP_URL}/me/address-lookup/reverse?${params.toString()}`,
+    { headers: authHeaders(accessToken) }
+  );
+  if (!res.ok) {
+    throw new Error(`Reverse geocode failed: ${res.status}`);
+  }
+  return res.json() as Promise<ReverseGeocodeLookupResponse>;
+}
+
 export interface RoomCatalogProductItem {
   uuid: string;
   title: string;
