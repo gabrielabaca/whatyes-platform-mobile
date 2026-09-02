@@ -15,6 +15,7 @@
 		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
 		A6DB5061A21E4F20A8AF2C03 /* PlusJakartaSans-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = EE4F6F362F5D47138755CF12 /* PlusJakartaSans-Bold.ttf */; };
 		A7F6AC0927524C84E0F5163A /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */; };
+		B4E81A102F5D4A11B8C0E001 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = B4E81A102F5D4A11B8C0E002 /* GoogleService-Info.plist */; };
 		B8E9D0122CA456740066501 /* WebRTCAudioBootstrap.m in Sources */ = {isa = PBXBuildFile; fileRef = B8E9D0222CA456740066502 /* WebRTCAudioBootstrap.m */; };
 		C043932823B54D488D8B7D6C /* Mulish-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 8538E93CFC054C33839115CB /* Mulish-Bold.ttf */; };
 		C1A2B3012CA456740066601 /* LiveCoverCapture.m in Sources */ = {isa = PBXBuildFile; fileRef = C1A2B3022CA456740066602 /* LiveCoverCapture.m */; };
@@ -28,6 +29,7 @@
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = PulpoLive/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = PulpoLive/Info.plist; sourceTree = "<group>"; };
 		13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = PrivacyInfo.xcprivacy; path = PulpoLive/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		B4E81A102F5D4A11B8C0E002 /* GoogleService-Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = "GoogleService-Info.plist"; path = "PulpoLive/GoogleService-Info.plist"; sourceTree = "<group>"; };
 		389039A9B5804E04A547967C /* Mulish-Regular.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; name = "Mulish-Regular.ttf"; path = "../assets/fonts/Mulish-Regular.ttf"; sourceTree = "<group>"; };
 		394757E24B75439AACC04854 /* Mulish-Italic-Variable.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; name = "Mulish-Italic-Variable.ttf"; path = "../assets/fonts/Mulish-Italic-Variable.ttf"; sourceTree = "<group>"; };
 		3B4392A12AC88292D35C810B /* Pods-PulpoLive.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-PulpoLive.debug.xcconfig"; path = "Target Support Files/Pods-PulpoLive/Pods-PulpoLive.debug.xcconfig"; sourceTree = "<group>"; };
@@ -70,6 +72,7 @@
 				D2B3C4022CA456740066702 /* IvsStage.m */,
 				B8E9D0422CA456740066504 /* PulpoLive-Bridging-Header.h */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
+				B4E81A102F5D4A11B8C0E002 /* GoogleService-Info.plist */,
 				81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */,
 				13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */,
 			);
@@ -200,6 +203,7 @@
 				81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				A7F6AC0927524C84E0F5163A /* PrivacyInfo.xcprivacy in Resources */,
+				B4E81A102F5D4A11B8C0E001 /* GoogleService-Info.plist in Resources */,
 				FACAB738756B4297B7CFDBBE /* Mulish-Variable.ttf in Resources */,
 				F6D409F3F0D24607A677A338 /* Mulish-Italic-Variable.ttf in Resources */,
 				57085ACA83904334BC555375 /* Mulish-Regular.ttf in Resources */,

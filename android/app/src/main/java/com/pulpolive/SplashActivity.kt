@@ -25,15 +25,28 @@ class SplashActivity : AppCompatActivity() {
         val versionLabel = findViewById<TextView>(R.id.splash_version)
         versionLabel.text = "V${BuildConfig.VERSION_NAME}"
 
+        val delayMs = if (isFromPush()) 0L else SPLASH_DELAY_MS
         Handler(Looper.getMainLooper()).postDelayed({
             startActivity(buildMainIntent())
             finish()
-        }, SPLASH_DELAY_MS)
+        }, delayMs)
+    }
+
+    private fun isFromPush(): Boolean {
+        val extras = intent.extras ?: return false
+        return extras.containsKey("google.message_id")
+            || extras.containsKey("gcm.n.e")
+            || extras.containsKey("google.sent_time")
+            || extras.containsKey("type")
     }
 
     private fun buildMainIntent(): Intent {
         val next = Intent(this, MainActivity::class.java)
-        next.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        next.addFlags(
+            Intent.FLAG_ACTIVITY_CLEAR_TOP
+                or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                or Intent.FLAG_ACTIVITY_NEW_TASK
+        )
         intent.extras?.let { next.putExtras(it) }
         intent.data?.let { next.data = it }
         intent.action?.let { next.action = it }

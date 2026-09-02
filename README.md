@@ -84,6 +84,17 @@ npm run fastlane:beta
 
 Nota: si es la primera vez, abre Xcode y selecciona el Team en Signing & Capabilities.
 
+## Firebase (push)
+
+Los archivos de cliente **van en el repo**. No son secretos: viajan dentro del APK / IPA. Sin CI de mobile, ignorarlos obliga a cada clone a copiarlos a mano y el build de Android muere con `File google-services.json is missing`.
+
+| Plataforma | Archivo | Destino |
+|---|---|---|
+| Android | `google-services.json` | `android/app/google-services.json` |
+| iOS | `GoogleService-Info.plist` | `ios/PulpoLive/GoogleService-Info.plist` (Copy Bundle Resources del target) |
+
+Proyecto: `pulpolive-9a062`. Si hay que regenerarlos: Firebase Console → Project settings → tus apps (`com.pulpolive`). La service account del backend **no** vive acá; esa va en `FCM_SERVICE_ACCOUNT_JSON` de `service-platform`.
+
 If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
 
 This is one way to run your app — you can also build it directly from Android Studio or Xcode.

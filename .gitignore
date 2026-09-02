@@ -83,7 +83,3 @@ yarn-error.log
 
 # Apple Keys
 *.p8
-
-# Firebase (los genera la consola; nunca commitear)
-android/app/google-services.json
-ios/PulpoLive/GoogleService-Info.plist

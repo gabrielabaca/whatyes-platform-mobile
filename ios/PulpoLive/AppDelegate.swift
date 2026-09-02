@@ -46,8 +46,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     return true
   }
 
-  /// FirebaseApp.configure() crashea sin GoogleService-Info.plist. El archivo lo genera
-  /// la consola y no está en el repo: si falta, el resto de la app arranca igual.
+  /// FirebaseApp.configure() crashea sin GoogleService-Info.plist en el bundle.
+  /// El archivo vive en el repo y en Copy Bundle Resources; si falta, el resto arranca.
   private func configureFirebaseIfPresent() {
     guard Bundle.main.path(forResource: "GoogleService-Info", ofType: "plist") != nil else {
       return

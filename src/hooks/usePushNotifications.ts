@@ -21,6 +21,7 @@ type MessagingModule = {
     requestPermission: () => Promise<number>;
     hasPermission: () => Promise<number>;
     getToken: () => Promise<string>;
+    deleteToken: () => Promise<void>;
     onTokenRefresh: (cb: (token: string) => void) => () => void;
     onNotificationOpenedApp: (cb: (msg: RemoteMessage) => void) => () => void;
     getInitialNotification: () => Promise<RemoteMessage | null>;
@@ -83,20 +84,30 @@ function openFromRemoteMessage(msg: RemoteMessage | null | undefined): void {
 }
 
 /**
- * Da de baja el token en el backend. Llamar en logout ANTES de `clearAll`,
- * mientras el access token todavía sirve.
+ * Da de baja el token en el backend y lo invalida en FCM. Llamar en logout
+ * ANTES de `clearAll`, mientras el access token todavía sirve.
+ *
+ * Si el DELETE falla (red, token vencido), igual se llama `deleteToken()`:
+ * el próximo login pide un token nuevo y el anterior deja de recibir, así el
+ * usuario siguiente en ese teléfono no hereda avisos del anterior.
  */
 export async function unregisterCurrentPushToken(): Promise<void> {
   const token = lastRegisteredToken;
   lastRegisteredToken = null;
-  if (!token) return;
   try {
     const access = await storage.getAccessToken();
-    if (!access) return;
-    const { deletePushDevice } = await import('../api/platformApi');
-    await deletePushDevice(access, token);
+    if (access && token) {
+      const { deletePushDevice } = await import('../api/platformApi');
+      await deletePushDevice(access, token);
+    }
   } catch {
     // Best-effort: el logout local sigue.
+  }
+  try {
+    const messaging = loadMessaging();
+    await messaging?.().deleteToken();
+  } catch {
+    // Sin nativo o Firebase no linkeado: no bloquea el logout.
   }
 }
 
