@@ -47,16 +47,25 @@ export function usePagedProfileList<T>(
       const generation = generationRef.current;
       inFlightGenRef.current = generation;
       const offset = reset ? 0 : offsetRef.current;
-      if (reset) setLoading(true);
-      else setLoadingMore(true);
+      if (reset) {
+        setLoading(true);
+        // Un reset invalida cualquier página en vuelo: su finally ya no va a
+        // apagar loadingMore (generación vieja), así que se apaga acá.
+        setLoadingMore(false);
+      } else {
+        setLoadingMore(true);
+      }
       try {
         const token = await storage.getAccessToken();
         if (!token) {
           if (generation === generationRef.current) {
-            offsetRef.current = 0;
             hasMoreRef.current = false;
-            setItems([]);
             setHasMore(false);
+            // Sin token en un loadMore no se blanquea lo ya cargado.
+            if (reset) {
+              offsetRef.current = 0;
+              setItems([]);
+            }
           }
           return;
         }
@@ -72,7 +81,15 @@ export function usePagedProfileList<T>(
         setItems((prev) => {
           if (reset) return page;
           const seen = new Set(prev.map(keyOf));
-          return [...prev, ...page.filter((it) => !seen.has(keyOf(it)))];
+          return [
+            ...prev,
+            ...page.filter((it) => {
+              const key = keyOf(it);
+              if (seen.has(key)) return false;
+              seen.add(key);
+              return true;
+            }),
+          ];
         });
       } catch (e) {
         console.warn(logTag, e);
