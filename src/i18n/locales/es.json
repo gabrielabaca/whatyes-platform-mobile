@@ -268,6 +268,9 @@
     "activeStreams": "{{count}} transmisiones activas",
     "noLiveStreams": "Te adelantaste al próximo live 👀",
     "noLiveStreamsSubtitle": "Aún no hay streams activos, pero pronto aparecerán nuevas ventas en vivo y ofertas limitadas.",
+    "notifyWhenLives": "Avisarme cuando haya lives",
+    "notifyWhenLivesSaved": "Guardamos tu interés. Todavía no enviamos avisos; te vamos a avisar cuando estén disponibles.",
+    "notifyWhenLivesError": "No se pudo guardar. Intentá de nuevo.",
     "noMoreLiveCarousel": "No hay más transmisiones en carrusel",
     "menuHome": "Inicio",
     "menuProfile": "Perfil",
@@ -314,6 +317,7 @@
     "sortRecent": "Más recientes",
     "follow": "Seguir",
     "following": "Siguiendo",
+    "followError": "No se pudo actualizar el seguimiento. Intentá de nuevo.",
     "all": "Todo",
     "recommended": "Recomendados",
     "bestSellers": "Mejores",
@@ -335,7 +339,8 @@
       "shippingTracking": "Seguimiento de Envío",
       "purchaseNotify": "Notificar una Compra",
       "save": "Guardar",
-      "cancel": "Cancelar"
+      "cancel": "Cancelar",
+      "saveError": "No se pudieron guardar las preferencias. Intentá de nuevo."
     },
     "preferences": "Preferencias",
     "changePassword": "Cambiar Contraseña",

@@ -28,6 +28,8 @@ export interface UserProfile {
   /** URL de foto (backend: user_profile.picture) */
   picture?: string;
   avatar?: string;
+  /** ISO 3166-1 alpha-2. Distinto de customer_country. */
+  country_code?: string | null;
 }
 
 export interface Customer {
@@ -52,6 +54,8 @@ export interface User {
   role?: UserRole;
   profile?: UserProfile;
   customer?: Customer;
+  /** ISO 3166-1 alpha-2. Distinto de customer_country (empresa del vendedor). */
+  country_code?: string | null;
 }
 
 export interface UserMe extends User {

@@ -10,6 +10,8 @@ const DEFAULT_POLL_MS = 15000;
 export interface UseBuyerLiveRoomPreviewsOptions {
   /** Si se define, filtra por categoría en service-platform. */
   interestCategoryUuid?: string | null;
+  /** Orden del servidor. Default `recent` (created_at desc), igual que omitir el param. */
+  sort?: 'recent' | 'recommended' | 'viewers';
   /** Intervalo de refresco automático; `null` desactiva el polling. */
   pollIntervalMs?: number | null;
   /** Desactiva carga y polling (p. ej. home vendedor). */
@@ -32,6 +34,7 @@ export function useBuyerLiveRoomPreviews(
 } {
   const { t } = useTranslation();
   const cat = options?.interestCategoryUuid ?? undefined;
+  const sort = options?.sort ?? 'recent';
   const pollMs = options?.pollIntervalMs === undefined ? DEFAULT_POLL_MS : options.pollIntervalMs;
   const enabled = options?.enabled !== false;
   const lightweight = options?.lightweight === true;
@@ -48,7 +51,13 @@ export function useBuyerLiveRoomPreviews(
         return;
       }
       try {
-        const opts = cat != null && cat.length > 0 ? { interestCategoryUuid: cat } : undefined;
+        const opts =
+          (cat != null && cat.length > 0) || sort !== 'recent'
+            ? {
+                ...(cat != null && cat.length > 0 ? { interestCategoryUuid: cat } : {}),
+                ...(sort !== 'recent' ? { sort } : {}),
+              }
+            : undefined;
         const rooms = lightweight
           ? await getRoomsFeed(token, opts)
           : await getRooms(token, opts);
@@ -63,7 +72,7 @@ export function useBuyerLiveRoomPreviews(
       setLoading(false);
       setRefreshing(false);
     }
-  }, [t, cat, lightweight]);
+  }, [t, cat, sort, lightweight]);
 
   useEffect(() => {
     if (!enabled) {

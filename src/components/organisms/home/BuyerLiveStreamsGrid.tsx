@@ -105,6 +105,8 @@ export const BuyerLiveStreamsGrid: React.FC<BuyerLiveStreamsGridProps> = ({
               style={styles.emptyCta}
               leftIcon={<IconNotifications size={24} color="#FEFEFE" />}
               onPress={onEmptyActionPress}
+              accessibilityRole="button"
+              accessibilityLabel={emptyActionLabel}
             />
           ) : null}
         </View>

@@ -46,6 +46,14 @@ export interface PlatformRoom {
   viewer_count?: number;
 }
 
+/** Orden de GET /rooms y GET /rooms/feed. Omitir = recent (created_at desc). */
+export type RoomFeedSort = 'recent' | 'recommended' | 'viewers';
+
+export interface RoomsListOptions {
+  interestCategoryUuid?: string;
+  sort?: RoomFeedSort;
+}
+
 /** Credenciales de publicación IVS del seller (solo en la respuesta de go_live). */
 export interface RoomIvsPublish {
   stage_arn: string;
@@ -293,15 +301,13 @@ export async function uploadLiveRoomCover(
 /**
  * Lista salas en estado live (disponibles para ver).
  * @param interestCategoryUuid Si se indica, solo salas que incluyen esa categoría (service-platform).
+ * @param sort recent (default) | recommended | viewers
  */
 export async function getRooms(
   accessToken: string,
-  options?: { interestCategoryUuid?: string }
+  options?: RoomsListOptions
 ): Promise<PlatformRoom[]> {
-  const q =
-    options?.interestCategoryUuid != null && options.interestCategoryUuid.length > 0
-      ? `?interest_category_uuid=${encodeURIComponent(options.interestCategoryUuid)}`
-      : '';
+  const q = roomsListQuery(options);
   const res = await fetch(`${PLATFORM_HTTP_URL}/rooms${q}`, {
     headers: authHeaders(accessToken),
   });
@@ -318,18 +324,27 @@ export async function getRooms(
  */
 export async function getRoomsFeed(
   accessToken: string,
-  options?: { interestCategoryUuid?: string }
+  options?: RoomsListOptions
 ): Promise<PlatformRoom[]> {
-  const q =
-    options?.interestCategoryUuid != null && options.interestCategoryUuid.length > 0
-      ? `?interest_category_uuid=${encodeURIComponent(options.interestCategoryUuid)}`
-      : '';
+  const q = roomsListQuery(options);
   const res = await fetch(`${PLATFORM_HTTP_URL}/rooms/feed${q}`, {
     headers: authHeaders(accessToken),
   });
   if (!res.ok) throw new Error(`getRoomsFeed: ${res.status}`);
   const data = (await res.json()) as PlatformRoom[];
   return Array.isArray(data) ? data : [];
+}
+
+function roomsListQuery(options?: RoomsListOptions): string {
+  const params = new URLSearchParams();
+  if (options?.interestCategoryUuid != null && options.interestCategoryUuid.length > 0) {
+    params.set('interest_category_uuid', options.interestCategoryUuid);
+  }
+  if (options?.sort && options.sort !== 'recent') {
+    params.set('sort', options.sort);
+  }
+  const q = params.toString();
+  return q ? `?${q}` : '';
 }
 
 function normalizeInterestCategoriesResponse(raw: unknown): InterestCategoryItem[] {
@@ -1759,6 +1774,86 @@ export async function unsubscribeSellerNotifications(
   );
   if (!res.ok) throw new Error(`unsubscribeSellerNotifications: ${res.status}`);
   return res.json() as Promise<SellerNotificationSubscription>;
+}
+
+export interface CategoryNotificationSubscription {
+  interest_category_uuid: string;
+  subscribed: boolean;
+  notify_live_start: boolean;
+}
+
+export async function getCategoryNotificationSubscription(
+  accessToken: string,
+  categoryUuid: string
+): Promise<CategoryNotificationSubscription> {
+  const res = await fetch(
+    `${PLATFORM_HTTP_URL}/interest-categories/${encodeURIComponent(categoryUuid)}/notifications/subscription`,
+    { headers: authHeaders(accessToken) }
+  );
+  if (!res.ok) throw new Error(`getCategoryNotificationSubscription: ${res.status}`);
+  return res.json() as Promise<CategoryNotificationSubscription>;
+}
+
+export async function subscribeCategoryNotifications(
+  accessToken: string,
+  categoryUuid: string
+): Promise<CategoryNotificationSubscription> {
+  const res = await fetch(
+    `${PLATFORM_HTTP_URL}/interest-categories/${encodeURIComponent(categoryUuid)}/notifications/subscription`,
+    { method: 'PUT', headers: authHeaders(accessToken) }
+  );
+  if (!res.ok) throw new Error(`subscribeCategoryNotifications: ${res.status}`);
+  return res.json() as Promise<CategoryNotificationSubscription>;
+}
+
+export async function unsubscribeCategoryNotifications(
+  accessToken: string,
+  categoryUuid: string
+): Promise<CategoryNotificationSubscription> {
+  const res = await fetch(
+    `${PLATFORM_HTTP_URL}/interest-categories/${encodeURIComponent(categoryUuid)}/notifications/subscription`,
+    { method: 'DELETE', headers: authHeaders(accessToken) }
+  );
+  if (!res.ok) throw new Error(`unsubscribeCategoryNotifications: ${res.status}`);
+  return res.json() as Promise<CategoryNotificationSubscription>;
+}
+
+export interface NotificationPreferencesRemote {
+  all: boolean;
+  shipping_tracking: boolean;
+  purchase_notify: boolean;
+  notify_any_live: boolean;
+  persisted?: boolean;
+}
+
+export interface NotificationPreferencesUpdateRemote {
+  all?: boolean;
+  shipping_tracking?: boolean;
+  purchase_notify?: boolean;
+  notify_any_live?: boolean;
+}
+
+export async function getNotificationPreferencesRemote(
+  accessToken: string
+): Promise<NotificationPreferencesRemote> {
+  const res = await fetch(`${PLATFORM_HTTP_URL}/me/notifications/preferences`, {
+    headers: authHeaders(accessToken),
+  });
+  if (!res.ok) throw new Error(`getNotificationPreferencesRemote: ${res.status}`);
+  return res.json() as Promise<NotificationPreferencesRemote>;
+}
+
+export async function updateNotificationPreferencesRemote(
+  accessToken: string,
+  body: NotificationPreferencesUpdateRemote
+): Promise<NotificationPreferencesRemote> {
+  const res = await fetch(`${PLATFORM_HTTP_URL}/me/notifications/preferences`, {
+    method: 'PUT',
+    headers: { ...authHeaders(accessToken), 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`updateNotificationPreferencesRemote: ${res.status}`);
+  return res.json() as Promise<NotificationPreferencesRemote>;
 }
 
 export async function getUserShows(

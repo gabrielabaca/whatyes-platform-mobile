@@ -48,7 +48,7 @@ export function mapPlatformRoomToPreview(r: PlatformRoom, t: TFunction): LiveStr
     viewerCount: r.viewer_count ?? 0,
     thumbnail: liveThumb ?? coverThumb,
     coverUrl: coverThumb ?? null,
-    rating: 4.2 + ((r.viewer_count ?? 0) % 8) / 10,
+    rating: null,
     categoryLabel: interestCategories?.[0]?.label ?? null,
     interestCategories,
     sellerAvatarUrl: cr?.profile_picture ?? null,

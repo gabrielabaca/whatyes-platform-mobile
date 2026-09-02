@@ -17,9 +17,11 @@ import {
 import { GlassModalHeader } from '../profile/GlassModalHeader';
 import { FONT_FAMILY } from '../../../theme/typography';
 import { themeColors } from '../../../theme/colors';
+import { appAlert } from '../../../alerts';
 import {
   getNotificationPreferences,
-  persistNotificationPreferences,
+  loadNotificationPreferences,
+  saveNotificationPreferences,
   type NotificationPreferences,
 } from '../../../utils/notificationPreferences';
 
@@ -36,8 +38,10 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ visible,
     all: true,
     shippingTracking: true,
     purchaseNotify: true,
+    notifyAnyLive: false,
   });
   const [loading, setLoading] = useState(false);
+  const dirtyRef = useRef(false);
 
   useEffect(() => {
     if (!visible) {
@@ -45,11 +49,16 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ visible,
     }
 
     let cancelled = false;
+    dirtyRef.current = false;
     (async () => {
       setLoading(true);
       try {
-        const prefs = await getNotificationPreferences();
+        const cached = await getNotificationPreferences();
         if (!cancelled) {
+          setDraft(cached);
+        }
+        const prefs = await loadNotificationPreferences();
+        if (!cancelled && !dirtyRef.current) {
           setDraft(prefs);
         }
       } finally {
@@ -69,19 +78,26 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ visible,
   };
 
   const handleSave = async () => {
-    await persistNotificationPreferences(draft);
-    handleClose();
+    try {
+      await saveNotificationPreferences(draft);
+      handleClose();
+    } catch {
+      appAlert(t('common.appName'), t('account.notificationsModal.saveError'));
+    }
   };
 
   const setAll = (value: boolean) => {
-    setDraft({
+    dirtyRef.current = true;
+    setDraft((prev) => ({
+      ...prev,
       all: value,
       shippingTracking: value,
       purchaseNotify: value,
-    });
+    }));
   };
 
   const setShippingTracking = (value: boolean) => {
+    dirtyRef.current = true;
     setDraft((prev) => {
       const next = { ...prev, shippingTracking: value };
       next.all = next.shippingTracking && next.purchaseNotify;
@@ -90,6 +106,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ visible,
   };
 
   const setPurchaseNotify = (value: boolean) => {
+    dirtyRef.current = true;
     setDraft((prev) => {
       const next = { ...prev, purchaseNotify: value };
       next.all = next.shippingTracking && next.purchaseNotify;

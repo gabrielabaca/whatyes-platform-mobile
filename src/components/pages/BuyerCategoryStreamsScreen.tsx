@@ -15,6 +15,7 @@ import { FONT_FAMILY } from '../../theme/typography';
 import { themeColors } from '../../theme/colors';
 import { useTheme } from '../../context/ThemeContext';
 import { useBuyerLiveRoomPreviews } from '../../hooks/useBuyerLiveRoomPreviews';
+import { useCategoryFollow } from '../../hooks/useCategoryFollow';
 import { useInterestCategories } from '../../hooks/useInterestCategories';
 import { BuyerLiveStreamsGrid } from '../organisms/home/BuyerLiveStreamsGrid';
 import { LiveStreamPreviewCard } from '../organisms/home/LiveStreamPreviewCard';
@@ -55,11 +56,22 @@ export const BuyerCategoryStreamsScreen: React.FC<BuyerCategoryStreamsScreenProp
   const popularCardW = Math.floor((windowWidth - 16 * 2 - 12) / 2);
   const popularCardStyle = useMemo(() => ({ width: popularCardW }), [popularCardW]);
   const [sort, setSort] = useState<CategorySortMode>('all');
-  const [following, setFollowing] = useState(false);
+  const feedSort =
+    sort === 'recommended' ? 'recommended' : sort === 'bestSellers' ? 'viewers' : 'recent';
+  const { isFollowing: following, followLoading, toggleFollow } = useCategoryFollow({
+    categoryUuid: category.uuid,
+  });
   const { categories, loadOnce, isLoaded } = useInterestCategories();
   const { previews, loading, refreshing, onRefresh } = useBuyerLiveRoomPreviews({
     interestCategoryUuid: category.uuid,
+    sort: feedSort,
     pollIntervalMs: 15000,
+  });
+  const popular = useBuyerLiveRoomPreviews({
+    interestCategoryUuid: category.uuid,
+    sort: 'viewers',
+    pollIntervalMs: null,
+    enabled: sort !== 'bestSellers',
   });
 
   useEffect(() => {
@@ -72,20 +84,10 @@ export const BuyerCategoryStreamsScreen: React.FC<BuyerCategoryStreamsScreenProp
     });
   }, [category.uuid]);
 
-  const sortedPreviews = useMemo(() => {
-    if (sort === 'all') {
-      return previews;
-    }
-    const list = [...previews];
-    if (sort === 'bestSellers') {
-      list.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
-    }
-    return list;
-  }, [previews, sort]);
-
   const popularPreviews = useMemo(() => {
-    return [...previews].sort((a, b) => b.viewerCount - a.viewerCount).slice(0, 6);
-  }, [previews]);
+    const source = sort === 'bestSellers' ? previews : popular.previews;
+    return source.slice(0, 6);
+  }, [previews, popular.previews, sort]);
 
   /**
    * `hasResults` sigue siendo la fuente de verdad de la grilla (sectionHeader de Lives).
@@ -94,7 +96,7 @@ export const BuyerCategoryStreamsScreen: React.FC<BuyerCategoryStreamsScreenProp
    * terminó y la categoría quedó vacía. Los de categoría no cuelgan de esto: son la vía
    * para saltar a otra categoría.
    */
-  const hasResults = !loading && sortedPreviews.length > 0;
+  const hasResults = !loading && previews.length > 0;
   const showSortChips = loading || hasResults;
   const otherCategories = useMemo(
     () => (isLoaded ? categories.filter((c) => c.uuid !== category.uuid) : []),
@@ -118,6 +120,9 @@ export const BuyerCategoryStreamsScreen: React.FC<BuyerCategoryStreamsScreenProp
       <TouchableOpacity
         onPress={() => setSort(mode)}
         activeOpacity={0.8}
+        accessibilityRole="button"
+        accessibilityState={{ selected: on }}
+        accessibilityLabel={`${icon} ${t(labelKey)}`}
         style={[
           styles.filterChip,
           on ? styles.filterChipActive : styles.filterChipIdle,
@@ -155,7 +160,12 @@ export const BuyerCategoryStreamsScreen: React.FC<BuyerCategoryStreamsScreenProp
       refreshControl={
         <RefreshControl
           refreshing={refreshing}
-          onRefresh={onRefresh}
+          onRefresh={() => {
+            onRefresh();
+            if (sort !== 'bestSellers') {
+              popular.onRefresh();
+            }
+          }}
           tintColor={themeColors.primary}
           colors={[themeColors.primary]}
         />
@@ -176,8 +186,14 @@ export const BuyerCategoryStreamsScreen: React.FC<BuyerCategoryStreamsScreenProp
         </View>
 
         <TouchableOpacity
-          onPress={() => setFollowing((v) => !v)}
+          onPress={() => {
+            void toggleFollow();
+          }}
           activeOpacity={0.85}
+          disabled={followLoading}
+          accessibilityRole="button"
+          accessibilityState={{ selected: following, busy: followLoading, disabled: followLoading }}
+          accessibilityLabel={following ? t('explore.following') : t('explore.follow')}
           style={styles.followButtonTouchable}
         >
           <View
@@ -185,6 +201,7 @@ export const BuyerCategoryStreamsScreen: React.FC<BuyerCategoryStreamsScreenProp
               styles.followButton,
               following ? styles.followButtonFollowing : styles.followButtonIdle,
               following && isDark ? { backgroundColor: themeColors.dark.surfaceAlt } : null,
+              followLoading ? { opacity: themeColors.disabledOpacity } : null,
             ]}
           >
             <Text
@@ -271,11 +288,13 @@ export const BuyerCategoryStreamsScreen: React.FC<BuyerCategoryStreamsScreenProp
       ) : null}
 
       <BuyerLiveStreamsGrid
-        previews={sortedPreviews}
+        previews={previews}
         loading={loading}
         onStreamPress={onStreamPress}
         emptyLabel={t('home.noLiveStreams')}
         emptySubtitle={t('explore.noLivesInCategorySubtitle')}
+        emptyActionLabel={!following ? t('explore.follow') : undefined}
+        onEmptyActionPress={!following ? () => void toggleFollow() : undefined}
         sectionHeader={hasResults ? sectionHeader(t('explore.livesSection')) : undefined}
       />
     </ScrollView>

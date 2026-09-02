@@ -269,6 +269,9 @@ export default {
     "activeStreams": "{{count}} active streams",
     "noLiveStreams": "You're early for the next live 👀",
     "noLiveStreamsSubtitle": "No active streams yet, but new live sales and limited offers are coming soon.",
+    "notifyWhenLives": "Notify me when there are lives",
+    "notifyWhenLivesSaved": "We saved your interest. We don't send alerts yet; we'll let you know when they're available.",
+    "notifyWhenLivesError": "Couldn't save. Please try again.",
     "noMoreLiveCarousel": "No more streams in carousel",
     "menuHome": "Home",
     "menuProfile": "Profile",
@@ -315,6 +318,7 @@ export default {
     "sortRecent": "Most recent",
     "follow": "Follow",
     "following": "Following",
+    "followError": "Couldn't update follow status. Please try again.",
     "all": "All",
     "recommended": "Recommended",
     "bestSellers": "Top",
@@ -336,7 +340,8 @@ export default {
       "shippingTracking": "Shipment tracking",
       "purchaseNotify": "Notify on purchase",
       "save": "Save",
-      "cancel": "Cancel"
+      "cancel": "Cancel",
+      "saveError": "Couldn't save preferences. Please try again."
     },
     "preferences": "Preferences",
     "changePassword": "Change password",

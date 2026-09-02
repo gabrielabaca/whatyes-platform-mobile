@@ -67,7 +67,8 @@ import {
   type LiveStreamPreviewModel,
   type HomeBottomTab,
 } from '../../organisms/home';
-import { AddProductScreen } from '../AddProductScreen';
+import { appAlert } from '../../../alerts';
+import { loadNotificationPreferences, patchNotificationPreferences } from '../../../utils/notificationPreferences';
 
 interface HomeScreenProps {
   onStreamPress?: (stream: StreamData | any) => void;
@@ -119,7 +120,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   onStreamsSwipePress,
   onStartNewStream,
 }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const locale = i18n.language || 'es';
   const { user, logout, reloadUser } = useAuth();
   const isSeller = user?.user_type === 'seller_user';
   const isBuyer = user?.user_type === 'buyer_user';
@@ -151,12 +153,38 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const [pastLives, setPastLives] = useState<UserShowItem[]>([]);
   const [showFirstLiveCta, setShowFirstLiveCta] = useState(true);
   const [kycVisible, setKycVisible] = useState(false);
+  const [notifyAnyLive, setNotifyAnyLive] = useState(false);
+  const [notifyLivesSaving, setNotifyLivesSaving] = useState(false);
 
   useEffect(() => {
     if (isBuyer || isSeller) {
       loadOnce().catch(() => {});
     }
   }, [isBuyer, isSeller, loadOnce]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void loadNotificationPreferences().then((prefs) => {
+      if (!cancelled) setNotifyAnyLive(prefs.notifyAnyLive);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleNotifyWhenLives = useCallback(async () => {
+    if (notifyLivesSaving || notifyAnyLive) return;
+    setNotifyLivesSaving(true);
+    try {
+      const next = await patchNotificationPreferences({ notifyAnyLive: true });
+      setNotifyAnyLive(next.notifyAnyLive);
+      appAlert(t('common.appName'), t('home.notifyWhenLivesSaved'));
+    } catch {
+      appAlert(t('common.appName'), t('home.notifyWhenLivesError'));
+    } finally {
+      setNotifyLivesSaving(false);
+    }
+  }, [notifyLivesSaving, notifyAnyLive, t]);
 
   // --- Tiempo real de mensajes y notificaciones -----------------------------
   // El WS solo avisa QUÉ pasó; los contadores los vuelve a pedir al backend, que
@@ -445,7 +473,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     homePath.name === 'chat';
 
   const paymentsAmount = t('sellerHome.paymentsAmount', {
-    amount: new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 }).format(
+    amount: new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(
       Math.round(salesTotalCents / 100)
     ),
   });
@@ -554,6 +582,16 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                 peekHintFirstCard={!peekHintUsed}
                 emptyLabel={t('home.noLiveStreams')}
                 emptySubtitle={t('home.noLiveStreamsSubtitle')}
+                emptyActionLabel={
+                  notifyAnyLive ? undefined : t('home.notifyWhenLives')
+                }
+                onEmptyActionPress={
+                  notifyAnyLive || notifyLivesSaving
+                    ? undefined
+                    : () => {
+                        void handleNotifyWhenLives();
+                      }
+                }
                 gap={GRID_GAP}
                 previewWithCategory={previewWithCategory}
                 sectionHeader={

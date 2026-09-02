@@ -53,6 +53,21 @@ export const COUNTRIES: Country[] = [
   { code: 'NZ', name: 'Nueva Zelanda', flag: '🇳🇿' },
 ];
 
+export function countryNameFromCode(codeOrName?: string | null): string {
+  if (!codeOrName) return '';
+  const raw = codeOrName.trim();
+  const match = COUNTRIES.find(
+    (c) => c.code === raw.toUpperCase() || c.name === raw
+  );
+  return match?.name ?? '';
+}
+
+export function countryCodeFromName(nameOrCode?: string | null): string | undefined {
+  if (!nameOrCode) return undefined;
+  const raw = nameOrCode.trim();
+  return COUNTRIES.find((c) => c.code === raw.toUpperCase() || c.name === raw)?.code;
+}
+
 /** Unión de ISO2 de COUNTRIES para filtrar Geoapify cuando el form no eligió país. */
 export const COUNTRY_CODES_FILTER = COUNTRIES.map((c) => c.code).join(',');
 

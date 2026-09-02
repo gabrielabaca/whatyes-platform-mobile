@@ -21,7 +21,7 @@ import { AppOptionPickerSheet } from '../../molecules/AppOptionPickerSheet';
 import { IconAddLocation } from '../../icons';
 import { FONT_FAMILY } from '../../../theme/typography';
 import { themeColors } from '../../../theme/colors';
-import { COUNTRIES, COUNTRY_CODES_FILTER } from '../../molecules/CountrySelect/CountrySelect';
+import { COUNTRIES, COUNTRY_CODES_FILTER, countryCodeFromName, countryNameFromCode } from '../../molecules/CountrySelect/CountrySelect';
 import { AddressAutocompleteField } from '../../molecules/AddressAutocompleteField';
 import { useAuth } from '../../../hooks/useAuth';
 import {
@@ -54,7 +54,7 @@ export const ShippingAddressModal: React.FC<ShippingAddressModalProps> = ({
 }) => {
   const { t } = useTranslation();
   const modalRef = useRef<GlassFullScreenModalHandle>(null);
-  const { user } = useAuth();
+  const { user, reloadUser } = useAuth();
 
   // Nombre ya conocido del usuario: prop explícita > nombre del usuario logueado.
   const knownFullName =
@@ -82,7 +82,7 @@ export const ShippingAddressModal: React.FC<ShippingAddressModalProps> = ({
 
     if (mode === 'create') {
       setFullName(knownFullName);
-      setCountry('');
+      setCountry(countryNameFromCode(user?.country_code));
       setAddressLine1('');
       setCity('');
       setState('');
@@ -100,7 +100,7 @@ export const ShippingAddressModal: React.FC<ShippingAddressModalProps> = ({
           return;
         }
         setFullName(data.full_name?.trim() || knownFullName);
-        setCountry(data.country?.trim() || '');
+        setCountry(data.country?.trim() || countryNameFromCode(user?.country_code));
         setAddressLine1(data.address_line1?.trim() || '');
         setCity(data.city?.trim() || '');
         setState(data.state?.trim() || '');
@@ -108,7 +108,7 @@ export const ShippingAddressModal: React.FC<ShippingAddressModalProps> = ({
       } catch {
         if (!cancelled) {
           setFullName(knownFullName);
-          setCountry('');
+          setCountry(countryNameFromCode(user?.country_code));
           setAddressLine1('');
           setCity('');
           setState('');
@@ -124,7 +124,7 @@ export const ShippingAddressModal: React.FC<ShippingAddressModalProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [visible, knownFullName, mode]);
+  }, [visible, knownFullName, mode, user?.country_code]);
 
   const handleClose = () => {
     modalRef.current?.dismiss();
@@ -196,6 +196,9 @@ export const ShippingAddressModal: React.FC<ShippingAddressModalProps> = ({
         await createShippingAddress(trimmed);
       } else {
         await updateShippingAddress(trimmed);
+      }
+      if (!user?.country_code) {
+        await reloadUser();
       }
       onSaved?.();
       handleClose();
@@ -343,7 +346,9 @@ export const ShippingAddressModal: React.FC<ShippingAddressModalProps> = ({
               value={addressLine1}
               onChangeText={setAddressLine1}
               placeholder={t('account.shippingAddress.addressPlaceholder')}
-              countryCode={selectedCountry?.code ?? COUNTRY_CODES_FILTER}
+              countryCode={
+                selectedCountry?.code ?? countryCodeFromName(user?.country_code) ?? COUNTRY_CODES_FILTER
+              }
               onSelectSuggestion={applySuggestion}
             />
             <FormField
