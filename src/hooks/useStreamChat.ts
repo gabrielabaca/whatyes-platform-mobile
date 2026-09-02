@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { PLATFORM_WS_URL } from '../api/config';
+import i18n from '../i18n';
 
 export interface ChatMessage {
   id: string;
@@ -56,7 +57,7 @@ interface LikeEvent {
 const formatTimestamp = (createdAt?: number): string => {
   if (!createdAt) return 'ahora';
   const date = new Date(createdAt * 1000);
-  return date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+  return date.toLocaleTimeString(i18n.language || 'es', { hour: '2-digit', minute: '2-digit' });
 };
 
 const toChatMessage = (msg: WsPayloadMessage): ChatMessage => {

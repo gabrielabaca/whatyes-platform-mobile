@@ -27,10 +27,10 @@ export interface LiveProductCardVM {
   isNext?: boolean;
 }
 
-export function formatCatalogPrice(cents: number, currency: string): string {
+export function formatCatalogPrice(cents: number, currency: string, locale: string): string {
   const major = cents / 100;
   try {
-    return new Intl.NumberFormat('es-AR', {
+    return new Intl.NumberFormat(locale, {
       style: 'currency',
       currency: currency || 'ARS',
       maximumFractionDigits: 0,
@@ -63,7 +63,8 @@ export const LiveProductCard: React.FC<LiveProductCardProps> = ({
   onPin,
   onSelect,
 }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const locale = i18n.language || 'es';
   const startsSoon = Boolean(item.startsSoon);
   const hasCountdown = item.auctionSecondsRemaining != null;
   const countdownLabel = formatCountdown(item.auctionSecondsRemaining);
@@ -118,7 +119,7 @@ export const LiveProductCard: React.FC<LiveProductCardProps> = ({
 
         <View style={styles.priceRow}>
           <RNText style={styles.price}>
-            {formatCatalogPrice(item.priceCents, item.currency)}
+            {formatCatalogPrice(item.priceCents, item.currency, locale)}
           </RNText>
           {interactive || startsSoon || hasCountdown ? (
             <RNText

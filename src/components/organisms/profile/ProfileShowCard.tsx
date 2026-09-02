@@ -20,21 +20,20 @@ const LIVE_RED = '#FB2C36';
 const PRIMARY = '#685CF0';
 const ENDED_GRAY = '#71717B';
 
-function formatViewerCount(n: number): string {
+function formatViewerCount(n: number, locale: string): string {
   if (n >= 1000) {
-    return n.toLocaleString('es-ES');
+    return n.toLocaleString(locale);
   }
   return String(n);
 }
 
-function formatScheduled(epochSec: number): string {
+/** "5 sept 14:30h" / "Sep 5 14:30h" según el idioma activo. */
+function formatScheduled(epochSec: number, locale: string): string {
   const d = new Date(epochSec * 1000);
-  const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-  const day = d.getDate();
-  const month = months[d.getMonth()] ?? '';
+  const date = new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short' }).format(d);
   const h = d.getHours();
   const m = String(d.getMinutes()).padStart(2, '0');
-  return `${day} ${month} ${h}:${m}h`;
+  return `${date} ${h}:${m}h`;
 }
 
 export interface ProfileShowCardProps {
@@ -64,7 +63,8 @@ export const ProfileShowCard: React.FC<ProfileShowCardProps> = ({
    * oscuro y son iguales en ambos temas.
    */
   const { isDark } = useTheme();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const locale = i18n.language || 'es';
   const d = themeColors.dark;
   const cardW = (width - 16 * 2 - 12) / 2;
   const isLive = show.status === 'live';
@@ -112,7 +112,7 @@ export const ProfileShowCard: React.FC<ProfileShowCardProps> = ({
             </View>
           ) : isDraft ? (
             <View style={styles.scheduledBadge}>
-              <RNText style={styles.scheduledText}>{formatScheduled(show.created_at)}</RNText>
+              <RNText style={styles.scheduledText}>{formatScheduled(show.created_at, locale)}</RNText>
             </View>
           ) : isEnded ? (
             <View style={styles.endedBadge}>
@@ -125,7 +125,7 @@ export const ProfileShowCard: React.FC<ProfileShowCardProps> = ({
             <View style={styles.viewerBadge}>
               <IconEye size={14} color="#FFFFFF" strokeWidth={2} />
               <RNText style={styles.viewerText}>
-                {formatViewerCount(show.viewer_count ?? 0)}
+                {formatViewerCount(show.viewer_count ?? 0, locale)}
               </RNText>
             </View>
           ) : isDraft ? (

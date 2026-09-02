@@ -7,8 +7,27 @@ import React from 'react';
 import { View, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { Text } from '../../atoms/Text';
 import { Eye, Heart, ShoppingCart, DollarSign } from 'lucide-react-native';
+import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../../context/ThemeContext';
 import { themeColors } from '../../../theme/colors';
+
+function formatCurrency(amount: number, locale: string): string {
+  return new Intl.NumberFormat(locale, {
+    style: 'currency',
+    currency: 'ARS',
+    minimumFractionDigits: 0,
+  }).format(amount);
+}
+
+function formatNumber(num: number): string {
+  if (num >= 1000000) {
+    return `${(num / 1000000).toFixed(1)}M`;
+  }
+  if (num >= 1000) {
+    return `${(num / 1000).toFixed(1)}K`;
+  }
+  return num.toString();
+}
 
 export interface SellerStreamData {
   id: string;
@@ -29,28 +48,12 @@ interface SellerStreamCardProps {
 }
 
 export const SellerStreamCard: React.FC<SellerStreamCardProps> = ({ stream, onPress }) => {
+  const { i18n } = useTranslation();
+  const locale = i18n.language || 'es';
   const { isDark } = useTheme();
   /** Superficie y tinta de íconos por tema. Badge "EN VIVO" y verde de ventas: semánticos. */
   const surface = isDark ? themeColors.dark.surface : themeColors.light.surface;
   const mutedIcon = isDark ? themeColors.dark.textMuted : '#6b7280';
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('es-AR', {
-      style: 'currency',
-      currency: 'ARS',
-      minimumFractionDigits: 0,
-    }).format(amount);
-  };
-
-  const formatNumber = (num: number) => {
-    if (num >= 1000000) {
-      return `${(num / 1000000).toFixed(1)}M`;
-    }
-    if (num >= 1000) {
-      return `${(num / 1000).toFixed(1)}K`;
-    }
-    return num.toString();
-  };
 
   return (
     <TouchableOpacity
@@ -126,7 +129,7 @@ export const SellerStreamCard: React.FC<SellerStreamCardProps> = ({ stream, onPr
           <View style={[styles.statItem, styles.totalSales]}>
             <DollarSign size={16} color="#059669" />
             <Text variant="caption" className="text-green-600 ml-1 font-bold">
-              {formatCurrency(stream.totalSales)}
+              {formatCurrency(stream.totalSales, locale)}
             </Text>
           </View>
         </View>

@@ -96,16 +96,16 @@ function sanitizeWords(words: string[]): string[] {
   return Array.from(new Set(words.map((w) => w.trim().toLowerCase()).filter(Boolean))).slice(0, 50);
 }
 
-function formatDate(epochSeconds?: number | null): string {
+function formatDate(epochSeconds: number | null | undefined, locale: string): string {
   if (!epochSeconds) return '';
   const date = new Date(epochSeconds * 1000);
-  return date.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit' });
+  return date.toLocaleDateString(locale, { day: '2-digit', month: '2-digit', year: '2-digit' });
 }
 
-function formatTime(epochSeconds?: number | null): string {
+function formatTime(epochSeconds: number | null | undefined, locale: string): string {
   if (!epochSeconds) return '';
   const date = new Date(epochSeconds * 1000);
-  return date.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+  return date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
 }
 
 /** Fecha y hora de inicio por defecto: ahora mismo, segundos en cero */
@@ -420,7 +420,8 @@ export const PreLiveSetupOverlay: React.FC<{
   onCancel: () => void;
   onStart: (config: StreamConfig) => void;
 }> = ({ initialConfig, visible, onCancel, onStart }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const locale = i18n.language || 'es';
   const insets = useSafeAreaInsets();
   const { categories } = useInterestCategories();
   const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -574,8 +575,8 @@ export const PreLiveSetupOverlay: React.FC<{
   const saleFormatLabel = saleFormatOptions.find((opt) => opt.id === saleFormat)?.label ?? saleFormatOptions[0].label;
 
   const scheduleEpochSeconds = Math.floor(scheduleAt.getTime() / 1000);
-  const scheduledDateDisplay = formatDate(scheduleEpochSeconds);
-  const scheduledTimeDisplay = formatTime(scheduleEpochSeconds);
+  const scheduledDateDisplay = formatDate(scheduleEpochSeconds, locale);
+  const scheduledTimeDisplay = formatTime(scheduleEpochSeconds, locale);
 
   const submitCoverPhoto = useCallback(
     async (photo: { uri: string; type?: string; name?: string }) => {

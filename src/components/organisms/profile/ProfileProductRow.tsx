@@ -20,17 +20,16 @@ const THUMB = 132;
 const GOLD = '#FDC700';
 const GRAY_500 = '#71717B';
 
-function formatScheduled(epochSec: number): string {
+/** "5 sept 14:30h" / "Sep 5 14:30h" según el idioma activo. */
+function formatScheduled(epochSec: number, locale: string): string {
   const d = new Date(epochSec * 1000);
-  const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-  const day = d.getDate();
-  const month = months[d.getMonth()] ?? '';
+  const date = new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short' }).format(d);
   const h = d.getHours();
   const m = String(d.getMinutes()).padStart(2, '0');
-  return `${day} ${month} ${h}:${m}h`;
+  return `${date} ${h}:${m}h`;
 }
 
-function formatPrice(cents: number, currency: string): string {
+function formatPrice(cents: number, currency: string, locale: string): string {
   const major = cents / 100;
   if (currency === 'ARS' || currency === 'USD') {
     const sym = currency === 'USD' ? 'US$' : '$';
@@ -38,7 +37,7 @@ function formatPrice(cents: number, currency: string): string {
     return `${sym}${n}`;
   }
   try {
-    return new Intl.NumberFormat('es-AR', {
+    return new Intl.NumberFormat(locale, {
       style: 'currency',
       currency: currency || 'ARS',
       maximumFractionDigits: 0,
@@ -61,7 +60,8 @@ export interface ProfileProductRowProps {
 }
 
 export const ProfileProductRow: React.FC<ProfileProductRowProps> = ({ item, onPress }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const locale = i18n.language || 'es';
   /** Overrides de color sólo en oscuro: en claro el StyleSheet manda sin cambios. */
   const { isDark } = useTheme();
   const d = themeColors.dark;
@@ -79,7 +79,7 @@ export const ProfileProductRow: React.FC<ProfileProductRowProps> = ({ item, onPr
       : isDraft && item.starts_soon
         ? t('profile.startsSoon')
         : item.scheduled_at
-          ? formatScheduled(item.scheduled_at)
+          ? formatScheduled(item.scheduled_at, locale)
           : t('profile.startsSoon');
 
   const showTimer =
@@ -133,7 +133,7 @@ export const ProfileProductRow: React.FC<ProfileProductRowProps> = ({ item, onPr
         </View>
 
         <View style={styles.footerRow}>
-          <RNText style={styles.price}>{formatPrice(item.price_cents, item.currency)}</RNText>
+          <RNText style={styles.price}>{formatPrice(item.price_cents, item.currency, locale)}</RNText>
           {showTimer ? (
             <RNText style={[styles.timer, darkText]}>
               {formatTimer(item.auction_seconds_remaining!)}
