@@ -278,7 +278,10 @@ const ActivityCard: React.FC<{
           </RNText>
         </View>
         {role === 'sales' ? (
-          <RNText style={styles.trophyWinner} numberOfLines={1}>
+          <RNText
+            style={[styles.trophyWinner, isDark ? { color: d.text } : null]}
+            numberOfLines={1}
+          >
             🏆 {counterpartName}
           </RNText>
         ) : null}
@@ -451,7 +454,7 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.semibold,
     fontSize: 13,
     lineHeight: 16,
-    color: PRIMARY,
+    color: '#303030',
     includeFontPadding: false,
   },
   counterpartChip: {

@@ -634,6 +634,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           {homePath.name === 'purchaseDetail' ? (
             <PurchaseDetailScreen
               purchase={homePath.purchase}
+              activityRole={homePath.returnTab}
               onBack={() => setHomePath({ name: 'activity', initialTab: homePath.returnTab })}
               onOpenSellerProfile={(sellerUserId) =>
                 setHomePath({ name: 'profile', userId: sellerUserId, returnTo: 'activity' })

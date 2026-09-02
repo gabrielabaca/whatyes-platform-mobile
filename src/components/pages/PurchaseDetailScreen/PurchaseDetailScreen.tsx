@@ -108,8 +108,35 @@ function formatClipDuration(totalSeconds: number): string {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
 
-function capitalizeBrand(brand: string): string {
-  return brand.charAt(0).toUpperCase() + brand.slice(1).toLowerCase();
+function cardBrandLabel(brand: string): string {
+  const key = brand.trim().toLowerCase();
+  const known: Record<string, string> = {
+    visa: 'Visa',
+    debvisa: 'Visa',
+    master: 'Mastercard',
+    masterdebit: 'Mastercard',
+    debmaster: 'Mastercard',
+    amex: 'American Express',
+    naranja: 'Naranja',
+    cabal: 'Cabal',
+    debcabal: 'Cabal',
+    maestro: 'Maestro',
+    elo: 'Elo',
+    diners: 'Diners Club',
+    argencard: 'Argencard',
+    cmr: 'CMR',
+    cencosud: 'Cencosud',
+    tarshop: 'Tarjeta Shopping',
+    account_money: 'Mercado Pago',
+  };
+  if (known[key]) {
+    return known[key];
+  }
+  return key
+    .split(/[_\s-]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
 }
 
 function formatMaskedCard(
@@ -120,7 +147,7 @@ function formatMaskedCard(
   if (!digits) {
     return null;
   }
-  const name = brand?.trim() ? capitalizeBrand(brand.trim()) : '';
+  const name = brand?.trim() ? cardBrandLabel(brand) : '';
   return name ? `${name} •••• ${digits}` : `•••• ${digits}`;
 }
 
@@ -158,6 +185,8 @@ export interface PurchaseDetailScreenProps {
   onOpenSellerProfile?: (sellerUserId: string) => void;
   /** Inicia (o retoma) el chat con la contraparte: vendedor en compras, comprador en ventas. */
   onStartChat?: (peerUserId: string) => void;
+  /** Tab de Actividad de origen. `sales` no pide el desglose (endpoint de comprador). */
+  activityRole?: 'purchases' | 'sales';
 }
 
 export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
@@ -165,6 +194,7 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
   onBack,
   onOpenSellerProfile,
   onStartChat,
+  activityRole,
 }) => {
   const { t, i18n } = useTranslation();
   const insets = useSafeAreaInsets();
@@ -243,7 +273,10 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
         if (profile) setSellerProfile(profile);
         setSimilarProducts(
           products
-            .filter((p) => String(p.room_uuid) !== String(purchase.product_id))
+            .filter((p) => {
+              const id = p.product_id || p.room_uuid;
+              return String(id) !== String(purchase.product_id);
+            })
             .slice(0, 3)
         );
       } catch {
@@ -279,10 +312,15 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
 
   /**
    * Desglose de pago (método enmascarado, IVA, dirección, comprobante). Si falla,
-   * el bloque sigue mostrando lo que ya trae el prop `purchase`.
+   * el bloque sigue mostrando lo que ya trae el prop `purchase`. El vendedor no
+   * llama: el endpoint es de comprador (404) y el bloque ya se arma del prop.
    */
   useEffect(() => {
     let cancelled = false;
+    if (activityRole === 'sales') {
+      setPaymentDetail(null);
+      return;
+    }
     void (async () => {
       try {
         const token = await storage.getAccessToken();
@@ -296,7 +334,7 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [purchase.sale_uuid]);
+  }, [purchase.sale_uuid, activityRole]);
 
   /**
    * Si el cobro automático no salió, el saga deja el intent en REQUIRES_CLIENT_ACTION

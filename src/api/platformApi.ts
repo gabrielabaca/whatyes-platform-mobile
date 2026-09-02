@@ -1293,6 +1293,8 @@ export interface UserShowItem {
 
 export interface UserProfileProductItem {
   room_uuid: string;
+  /** Uuid del producto. En catálogo `room_uuid` es un alias legado del mismo id. */
+  product_id?: string | null;
   status: 'draft' | 'live' | 'ended' | string;
   title: string;
   thumbnail_url?: string | null;
@@ -1368,6 +1370,7 @@ export interface PurchaseItem {
   condition?: 'new' | 'lightly_used' | 'used' | string | null;
   category_name?: string | null;
   quantity: number;
+  /** Total del lote (puja / buy-now), no el unitario. quantity es siempre 1. */
   amount_cents: number;
   /** Envío cobrado junto al producto; null = venta aún sin cotizar. */
   shipping_cost_cents?: number | null;
@@ -1477,6 +1480,7 @@ export interface PurchasePaymentDetail {
   installments?: number | null;
   approved_at?: number | null;
   provider_payment_id?: string | null;
+  /** Igual a amount_cents de la venta: total del lote, no unitario. */
   subtotal_cents: number;
   tax_cents?: number | null;
   tax_rate_bp?: number | null;
