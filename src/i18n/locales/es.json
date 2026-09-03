@@ -169,7 +169,17 @@
     "kycDeclinedSubtitle": "Podés continuar con el registro e intentar de nuevo más tarde desde tu perfil.",
     "kycRetry": "Reintentar",
     "kycRequiredSubtitle": "Para participar de un vivo o transmitir en PulpoLive necesitamos validar tu identidad. Te pediremos escanear tu documento y completar una verificación facial con nuestro socio de confianza; suele llevar solo unos minutos.",
-    "kycRequiredDeclinedSubtitle": "Necesitamos verificar tu identidad para que puedas continuar. Intentá de nuevo."
+    "kycRequiredDeclinedSubtitle": "Necesitamos verificar tu identidad para que puedas continuar. Intentá de nuevo.",
+    "notificationsTitle": "Activa las Notificaciones",
+    "notificationsSubtitle": "Te avisaremos cuando haya un live interesante para que no te pierdas de nada",
+    "notificationsCta": "Activar Notificaciones",
+    "notificationsSkip": "No por ahora",
+    "notificationsOpenSettings": "Abrir Ajustes",
+    "notificationsDeniedHint": "Las notificaciones están desactivadas para PulpoLive en este teléfono. Activalas desde Ajustes y volvé a la app.",
+    "notificationsPreviewDate": "16 Abr 15:30h",
+    "notificationsPreviewSeller": "Calza total",
+    "notificationsPreviewRating": "4.9",
+    "notificationsPreviewTitle": "Nuevas zapatillas nike"
   },
   "sellerHome": {
     "verifyTitle": "Verifica tu identidad",
@@ -340,7 +350,9 @@
       "purchaseNotify": "Notificar una Compra",
       "save": "Guardar",
       "cancel": "Cancelar",
-      "saveError": "No se pudieron guardar las preferencias. Intentá de nuevo."
+      "saveError": "No se pudieron guardar las preferencias. Intentá de nuevo.",
+      "systemDisabled": "Las notificaciones están desactivadas en el teléfono",
+      "systemDisabledCta": "Activar"
     },
     "preferences": "Preferencias",
     "changePassword": "Cambiar Contraseña",

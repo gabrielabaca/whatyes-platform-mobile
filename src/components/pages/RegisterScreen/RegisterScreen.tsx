@@ -24,6 +24,7 @@ import { VerificationCodeScreen } from '../VerificationCodeScreen';
 import { BuyerProfileOnboardingScreen } from '../BuyerProfileOnboardingScreen';
 import { BuyerInterestsOnboardingScreen } from '../BuyerInterestsOnboardingScreen';
 import { BuyerKycOnboardingScreen } from '../BuyerKycOnboardingScreen';
+import { EnableNotificationsScreen } from '../EnableNotificationsScreen';
 import {
   createBuyerUser,
   uploadBuyerProfile,
@@ -97,8 +98,9 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
   const [showVerification, setShowVerification] = useState(false);
   const [registeredEmail, setRegisteredEmail] = useState('');
   const [registeredUserUuid, setRegisteredUserUuid] = useState('');
+  /** Orden del Figma: perfil → intereses → notificaciones (1115:3279) → KYC. */
   const [postVerifyStep, setPostVerifyStep] = useState<
-    'profile' | 'interests' | 'kyc' | null
+    'profile' | 'interests' | 'notifications' | 'kyc' | null
   >(null);
   /** Nombre/apellido ya conocidos para precargar el paso de perfil y no pedirlos de nuevo. */
   const [profilePrefill, setProfilePrefill] = useState<{
@@ -322,7 +324,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
       }
       return;
     }
-    setPostVerifyStep('kyc');
+    setPostVerifyStep('notifications');
   };
 
   if (postVerifyStep === 'profile') {
@@ -378,10 +380,21 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
     );
   }
 
+  if (postVerifyStep === 'notifications') {
+    return (
+      <EnableNotificationsScreen
+        onBack={() => setPostVerifyStep('interests')}
+        onSkip={() => setPostVerifyStep('kyc')}
+        onSkipAll={() => void finishBuyerOnboarding()}
+        onContinue={() => setPostVerifyStep('kyc')}
+      />
+    );
+  }
+
   if (postVerifyStep === 'kyc') {
     return (
       <BuyerKycOnboardingScreen
-        onBack={() => setPostVerifyStep('interests')}
+        onBack={() => setPostVerifyStep('notifications')}
         onProceedToComplete={() => void finishBuyerOnboarding()}
       />
     );

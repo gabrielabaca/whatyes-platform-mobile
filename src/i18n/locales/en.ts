@@ -170,7 +170,17 @@ export default {
     "kycDeclinedSubtitle": "You can continue registration and try again later from your profile.",
     "kycRetry": "Try again",
     "kycRequiredSubtitle": "To join a live or go live on PulpoLive we need to verify your identity. You will scan your ID and complete facial verification with our trusted partner; it usually takes only a few minutes.",
-    "kycRequiredDeclinedSubtitle": "We need to verify your identity before you can continue. Please try again."
+    "kycRequiredDeclinedSubtitle": "We need to verify your identity before you can continue. Please try again.",
+    "notificationsTitle": "Turn on notifications",
+    "notificationsSubtitle": "We'll let you know when there's a live worth watching so you don't miss a thing",
+    "notificationsCta": "Turn on notifications",
+    "notificationsSkip": "Not now",
+    "notificationsOpenSettings": "Open Settings",
+    "notificationsDeniedHint": "Notifications are turned off for PulpoLive on this phone. Turn them on in Settings and come back to the app.",
+    "notificationsPreviewDate": "Apr 16, 3:30 PM",
+    "notificationsPreviewSeller": "Calza total",
+    "notificationsPreviewRating": "4.9",
+    "notificationsPreviewTitle": "New Nike sneakers"
   },
   "sellerHome": {
     "verifyTitle": "Verify your identity",
@@ -341,7 +351,9 @@ export default {
       "purchaseNotify": "Notify on purchase",
       "save": "Save",
       "cancel": "Cancel",
-      "saveError": "Couldn't save preferences. Please try again."
+      "saveError": "Couldn't save preferences. Please try again.",
+      "systemDisabled": "Notifications are turned off on this phone",
+      "systemDisabledCta": "Turn on"
     },
     "preferences": "Preferences",
     "changePassword": "Change password",

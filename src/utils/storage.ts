@@ -52,7 +52,7 @@ const STORAGE_KEYS = {
   USER_DATA: 'user_data',
   /** Registro comprador: hay JWT pero el onboarding (perfil/intereses/pantalla final) aún no terminó */
   PENDING_BUYER_ONBOARDING: 'pending_buyer_onboarding',
-  /** Paso UI del onboarding: profile | interests | kyc | complete */
+  /** Paso UI del onboarding: profile | interests | notifications | kyc | complete */
   BUYER_ONBOARDING_UI_STEP: 'buyer_onboarding_ui_step',
   WALLET_INTRO_SEEN: 'wallet_intro_seen',
   /** Carrusel de bienvenida: solo se muestra en el primer arranque tras instalar */
@@ -71,6 +71,8 @@ const STORAGE_KEYS = {
 } as const;
 
 export type PreferredPaymentOrigin = 'PLATFORM_CARD' | 'MP_WALLET';
+
+export type BuyerOnboardingUiStep = 'profile' | 'interests' | 'notifications' | 'kyc' | 'complete';
 
 /**
  * Verificar si AsyncStorage está disponible
@@ -261,9 +263,7 @@ export const storage = {
     }
   },
 
-  async setBuyerOnboardingUiStep(
-    step: 'profile' | 'interests' | 'kyc' | 'complete' | null
-  ): Promise<void> {
+  async setBuyerOnboardingUiStep(step: BuyerOnboardingUiStep | null): Promise<void> {
     try {
       const storage = getAsyncStorage();
       if (!storage) {
@@ -282,14 +282,20 @@ export const storage = {
     }
   },
 
-  async getBuyerOnboardingUiStep(): Promise<'profile' | 'interests' | 'kyc' | 'complete' | null> {
+  async getBuyerOnboardingUiStep(): Promise<BuyerOnboardingUiStep | null> {
     try {
       const storage = getAsyncStorage();
       if (!storage) {
         return null;
       }
       const v = await storage.getItem(STORAGE_KEYS.BUYER_ONBOARDING_UI_STEP);
-      if (v === 'profile' || v === 'interests' || v === 'kyc' || v === 'complete') {
+      if (
+        v === 'profile' ||
+        v === 'interests' ||
+        v === 'notifications' ||
+        v === 'kyc' ||
+        v === 'complete'
+      ) {
         return v;
       }
       return null;
