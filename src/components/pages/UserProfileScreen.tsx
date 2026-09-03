@@ -213,6 +213,35 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   // Detalle de reviews — Figma 698-10329.
   const [reviewsDetailVisible, setReviewsDetailVisible] = useState(false);
 
+  // Único camino de edición de producto (perfil propio): lo abren tanto el lápiz
+  // de la fila del listado (Figma 636:28640) como "Editar Producto" del detalle.
+  // Carga el producto y monta AddProductScreen en modo edición con initialValues.
+  const openProductEditor = async (pid: string) => {
+    try {
+      const detail = await getPublicProduct(pid);
+      const initValues: ProductInitialValues = {
+        productId: pid,
+        title: detail.title,
+        description: detail.description ?? '',
+        price: String(Math.round(detail.base_price_cents / 100)),
+        sku: '',
+        imageUrls: detail.image_urls,
+        sizes: detail.sizes,
+        colors: detail.colors,
+        categoryUuid: null,
+        saleFormat: null,
+        packageTier: null,
+        weightKg: null,
+        condition: null,
+        quantityOnHand: detail.quantity_on_hand,
+      };
+      setEditProductValues(initValues);
+      setProductDetailId(null);
+    } catch {
+      // Si falla la carga, no se abre el editor (y el detalle, si estaba, sigue abierto).
+    }
+  };
+
   const showRows = useMemo(() => {
     const rows: UserShowItem[][] = [];
     for (let i = 0; i < shows.length; i += 2) {
@@ -616,6 +645,15 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                             ? () => setProductDetailId(String(product.product_id))
                             : undefined
                       }
+                      // Lápiz de editar (Figma 636:28640): solo en el perfil propio y
+                      // sobre productos del catálogo (los "en vivo" abren el stream).
+                      onEditPress={
+                        isOwnProfile && product.status !== 'live' && product.product_id
+                          ? () => {
+                              void openProductEditor(String(product.product_id));
+                            }
+                          : undefined
+                      }
                     />
                   ))}
                   {productsLoadingMore ? (
@@ -653,35 +691,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
             productId={productDetailId}
             sellerUserId={resolvedId ?? undefined}
             onBack={() => setProductDetailId(null)}
-            onEditProduct={
-              isOwnProfile
-                ? async (pid) => {
-                    try {
-                      const detail = await getPublicProduct(pid);
-                      const initValues: ProductInitialValues = {
-                        productId: pid,
-                        title: detail.title,
-                        description: detail.description ?? '',
-                        price: String(Math.round(detail.base_price_cents / 100)),
-                        sku: '',
-                        imageUrls: detail.image_urls,
-                        sizes: detail.sizes,
-                        colors: detail.colors,
-                        categoryUuid: null,
-                        saleFormat: null,
-                        packageTier: null,
-                        weightKg: null,
-                        condition: null,
-                        quantityOnHand: detail.quantity_on_hand,
-                      };
-                      setEditProductValues(initValues);
-                      setProductDetailId(null);
-                    } catch {
-                      // Si falla, mantener el detalle abierto
-                    }
-                  }
-                : undefined
-            }
+            onEditProduct={isOwnProfile ? openProductEditor : undefined}
           />
         </View>
       ) : null}
@@ -784,7 +794,6 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    paddingBottom: 24,
   },
   centered: {
     flex: 1,
@@ -918,9 +927,14 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   body: {
-    flex: 1,
+    // flexGrow (y no flex: 1, que fija flexBasis 0 = alto del viewport): el body
+    // mide lo que mide su contenido y crece hasta el viewport si queda corto, así
+    // <BodyBackground /> (absoluteFill) acompaña la lista entera.
+    flexGrow: 1,
     minHeight: 400,
     position: 'relative',
+    // El respiro inferior va dentro del body para que el gradiente lo cubra.
+    paddingBottom: 24,
   },
   bodyContent: {
     paddingHorizontal: H_PAD,

@@ -1,7 +1,7 @@
 /**
- * Fila de producto/show en perfil — Figma 536-20876.
+ * Fila de producto/show en perfil — Figma 536-20876 / 636-28640 (lápiz de editar).
  */
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Image,
@@ -9,7 +9,7 @@ import {
   StyleSheet,
   Text as RNText,
 } from 'react-native';
-import { AudioLines, Clock, ChevronRight } from 'lucide-react-native';
+import { AudioLines, Clock, ChevronRight, Pencil } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { FONT_FAMILY } from '../../../theme/typography';
 import { themeColors } from '../../../theme/colors';
@@ -18,6 +18,7 @@ import type { UserProfileProductItem } from '../../../api/platformApi';
 
 const THUMB = 132;
 const GOLD = '#FDC700';
+const PRIMARY = '#685CF0';
 const GRAY_500 = '#71717B';
 
 /** "5 sept 14:30h" / "Sep 5 14:30h" según el idioma activo. */
@@ -57,9 +58,18 @@ function formatTimer(seconds: number): string {
 export interface ProfileProductRowProps {
   item: UserProfileProductItem;
   onPress?: () => void;
+  /**
+   * Lápiz violeta a la derecha de la fila (Figma 636:28640). Solo se pasa en el
+   * perfil propio; abre la edición sin disparar el onPress de la fila.
+   */
+  onEditPress?: () => void;
 }
 
-export const ProfileProductRow: React.FC<ProfileProductRowProps> = ({ item, onPress }) => {
+export const ProfileProductRow: React.FC<ProfileProductRowProps> = ({
+  item,
+  onPress,
+  onEditPress,
+}) => {
   const { t, i18n } = useTranslation();
   const locale = i18n.language || 'es';
   /** Overrides de color sólo en oscuro: en claro el StyleSheet manda sin cambios. */
@@ -85,6 +95,14 @@ export const ProfileProductRow: React.FC<ProfileProductRowProps> = ({ item, onPr
   const showTimer =
     isLive && item.auction_seconds_remaining != null && item.auction_seconds_remaining >= 0;
 
+  // Si la miniatura no carga (403 del bucket, URL vencida, red) RN deja el <Image>
+  // transparente y en silencio: caemos al placeholder para que el fallo sea visible.
+  const [thumbFailed, setThumbFailed] = useState(false);
+  useEffect(() => {
+    setThumbFailed(false);
+  }, [item.thumbnail_url]);
+  const showThumb = !!item.thumbnail_url && !thumbFailed;
+
   return (
     <TouchableOpacity
       style={[styles.row, isDark ? { borderBottomColor: d.borderSubtle } : null]}
@@ -96,8 +114,13 @@ export const ProfileProductRow: React.FC<ProfileProductRowProps> = ({ item, onPr
       accessibilityState={{ disabled: !onPress }}
     >
       <View style={styles.thumbWrap}>
-        {item.thumbnail_url ? (
-          <Image source={{ uri: item.thumbnail_url }} style={styles.thumb} resizeMode="cover" />
+        {showThumb ? (
+          <Image
+            source={{ uri: item.thumbnail_url! }}
+            style={styles.thumb}
+            resizeMode="cover"
+            onError={() => setThumbFailed(true)}
+          />
         ) : (
           <View
             style={[
@@ -143,6 +166,21 @@ export const ProfileProductRow: React.FC<ProfileProductRowProps> = ({ item, onPr
           )}
         </View>
       </View>
+
+      {onEditPress ? (
+        // Touchable anidado: el responder se lo queda el lápiz, así la fila no
+        // navega al detalle cuando se toca editar.
+        <TouchableOpacity
+          style={styles.editBtn}
+          onPress={onEditPress}
+          hitSlop={8}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel={t('productDetail.editProduct')}
+        >
+          <Pencil size={20} color={PRIMARY} strokeWidth={2} />
+        </TouchableOpacity>
+      ) : null}
     </TouchableOpacity>
   );
 };
@@ -239,5 +277,12 @@ const styles = StyleSheet.create({
     lineHeight: 28,
     color: '#18181B',
     includeFontPadding: false,
+  },
+  editBtn: {
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
   },
 });
