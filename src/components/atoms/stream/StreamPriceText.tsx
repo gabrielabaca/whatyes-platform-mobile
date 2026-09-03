@@ -7,18 +7,25 @@ import { STREAM_COLORS } from '../../molecules/stream/streamTokens';
 
 export interface StreamPriceTextProps {
   amount: number;
-  currency?: string;
+  currency?: string | null;
 }
+
+/**
+ * Moneda por defecto cuando el llamador no la conoce. Coincide con el default de
+ * `Product.currency` en service-platform y con el resto de la app: antes era COP y
+ * el vivo mostraba "1000 COP" para productos en pesos argentinos.
+ */
+export const DEFAULT_STREAM_CURRENCY = 'ARS';
 
 /** `locale` opcional: los llamadores que no lo pasan usan el idioma activo de i18next. */
 export function formatStreamPrice(
   amount: number,
-  currency = 'COP',
+  currency: string | null | undefined = DEFAULT_STREAM_CURRENCY,
   locale: string = i18n.language || 'es',
 ): string {
   return new Intl.NumberFormat(locale, {
     style: 'currency',
-    currency,
+    currency: currency || DEFAULT_STREAM_CURRENCY,
     maximumFractionDigits: 0,
   }).format(amount);
 }

@@ -44,6 +44,8 @@ export interface StreamSellerOverlayProps {
   productImageUrls?: string[];
   productExtraCount?: number;
   productBasePriceCents?: number;
+  /** Moneda del producto en pantalla (ISO 4217). */
+  productCurrency?: string | null;
   viewerCount: number;
   messages: ChatMessage[];
   messageText: string;
@@ -99,6 +101,7 @@ export const StreamSellerOverlay: React.FC<StreamSellerOverlayProps> = ({
   productImageUrls: productImageUrlsProp,
   productExtraCount,
   productBasePriceCents = 0,
+  productCurrency,
   viewerCount,
   messages,
   messageText,
@@ -388,6 +391,7 @@ export const StreamSellerOverlay: React.FC<StreamSellerOverlayProps> = ({
               productImageUrl={stackUrls[0] ?? null}
               winningUsername={winningUsername}
               currentPrice={currentPrice}
+              currency={productCurrency}
               bidCount={auctionBids.length}
               secondsRemaining={auctionSecondsRemaining}
               isAuctionActive={isAuctionActive}

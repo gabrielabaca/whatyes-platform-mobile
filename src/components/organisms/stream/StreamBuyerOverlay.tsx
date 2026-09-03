@@ -52,6 +52,8 @@ export interface StreamBuyerOverlayProps {
   itemCount?: number;
   /** Precio base del producto (centavos); la oferta visible es max(puja, base). */
   productBasePriceCents?: number;
+  /** Moneda del producto activo (ISO 4217): panel, barra y drawer la muestran. */
+  productCurrency?: string | null;
   viewerCount: number;
   messages: ChatMessage[];
   messageText: string;
@@ -115,6 +117,7 @@ export const StreamBuyerOverlay: React.FC<StreamBuyerOverlayProps> = ({
   productImageUrls: productImageUrlsProp,
   itemCount = 1,
   productBasePriceCents = 0,
+  productCurrency,
   viewerCount,
   messages,
   messageText,
@@ -362,6 +365,7 @@ export const StreamBuyerOverlay: React.FC<StreamBuyerOverlayProps> = ({
             winningUsername={winningUsername}
             currentUsername={currentUsername}
             currentPrice={currentPrice}
+            currency={productCurrency}
             secondsRemaining={auctionSecondsRemaining}
             isAuctionActive={isAuctionActive}
             saleMode={saleMode}
@@ -404,6 +408,7 @@ export const StreamBuyerOverlay: React.FC<StreamBuyerOverlayProps> = ({
           <StreamBidBar
             mode="buy_now"
             bidAmount={buyNowPrice}
+            currency={productCurrency}
             onBid={() => onBuyNow?.()}
             isAuctionActive={isAuctionActive}
             disabled={isBuyNowPending || !onBuyNow || isAuctionPaused}
@@ -413,6 +418,7 @@ export const StreamBuyerOverlay: React.FC<StreamBuyerOverlayProps> = ({
         ) : (
           <StreamBidBar
             bidAmount={suggestedBid}
+            currency={productCurrency}
             onBid={handleBid}
             isAuctionActive={isAuctionActive}
             disabled={isAuctionPaused}
@@ -426,6 +432,7 @@ export const StreamBuyerOverlay: React.FC<StreamBuyerOverlayProps> = ({
         visible={tuneOpen}
         onClose={() => setTuneOpen(false)}
         floorMajor={floorMajor}
+        currency={productCurrency}
         // Montos solo con una subasta en curso: ahí floorMajor es el precio
         // del producto subastado y el monto por opción es el paso real. En
         // idle o buy_now serían cifras del fallback, sin relación con el

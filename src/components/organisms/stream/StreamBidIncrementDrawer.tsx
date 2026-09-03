@@ -51,6 +51,8 @@ export interface StreamBidIncrementDrawerProps {
   onClose: () => void;
   /** Precio base en pesos enteros (ya convertido desde centavos). */
   floorMajor: number;
+  /** Moneda del producto subastado (ISO 4217). Sin dato cae a la moneda por defecto. */
+  currency?: string | null;
   /**
    * true solo con una subasta en curso: ahí el monto por opción es el paso
    * real que aplica la barra (fallback incluido si faltara el precio base).
@@ -67,6 +69,7 @@ export const StreamBidIncrementDrawer: React.FC<StreamBidIncrementDrawerProps> =
   visible,
   onClose,
   floorMajor,
+  currency,
   showAmounts,
   multiplier,
   onSelect,
@@ -111,7 +114,7 @@ export const StreamBidIncrementDrawer: React.FC<StreamBidIncrementDrawerProps> =
           {BID_MULTIPLIERS.map((m) => {
             const selected = multiplier === m;
             const amountLabel = showAmounts
-              ? `+${formatStreamPrice(bidIncrementAmount(floorMajor, m))}`
+              ? `+${formatStreamPrice(bidIncrementAmount(floorMajor, m), currency)}`
               : null;
             return (
               <TouchableOpacity
@@ -128,7 +131,7 @@ export const StreamBidIncrementDrawer: React.FC<StreamBidIncrementDrawerProps> =
                   amountLabel != null
                     ? t('stream.bidIncrementOption', {
                         multiplier: m,
-                        amount: formatStreamPrice(bidIncrementAmount(floorMajor, m)),
+                        amount: formatStreamPrice(bidIncrementAmount(floorMajor, m), currency),
                       })
                     : `${m}×`
                 }

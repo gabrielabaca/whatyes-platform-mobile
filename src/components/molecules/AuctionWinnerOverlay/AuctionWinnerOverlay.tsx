@@ -14,9 +14,14 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 interface AuctionWinnerOverlayProps {
   winner: AuctionWinner | null;
+  /** Moneda del producto vendido: el evento de cierre trae el monto sin moneda. */
+  currency?: string | null;
 }
 
-export const AuctionWinnerOverlay: React.FC<AuctionWinnerOverlayProps> = ({ winner }) => {
+export const AuctionWinnerOverlay: React.FC<AuctionWinnerOverlayProps> = ({
+  winner,
+  currency,
+}) => {
   const { t } = useTranslation();
   if (!winner) return null;
 
@@ -40,7 +45,7 @@ export const AuctionWinnerOverlay: React.FC<AuctionWinnerOverlayProps> = ({ winn
               ? 'stream.winnerBannerBought'
               : 'stream.winnerBannerWon'
           )}{' '}
-          <RNText style={styles.amount}>{formatStreamPrice(winner.amount)}</RNText>
+          <RNText style={styles.amount}>{formatStreamPrice(winner.amount, currency)}</RNText>
         </RNText>
       </View>
     </View>

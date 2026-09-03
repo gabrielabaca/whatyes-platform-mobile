@@ -33,12 +33,15 @@ export interface AuctionWinnerCelebrationProps {
   winner: AuctionWinner | null;
   /** Producto subastado, para que el usuario sepa qué se llevó. */
   productTitle?: string | null;
+  /** Moneda del producto vendido: el evento de cierre trae el monto sin moneda. */
+  currency?: string | null;
   onDismiss: () => void;
 }
 
 export const AuctionWinnerCelebration: React.FC<AuctionWinnerCelebrationProps> = ({
   winner,
   productTitle,
+  currency,
   onDismiss,
 }) => {
   const { t } = useTranslation();
@@ -174,7 +177,7 @@ export const AuctionWinnerCelebration: React.FC<AuctionWinnerCelebrationProps> =
           </RNText>
         ) : null}
 
-        <RNText style={styles.amount}>{formatStreamPrice(winner.amount)}</RNText>
+        <RNText style={styles.amount}>{formatStreamPrice(winner.amount, currency)}</RNText>
 
         <RNText style={styles.note}>{t('stream.winAutoPayment')}</RNText>
 

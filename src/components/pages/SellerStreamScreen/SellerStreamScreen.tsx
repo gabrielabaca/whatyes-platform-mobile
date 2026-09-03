@@ -880,6 +880,8 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
       : selectedCatalogItem?.base_price_cents) ?? 100,
     100,
   );
+  const productCurrency =
+    (showsServerActive ? activeProduct?.currency : selectedCatalogItem?.currency) ?? null;
   const displayedProductId = selectedCatalogItem?.uuid ?? activeProduct?.uuid ?? null;
   // `hasLiveOffer` en vez de `isAuctionActive`: durante la ventana de gracia la
   // oferta todavía puede reabrirse por una puja tardía, así que ni las flechas
@@ -1034,7 +1036,7 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
       )}
 
       <StreamVideoScrim />
-      <AuctionWinnerOverlay winner={auctionWinner} />
+      <AuctionWinnerOverlay winner={auctionWinner} currency={productCurrency} />
       <FloatingHeartsLayer likeEvents={likeEvents} onLikeDone={handleLikeDone} />
       <FloatingBidsLayer bidEvents={bidEvents} onBidDone={handleBidDone} />
 
@@ -1052,6 +1054,7 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
         productImageUrls={productImageUrls}
         productExtraCount={productExtraCount}
         productBasePriceCents={productBasePriceCents}
+        productCurrency={productCurrency}
         isAuctionActive={isAuctionActive}
         auctionSecondsRemaining={auctionSecondsRemaining}
         auctionBids={auctionBids}

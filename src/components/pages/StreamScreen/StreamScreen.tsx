@@ -976,6 +976,7 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({
   const itemStockCount =
     liveCommerce?.active_product?.quantity_on_hand ?? stream.productCount ?? 1;
   const productBasePriceCents = liveCommerce?.active_product?.base_price_cents ?? 0;
+  const productCurrency = liveCommerce?.active_product?.currency ?? null;
   const displayViewerCount = isChatConnected ? viewerCount : stream.viewerCount;
 
   /**
@@ -1150,10 +1151,14 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({
       />
 
       {/* El ganador ve el festejo completo; el resto, el banner compacto. */}
-      <AuctionWinnerOverlay winner={winCelebration ? null : auctionWinner} />
+      <AuctionWinnerOverlay
+        winner={winCelebration ? null : auctionWinner}
+        currency={productCurrency}
+      />
       <AuctionWinnerCelebration
         winner={winCelebration}
         productTitle={liveCommerce?.active_product?.title ?? null}
+        currency={productCurrency}
         onDismiss={() => setWinCelebration(null)}
       />
       <FloatingHeartsLayer likeEvents={likeEvents} onLikeDone={handleLikeDone} />
@@ -1172,6 +1177,7 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({
         productImageUrls={productImageUrlsForStack}
         itemCount={itemStockCount}
         productBasePriceCents={productBasePriceCents}
+        productCurrency={productCurrency}
         viewerCount={displayViewerCount}
         messages={messages}
         messageText={messageText}

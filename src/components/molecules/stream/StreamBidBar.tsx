@@ -66,6 +66,8 @@ const DoubleArrow: React.FC<{ size?: number }> = ({ size = 24 }) => (
 
 export interface StreamBidBarProps {
   bidAmount: number;
+  /** Moneda del producto en oferta (ISO 4217). Sin dato cae a la moneda por defecto. */
+  currency?: string | null;
   onBid: () => void;
   disabled?: boolean;
   /**
@@ -104,6 +106,7 @@ export const StreamBidBar: React.FC<StreamBidBarProps> = ({
   mode = 'bid',
   onTunePress,
   tuneAccessibilityLabel,
+  currency,
 }) => {
   const { t } = useTranslation();
   const [trackWidth, setTrackWidth] = useState(0);
@@ -284,7 +287,7 @@ export const StreamBidBar: React.FC<StreamBidBarProps> = ({
                 ) : (
                   <>
                     {mode === 'buy_now' ? t('stream.buyNow') : t('stream.bid')}{' '}
-                    <RNText style={styles.labelPrice}>{formatStreamPrice(bidAmount)}</RNText>
+                    <RNText style={styles.labelPrice}>{formatStreamPrice(bidAmount, currency)}</RNText>
                   </>
                 )}
               </RNText>

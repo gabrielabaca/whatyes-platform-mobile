@@ -27,6 +27,8 @@ export interface StreamAuctionPanelProps {
    */
   currentUsername?: string | null;
   currentPrice: number;
+  /** Moneda del producto activo (ISO 4217). Sin dato cae a la moneda por defecto. */
+  currency?: string | null;
   secondsRemaining: number | null;
   isAuctionActive: boolean;
   variant?: StreamAuctionPanelVariant;
@@ -57,6 +59,7 @@ export const StreamAuctionPanel: React.FC<StreamAuctionPanelProps> = ({
   winningUsername,
   currentUsername,
   currentPrice,
+  currency,
   secondsRemaining,
   isAuctionActive,
   variant = 'buyer',
@@ -178,7 +181,7 @@ export const StreamAuctionPanel: React.FC<StreamAuctionPanelProps> = ({
         {bidCount > 0 && !isBuyNow ? (
           <RNText style={styles.bidCount}>{t('stream.bidsCount', { count: bidCount })}</RNText>
         ) : null}
-        <StreamPriceText amount={currentPrice} />
+        <StreamPriceText amount={currentPrice} currency={currency} />
         {showCountdown ? (
           <View style={styles.countdownWrap}>
             <StreamCountdownText seconds={secondsRemaining} />
