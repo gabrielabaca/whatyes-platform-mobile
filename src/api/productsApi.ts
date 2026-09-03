@@ -48,9 +48,57 @@ export interface ProductResponse {
   weight_kg: number | null;
   condition: string | null;
   sku: string | null;
+  /** Talles disponibles (e.g. ["36","37","38"]). Vacío = no aplica. */
+  sizes: string[];
+  /** Colores en formato "Nombre|#RRGGBB" (e.g. "Blanco|#FFFFFF"). */
+  colors: string[];
   quantity_on_hand: number;
   status?: string;
   created_at: number;
+}
+
+/** Color parseado para la UI. */
+export interface ProductColor {
+  name: string;
+  hex: string;
+}
+
+export function parseProductColors(colors: string[]): ProductColor[] {
+  return colors.flatMap((c) => {
+    const idx = c.lastIndexOf('|');
+    if (idx < 1) return [];
+    return [{ name: c.slice(0, idx), hex: c.slice(idx + 1) }];
+  });
+}
+
+export interface PublicProductDetail {
+  uuid: string;
+  title: string;
+  description: string | null;
+  currency: string;
+  base_price_cents: number;
+  image_urls: string[];
+  sizes: string[];
+  colors: string[];
+  quantity_on_hand: number;
+  seller_user_id: string;
+  seller_name: string;
+  seller_avatar_url: string | null;
+  seller_rating_general: number | null;
+  seller_rating_shipping: number | null;
+  seller_rating_product: number | null;
+}
+
+export interface UpdateProductPayload {
+  title?: string;
+  description?: string | null;
+  base_price_cents?: number;
+  image_urls?: string[];
+  sizes?: string[];
+  colors?: string[];
+  quantity_on_hand?: number;
+  sku?: string | null;
+  status?: string;
 }
 
 export interface SellerProductListItem {
@@ -138,4 +186,31 @@ export async function createProduct(payload: CreateProductPayload): Promise<Prod
     throw new ApiError(response.status, data?.detail ?? 'Error al crear producto', data);
   }
   return data as ProductResponse;
+}
+
+export async function updateProduct(
+  productId: string,
+  payload: UpdateProductPayload,
+): Promise<ProductResponse> {
+  const response = await fetch(`${PLATFORM_HTTP_URL}/me/products/${productId}`, {
+    method: 'PATCH',
+    headers: await authHeaders(true),
+    body: JSON.stringify(payload),
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    throw new ApiError(response.status, data?.detail ?? 'Error al actualizar producto', data);
+  }
+  return data as ProductResponse;
+}
+
+export async function getPublicProduct(productId: string): Promise<PublicProductDetail> {
+  const response = await fetch(`${PLATFORM_HTTP_URL}/products/${productId}`, {
+    headers: await authHeaders(),
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    throw new ApiError(response.status, data?.detail ?? 'Producto no encontrado', data);
+  }
+  return data as PublicProductDetail;
 }

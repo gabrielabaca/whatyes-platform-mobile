@@ -1126,4 +1126,18 @@ export default {
     "needHelp": "Need help with your purchase?",
     "contactSupport": "Contact Support",
   },
+  productDetail: {
+    "title": "Product",
+    "by": "By {{name}}",
+    "sizeLabel": "Size",
+    "colorLabel": "Color",
+    "stockLabel": "Available Stock:",
+    "reviewTitle": "Review",
+    "reviewGeneral": "General",
+    "reviewShipping": "Shipping",
+    "reviewProduct": "Product",
+    "reviewNoRatings": "No reviews yet",
+    "editProduct": "Edit Product",
+    "loadError": "Could not load product",
+  },
 } as const;

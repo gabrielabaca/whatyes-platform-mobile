@@ -6,7 +6,7 @@ import {
   photosFromPickerResponse,
   showMediaPickerError,
 } from '../utils/mediaPicker';
-import { createProduct, uploadProductImages } from '../api/productsApi';
+import { createProduct, updateProduct, uploadProductImages, type ProductResponse } from '../api/productsApi';
 import type { InterestCategoryItem } from '../api/types';
 import type {
   PackageTierId,
@@ -24,6 +24,25 @@ export type AddProductDrawer =
   | 'saleFormat'
   | 'weight'
   | 'condition';
+
+export interface ProductInitialValues {
+  productId: string;
+  title: string;
+  description: string;
+  /** Precio en unidad mayor (ej: "1200.50"). */
+  price: string;
+  sku: string;
+  imageUrls: string[];
+  sizes: string[];
+  /** Colores en formato "Nombre|#RRGGBB". */
+  colors: string[];
+  categoryUuid: string | null;
+  saleFormat: SaleFormatId | null;
+  packageTier: PackageTierId | null;
+  weightKg: number | null;
+  condition: ProductConditionId | null;
+  quantityOnHand: number;
+}
 
 export const MAX_PRODUCT_PHOTOS = 10;
 
@@ -51,21 +70,30 @@ function sanitizePrice(value: string): string {
 
 export function useAddProductForm(options: {
   categories: InterestCategoryItem[];
-  onSuccess: () => void;
+  onSuccess: (product?: ProductResponse) => void;
+  /** Si se provee, el hook trabaja en modo edición (PATCH). */
+  initialValues?: ProductInitialValues;
 }) {
   const { t } = useTranslation();
-  const { categories, onSuccess } = options;
+  const { categories, onSuccess, initialValues } = options;
+  const isEditMode = initialValues != null;
 
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [price, setPrice] = useState('');
-  const [sku, setSku] = useState('');
-  const [photos, setPhotos] = useState<LocalPhoto[]>([]);
-  const [categoryUuid, setCategoryUuid] = useState<string | null>(null);
-  const [saleFormat, setSaleFormat] = useState<SaleFormatId | null>(null);
-  const [packageTier, setPackageTier] = useState<PackageTierId | null>(null);
-  const [weightKg, setWeightKg] = useState<number | null>(null);
-  const [condition, setCondition] = useState<ProductConditionId | null>(null);
+  const [title, setTitle] = useState(initialValues?.title ?? '');
+  const [description, setDescription] = useState(initialValues?.description ?? '');
+  const [price, setPrice] = useState(initialValues?.price ?? '');
+  const [sku, setSku] = useState(initialValues?.sku ?? '');
+  // En edición, las fotos existentes son URLs remotas; se tratan como LocalPhoto
+  // con uri = URL firmada. El backend acepta image_urls directamente.
+  const [photos, setPhotos] = useState<LocalPhoto[]>(
+    initialValues?.imageUrls.map((uri) => ({ uri })) ?? [],
+  );
+  const [sizes, setSizes] = useState<string[]>(initialValues?.sizes ?? []);
+  const [colors, setColors] = useState<string[]>(initialValues?.colors ?? []);
+  const [categoryUuid, setCategoryUuid] = useState<string | null>(initialValues?.categoryUuid ?? null);
+  const [saleFormat, setSaleFormat] = useState<SaleFormatId | null>(initialValues?.saleFormat ?? null);
+  const [packageTier, setPackageTier] = useState<PackageTierId | null>(initialValues?.packageTier ?? null);
+  const [weightKg, setWeightKg] = useState<number | null>(initialValues?.weightKg ?? null);
+  const [condition, setCondition] = useState<ProductConditionId | null>(initialValues?.condition ?? null);
   const [activeDrawer, setActiveDrawer] = useState<AddProductDrawer>('none');
   const [submitting, setSubmitting] = useState(false);
 
@@ -211,20 +239,41 @@ export function useAddProductForm(options: {
     const parsedPrice = parseFloat(price.replace(',', '.'));
     setSubmitting(true);
     try {
-      const imageUrls = await uploadProductImages(photos);
-      await createProduct({
-        title: title.trim(),
-        description: description.trim(),
-        base_price_cents: Math.round(parsedPrice * 100),
-        image_urls: imageUrls,
-        interest_category_uuid: categoryUuid!,
-        sale_format: saleFormat!,
-        package_tier: packageTier!,
-        weight_kg: weightKg,
-        condition: condition!,
-        sku: sku.trim() || null,
-      });
-      onSuccess();
+      // En modo edición solo subimos las fotos que sean locales (uri no empieza con http).
+      const localPhotos = photos.filter((p) => !p.uri.startsWith('http'));
+      const existingUrls = photos.filter((p) => p.uri.startsWith('http')).map((p) => p.uri);
+      const newImageUrls = localPhotos.length > 0 ? await uploadProductImages(localPhotos) : [];
+      const imageUrls = [...existingUrls, ...newImageUrls];
+
+      let result: ProductResponse;
+      if (isEditMode && initialValues) {
+        result = await updateProduct(initialValues.productId, {
+          title: title.trim(),
+          description: description.trim() || null,
+          base_price_cents: Math.round(parsedPrice * 100),
+          image_urls: imageUrls,
+          sizes,
+          colors,
+          sku: sku.trim() || null,
+          quantity_on_hand: initialValues.quantityOnHand,
+        });
+      } else {
+        result = await createProduct({
+          title: title.trim(),
+          description: description.trim(),
+          base_price_cents: Math.round(parsedPrice * 100),
+          image_urls: imageUrls,
+          interest_category_uuid: categoryUuid!,
+          sale_format: saleFormat!,
+          package_tier: packageTier!,
+          weight_kg: weightKg,
+          condition: condition!,
+          sku: sku.trim() || null,
+          sizes,
+          colors,
+        });
+      }
+      onSuccess(result);
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : t('addProduct.saveError');
       appAlert(t('common.appName'), msg);
@@ -243,11 +292,16 @@ export function useAddProductForm(options: {
     weightKg,
     condition,
     sku,
+    sizes,
+    colors,
+    isEditMode,
+    initialValues,
     onSuccess,
     t,
   ]);
 
   return {
+    isEditMode,
     title,
     setTitle: handleTitleChange,
     description,
@@ -263,6 +317,10 @@ export function useAddProductForm(options: {
     removePhoto,
     maxPhotos: MAX_PRODUCT_PHOTOS,
     canAddMorePhotos: photos.length < MAX_PRODUCT_PHOTOS,
+    sizes,
+    setSizes,
+    colors,
+    setColors,
     categoryUuid,
     categoryLabel,
     setCategoryUuid,

@@ -188,6 +188,8 @@ export interface PurchaseDetailScreenProps {
   purchase: PurchaseItem;
   onBack: () => void;
   onOpenSellerProfile?: (sellerUserId: string) => void;
+  /** Abre el detalle de un producto (productId). */
+  onOpenProductDetail?: (productId: string, sellerUserId: string) => void;
   /** Inicia (o retoma) el chat con la contraparte: vendedor en compras, comprador en ventas. */
   onStartChat?: (peerUserId: string) => void;
   /** Tab de Actividad de origen. `sales` no pide el desglose (endpoint de comprador). */
@@ -198,6 +200,7 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
   purchase: initialPurchase,
   onBack,
   onOpenSellerProfile,
+  onOpenProductDetail,
   onStartChat,
   activityRole,
 }) => {
@@ -1284,7 +1287,14 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
                   key={product.room_uuid}
                   style={[styles.similarCard, darkRow]}
                   activeOpacity={0.85}
-                  onPress={() => onOpenSellerProfile?.(sellerId)}
+                  onPress={() => {
+                    const pid = product.product_id ? String(product.product_id) : null;
+                    if (pid && onOpenProductDetail) {
+                      onOpenProductDetail(pid, sellerId);
+                    } else {
+                      onOpenSellerProfile?.(sellerId);
+                    }
+                  }}
                 >
                   {product.thumbnail_url ? (
                     <Image

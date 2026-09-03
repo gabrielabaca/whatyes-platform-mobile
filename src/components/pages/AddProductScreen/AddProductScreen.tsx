@@ -11,7 +11,7 @@ import { KeyboardDismissScrollView } from '../../atoms/KeyboardDismissScrollView
 import { useTranslation } from 'react-i18next';
 import { ArrowRight, ImageUp, Plus, X } from 'lucide-react-native';
 import { useInterestCategories } from '../../../hooks/useInterestCategories';
-import { useAddProductForm } from '../../../hooks/useAddProductForm';
+import { useAddProductForm, type ProductInitialValues } from '../../../hooks/useAddProductForm';
 import { AddProductSelectField } from '../../organisms/addProduct/AddProductSelectField';
 import { AddProductHost } from '../../organisms/addProduct/AddProductHost';
 import { AddProductSuccessCelebration } from '../../organisms/addProduct/AddProductSuccessCelebration';
@@ -21,10 +21,16 @@ import type { PackageTierId, ProductConditionId, SaleFormatId } from '../../../c
 export interface AddProductScreenProps {
   onCancel: () => void;
   onSaved: () => void;
+  /** Si se provee, la pantalla trabaja en modo edición. */
+  initialValues?: ProductInitialValues;
 }
 
-/** Figma 536-26495 — carga de producto */
-export const AddProductScreen: React.FC<AddProductScreenProps> = ({ onCancel, onSaved }) => {
+/** Figma 536-26495 — carga de producto (también edición cuando initialValues está presente) */
+export const AddProductScreen: React.FC<AddProductScreenProps> = ({
+  onCancel,
+  onSaved,
+  initialValues,
+}) => {
   const { t } = useTranslation();
   const { categories, loadOnce } = useInterestCategories();
   const [successVisible, setSuccessVisible] = React.useState(false);
@@ -35,6 +41,7 @@ export const AddProductScreen: React.FC<AddProductScreenProps> = ({ onCancel, on
 
   const form = useAddProductForm({
     categories,
+    initialValues,
     onSuccess: () => setSuccessVisible(true),
   });
 
@@ -60,7 +67,9 @@ export const AddProductScreen: React.FC<AddProductScreenProps> = ({ onCancel, on
           </View>
         </TouchableOpacity>
 
-        <RNText style={addProductStyles.sectionTitle}>{t('addProduct.screenTitle')}</RNText>
+        <RNText style={addProductStyles.sectionTitle}>
+          {form.isEditMode ? t('productDetail.editProduct') : t('addProduct.screenTitle')}
+        </RNText>
 
         {form.photos.length === 0 ? (
           <TouchableOpacity style={addProductStyles.photoBox} onPress={form.pickPhotos} activeOpacity={0.85}>

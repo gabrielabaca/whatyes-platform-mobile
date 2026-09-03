@@ -33,6 +33,11 @@ import { useUserProfile } from '../../hooks/useUserProfile';
 import { useUserShows } from '../../hooks/useUserShows';
 import { useUserProfileProducts } from '../../hooks/useUserProfileProducts';
 import { ProfileProductRow } from '../organisms/profile/ProfileProductRow';
+import { ProductDetailScreen } from './ProductDetailScreen/ProductDetailScreen';
+import { AddProductScreen } from './AddProductScreen/AddProductScreen';
+import type { ProductInitialValues } from '../../hooks/useAddProductForm';
+import { parseProductColors } from '../../api/productsApi';
+import { getPublicProduct } from '../../api/productsApi';
 import { ProfileReviewsSection } from '../organisms/profile/ProfileReviewsSection';
 import { ProfileReviewsDetailModal } from '../organisms/profile/ProfileReviewsDetailModal';
 import { useUserReviews } from '../../hooks/useUserReviews';
@@ -100,6 +105,9 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   const [tab, setTab] = useState<ProfileTab>('shows');
   const [bioExpanded, setBioExpanded] = useState(false);
   const [editDrawerOpen, setEditDrawerOpen] = useState(false);
+  // Detalle de producto y edición
+  const [productDetailId, setProductDetailId] = useState<string | null>(null);
+  const [editProductValues, setEditProductValues] = useState<ProductInitialValues | null>(null);
   const { profile, loading, error, resolvedId, reload } = useUserProfile(userId);
   const {
     shows,
@@ -112,6 +120,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
     loading: productsLoading,
     loadingMore: productsLoadingMore,
     loadMore: loadMoreProducts,
+    reload: reloadProducts,
   } = useUserProfileProducts(resolvedId, tab === 'products');
   const { data: reviewsData, loading: reviewsLoading } = useUserReviews(
     resolvedId,
@@ -603,7 +612,9 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                                 status: 'live',
                                 created_at: product.scheduled_at ?? 0,
                               } as UserShowItem)
-                          : undefined
+                          : product.product_id
+                            ? () => setProductDetailId(String(product.product_id))
+                            : undefined
                       }
                     />
                   ))}
@@ -634,6 +645,60 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
         reviews={reviewsData?.items ?? []}
         onClose={() => setReviewsDetailVisible(false)}
       />
+
+      {/* Detalle de producto: se monta sobre el perfil como overlay absoluto */}
+      {productDetailId ? (
+        <View style={StyleSheet.absoluteFill}>
+          <ProductDetailScreen
+            productId={productDetailId}
+            sellerUserId={resolvedId ?? undefined}
+            onBack={() => setProductDetailId(null)}
+            onEditProduct={
+              isOwnProfile
+                ? async (pid) => {
+                    try {
+                      const detail = await getPublicProduct(pid);
+                      const initValues: ProductInitialValues = {
+                        productId: pid,
+                        title: detail.title,
+                        description: detail.description ?? '',
+                        price: String(Math.round(detail.base_price_cents / 100)),
+                        sku: '',
+                        imageUrls: detail.image_urls,
+                        sizes: detail.sizes,
+                        colors: detail.colors,
+                        categoryUuid: null,
+                        saleFormat: null,
+                        packageTier: null,
+                        weightKg: null,
+                        condition: null,
+                        quantityOnHand: detail.quantity_on_hand,
+                      };
+                      setEditProductValues(initValues);
+                      setProductDetailId(null);
+                    } catch {
+                      // Si falla, mantener el detalle abierto
+                    }
+                  }
+                : undefined
+            }
+          />
+        </View>
+      ) : null}
+
+      {/* Editar producto: overlay sobre el perfil */}
+      {editProductValues ? (
+        <View style={StyleSheet.absoluteFill}>
+          <AddProductScreen
+            initialValues={editProductValues}
+            onCancel={() => setEditProductValues(null)}
+            onSaved={() => {
+              setEditProductValues(null);
+              reloadProducts();
+            }}
+          />
+        </View>
+      ) : null}
     </View>
   );
 };

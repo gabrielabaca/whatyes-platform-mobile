@@ -1107,5 +1107,19 @@
     "seeAll": "Ver todos",
     "needHelp": "Necesitas ayuda con tu compra?",
     "contactSupport": "Contactar a Soporte"
+  },
+  "productDetail": {
+    "title": "Producto",
+    "by": "Por {{name}}",
+    "sizeLabel": "Tamaño",
+    "colorLabel": "Color",
+    "stockLabel": "Stock Disponible:",
+    "reviewTitle": "Review",
+    "reviewGeneral": "General",
+    "reviewShipping": "Envíos",
+    "reviewProduct": "Producto",
+    "reviewNoRatings": "Sin reseñas aún",
+    "editProduct": "Editar Producto",
+    "loadError": "No se pudo cargar el producto"
   }
 }

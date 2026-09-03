@@ -103,7 +103,7 @@ export const ProfileProductRow: React.FC<ProfileProductRowProps> = ({ item, onPr
             style={[
               styles.thumb,
               styles.thumbPlaceholder,
-              isDark ? { backgroundColor: d.surfaceAlt } : null,
+              isDark ? { backgroundColor: d.surfaceAlt, borderColor: d.borderSubtle } : null,
             ]}
           />
         )}
@@ -168,7 +168,9 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   thumbPlaceholder: {
-    backgroundColor: '#E7E7FF',
+    backgroundColor: '#F4F4F8',
+    borderWidth: 1,
+    borderColor: '#E4E4E7',
   },
   body: {
     flex: 1,
