@@ -103,7 +103,7 @@ class MainActivity : ReactActivity() {
       newConfig: Configuration,
   ) {
     super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
-    val reactContext = (application as ReactApplication).reactHost.currentReactContext ?: return
+    val reactContext = (application as ReactApplication).reactHost?.currentReactContext ?: return
     reactContext.emitDeviceEvent(
         "LivePip:modeChanged",
         Arguments.createMap().apply { putBoolean("inPip", isInPictureInPictureMode) },

@@ -19,7 +19,7 @@ class LivePipModule(reactContext: ReactApplicationContext) :
 
     @ReactMethod
     fun setEnabled(enabled: Boolean, promise: Promise) {
-        val activity = currentActivity as? MainActivity
+        val activity = reactApplicationContext.currentActivity as? MainActivity
         if (activity == null) {
             promise.resolve(false)
             return
