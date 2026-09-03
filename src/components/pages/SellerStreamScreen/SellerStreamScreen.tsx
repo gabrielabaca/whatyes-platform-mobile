@@ -165,6 +165,14 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
   /** Pausa (o inicio) en vuelo: evita doble tap sobre la CTA central. */
   const [auctionActionPending, setAuctionActionPending] = useState(false);
   const [isMicMuted, setIsMicMuted] = useState(false);
+  const isMicMutedRef = useRef(false);
+  /**
+   * El mic lo silenció una pausa (botón, "por comenzar" o background), no el
+   * vendedor: al despausar se restaura el estado previo. Un solo flag para
+   * todos los caminos — si el vendedor ya lo había muteado a mano, queda false
+   * y despausar no le reabre el mic.
+   */
+  const micMutedByPauseRef = useRef(false);
   // Figma 698-12228: al crear la sala el vivo ya queda listado, pero arranca en
   // pausa ("por comenzar") hasta que el vendedor toca "Comenzar Live".
   const [hasStartedLive, setHasStartedLive] = useState(Boolean(resumeRoom));
@@ -246,8 +254,36 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
 
   const isPublishing = ivsPublishing || Boolean(localWebRTCStream);
 
-  // Estado "por comenzar": en cuanto hay publicación cortamos el video para que
-  // los viewers vean la pantalla de espera en lugar de la cámara del vendedor.
+  const setTransportVideoEnabled = useCallback(
+    (enabled: boolean) =>
+      (ivsPublishing
+        ? setIvsStageVideoEnabled(enabled)
+        : setKinesisWebRTCMasterVideoEnabled(enabled)
+      ).catch(() => {}),
+    [ivsPublishing],
+  );
+  const applyMicMuted = useCallback(
+    (muted: boolean) =>
+      ivsPublishing ? setIvsStageMicMuted(muted) : setKinesisWebRTCMasterMicMuted(muted),
+    [ivsPublishing],
+  );
+  /** Cierra el mic en pausa sin tocar `isMicMuted` (eso es el mute a mano). */
+  const muteMicForPause = useCallback(async () => {
+    if (isMicMutedRef.current || micMutedByPauseRef.current) return;
+    await applyMicMuted(true);
+    micMutedByPauseRef.current = true;
+  }, [applyMicMuted]);
+  /** Reabre el mic solo si la pausa lo había cerrado y el vendedor no lo muteó. */
+  const restoreMicAfterPause = useCallback(async () => {
+    if (!micMutedByPauseRef.current) return;
+    if (!isMicMutedRef.current) {
+      await applyMicMuted(false);
+    }
+    micMutedByPauseRef.current = false;
+  }, [applyMicMuted]);
+
+  // Estado "por comenzar": en cuanto hay publicación cortamos video y mic para
+  // que los viewers vean la espera y nada quede al aire (tampoco en la grabación).
   useEffect(() => {
     if (!isPublishing || hasStartedLive) return;
     (async () => {
@@ -257,12 +293,13 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
         } else {
           await setKinesisWebRTCMasterVideoEnabled(false);
         }
+        await muteMicForPause();
       } catch {
-        // Si el transporte no soporta apagar el video, el vivo igual queda en
+        // Si el transporte no soporta apagar video/mic, el vivo igual queda en
         // pausa para los viewers vía WebSocket.
       }
     })();
-  }, [isPublishing, ivsPublishing, hasStartedLive]);
+  }, [isPublishing, ivsPublishing, hasStartedLive, muteMicForPause]);
 
   // El pause hacia los viewers necesita el WS conectado; se manda una sola vez.
   useEffect(() => {
@@ -714,6 +751,15 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
   const handleToggleMic = useCallback(async () => {
     const nextMuted = !isMicMuted;
     try {
+      // En pausa el transporte queda muteado siempre: solo cambia la intención
+      // del vendedor (y el aviso a los viewers). Si despausáramos el transporte
+      // acá, el mic volvería al aire mientras cree que está en pausa.
+      if (isStreamPaused || micMutedByPauseRef.current) {
+        micMutedByPauseRef.current = !nextMuted;
+        setIsMicMuted(nextMuted);
+        sendSellerAudioMuted(nextMuted);
+        return;
+      }
       if (ivsPublishing) {
         await setIvsStageMicMuted(nextMuted);
       } else {
@@ -726,15 +772,27 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
     } catch {
       appAlert(t('common.appName'), t('stream.muteMicError'));
     }
-  }, [isMicMuted, ivsPublishing, sendSellerAudioMuted, t]);
+  }, [isMicMuted, isStreamPaused, ivsPublishing, sendSellerAudioMuted, t]);
 
   const handleTogglePause = useCallback(async () => {
     const nextPaused = !isStreamPaused;
     try {
-      if (ivsPublishing) {
-        await setIvsStageVideoEnabled(!nextPaused);
+      if (nextPaused) {
+        // Mic primero: si falla, no mandamos pausa (el vendedor no creería
+        // que está en privado con el audio todavía al aire / grabándose).
+        await muteMicForPause();
+        if (ivsPublishing) {
+          await setIvsStageVideoEnabled(false);
+        } else {
+          await setKinesisWebRTCMasterVideoEnabled(false);
+        }
       } else {
-        await setKinesisWebRTCMasterVideoEnabled(!nextPaused);
+        if (ivsPublishing) {
+          await setIvsStageVideoEnabled(true);
+        } else {
+          await setKinesisWebRTCMasterVideoEnabled(true);
+        }
+        await restoreMicAfterPause();
       }
     } catch {
       appAlert(t('common.appName'), t('stream.pauseStreamError'));
@@ -745,7 +803,15 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
     } else {
       sendStreamResume();
     }
-  }, [isStreamPaused, ivsPublishing, sendStreamPause, sendStreamResume, t]);
+  }, [
+    isStreamPaused,
+    ivsPublishing,
+    muteMicForPause,
+    restoreMicAfterPause,
+    sendStreamPause,
+    sendStreamResume,
+    t,
+  ]);
 
   /** "Comenzar Live" / "Reanudar Live": saca el vivo de pausa (Figma 698-12307). */
   const handleStartLive = useCallback(async () => {
@@ -756,6 +822,7 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
       } else {
         await setKinesisWebRTCMasterVideoEnabled(true);
       }
+      await restoreMicAfterPause();
     } catch {
       appAlert(t('common.appName'), t('stream.pauseStreamError'));
       setStartLivePending(false);
@@ -764,7 +831,7 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
     sendStreamResume();
     setHasStartedLive(true);
     setStartLivePending(false);
-  }, [ivsPublishing, sendStreamResume, t]);
+  }, [ivsPublishing, restoreMicAfterPause, sendStreamResume, t]);
 
   // ---------------------------------------------------------------------------
   // B-04 · El vendedor tiene que saber si su vivo sigue vivo.
@@ -782,7 +849,6 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
   const tokenRef = useRef(token);
   const roomIdRef = useRef(roomId);
   const isStreamPausedRef = useRef(isStreamPaused);
-  const isMicMutedRef = useRef(isMicMuted);
   const cameraPositionRef = useRef(cameraPosition);
   const onEndStreamRef = useRef(onEndStream);
   useEffect(() => {
@@ -800,28 +866,10 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
   const suspendedRef = useRef(false);
   /** La pausa la puso el background, no el vendedor: al volver se reanuda sola. */
   const autoPausedRef = useRef(false);
-  /** El mic lo silenció el background: al volver se restaura al estado que tenía. */
-  const micMutedByBackgroundRef = useRef(false);
   const ivsRecoveringRef = useRef(false);
   const ivsRetryCountRef = useRef(0);
   const [ivsReconnecting, setIvsReconnecting] = useState(false);
   const [pipActive, setPipActive] = useState(false);
-
-  const setTransportVideoEnabled = useCallback(
-    (enabled: boolean) =>
-      (ivsPublishing
-        ? setIvsStageVideoEnabled(enabled)
-        : setKinesisWebRTCMasterVideoEnabled(enabled)
-      ).catch(() => {}),
-    [ivsPublishing],
-  );
-  const setTransportMicMuted = useCallback(
-    (muted: boolean) =>
-      (ivsPublishing ? setIvsStageMicMuted(muted) : setKinesisWebRTCMasterMicMuted(muted)).catch(
-        () => {},
-      ),
-    [ivsPublishing],
-  );
 
   /** Pregunta al servidor si ESTA sala sigue LIVE. 'unknown' = sin respuesta (red). */
   const checkRoomAlive = useCallback(async (): Promise<'live' | 'ended' | 'unknown'> => {
@@ -903,7 +951,9 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
       });
       // El join arranca con cámara y mic abiertos: volver al estado que ve el comprador.
       await setIvsStageVideoEnabled(!isStreamPausedRef.current);
-      await setIvsStageMicMuted(isMicMutedRef.current);
+      await setIvsStageMicMuted(
+        isMicMutedRef.current || isStreamPausedRef.current || micMutedByPauseRef.current,
+      );
     } catch {
       // El join falló sin llegar a emitir DISCONNECTED: reintentar desde acá.
       setTimeout(() => {
@@ -930,15 +980,15 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
       sendStreamPause();
       void setTransportVideoEnabled(false);
     }
-    // El mic también: en pausa el comprador no lo oye, pero seguiría capturando y
-    // quedando en la grabación mientras el vendedor contesta un mensaje.
-    micMutedByBackgroundRef.current = !isMicMutedRef.current;
-    if (micMutedByBackgroundRef.current) void setTransportMicMuted(true);
+    // Mismo flag que el botón: si el vendedor ya había pausado, no pisamos ni
+    // restauramos el mic al volver (seguiría en pausa). Si el mute es nuestro,
+    // muteMicForPause es idempotente.
+    void muteMicForPause().catch(() => {});
     // Cerrar el WS (después de mandar la pausa) arranca el grace period en el
     // servidor: es lo que hace valer los 2 minutos también en Android, donde el
     // socket sobreviviría en background.
     setWsSuspended(true);
-  }, [sendStreamPause, setTransportMicMuted, setTransportVideoEnabled]);
+  }, [muteMicForPause, sendStreamPause, setTransportVideoEnabled]);
 
   const resumeLiveRef = useRef<() => Promise<void>>(async () => {});
   /** Vuelta a foreground: preguntar al servidor y recién ahí despausar. */
@@ -966,17 +1016,17 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
     }
     suspendedRef.current = false;
     setWsSuspended(false);
-    if (micMutedByBackgroundRef.current) {
-      micMutedByBackgroundRef.current = false;
-      void setTransportMicMuted(false);
-    }
     if (autoPausedRef.current) {
       autoPausedRef.current = false;
       void setTransportVideoEnabled(true);
+      void restoreMicAfterPause().catch(() => {});
       // El stream_resume sale apenas el WS reconecte (effect de abajo).
       pendingResumeRef.current = true;
       showToast(t('stream.sellerResumedAfterBackground'), 'info');
     }
+    // Si el vendedor había pausado a mano, el mic sigue cerrado (el flag queda)
+    // hasta handleStartLive / handleTogglePause. Restaurar acá reabriría el
+    // audio en pausa.
     // Si el stage cayó mientras estábamos fuera, el listener no actuó: reconectar ahora.
     if (ivsPublishing && ivsStateRef.current === 'DISCONNECTED') {
       void recoverIvsConnection();
@@ -987,7 +1037,7 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
     handleLiveEnded,
     ivsPublishing,
     recoverIvsConnection,
-    setTransportMicMuted,
+    restoreMicAfterPause,
     setTransportVideoEnabled,
     showToast,
     t,
@@ -997,7 +1047,8 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
   }, [resumeLive]);
 
   // stream_resume diferido: el WS se cerró en background (o es un vivo retomado)
-  // y recién ahora conectó.
+  // y recién ahora conectó. El video/mic ya los restauró resumeLive (si la pausa
+  // era automática); este effect solo avisa a los viewers.
   useEffect(() => {
     if (!isConnected || !pendingResumeRef.current) return;
     pendingResumeRef.current = false;
