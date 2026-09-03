@@ -370,6 +370,7 @@ export default {
       "sending": "Sending…",
       "cancel": "Cancel",
       "messageRequired": "Please write a message before sending.",
+      "sentTitle": "Message sent",
       "sendSuccess": "We received your message. Support will get back to you.",
       "sendError": "Couldn't send the message. Please try again."
     },

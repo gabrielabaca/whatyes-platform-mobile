@@ -19,6 +19,8 @@ type Listener = (request: AppAlertRequest | null) => void;
 let listener: Listener | null = null;
 let seq = 0;
 let pending: AppAlertRequest | null = null;
+/** Callbacks que esperan a que no haya ningún alert visible (ver `runWhenAppAlertClosed`). */
+const closeWaiters = new Set<() => void>();
 
 function resolveCancelable(buttons: AppAlertButton[], options?: AppAlertOptions): boolean {
   if (typeof options?.cancelable === 'boolean') return options.cancelable;
@@ -41,6 +43,15 @@ function resolveVariant(title: string, options?: AppAlertOptions): AppAlertVaria
 function publish(request: AppAlertRequest | null) {
   pending = request;
   listener?.(request);
+  if (request == null && closeWaiters.size > 0) {
+    const waiters = Array.from(closeWaiters);
+    closeWaiters.clear();
+    // Al próximo tick, igual que los onPress de los botones: el Modal del alert
+    // tiene que cerrar antes de que el que esperaba desmonte el suyo.
+    setTimeout(() => {
+      waiters.forEach((cb) => cb());
+    }, 0);
+  }
 }
 
 function show(
@@ -77,6 +88,25 @@ function showWithVariant(
 /** Cierra el diálogo visible sin ejecutar onPress de ningún botón. */
 export function dismissAppAlert() {
   publish(null);
+}
+
+/**
+ * Ejecuta `cb` cuando no quede ningún alert visible: ya mismo si no hay ninguno,
+ * o apenas se cierre el que está. Devuelve un cancelador.
+ *
+ * Existe para que un contenedor con `Modal` nativo NO se desmonte en el mismo tick
+ * en que se abre un alert (también un `Modal`): en ese cruce queda una capa nativa
+ * huérfana que se traga todos los toques de la app.
+ */
+export function runWhenAppAlertClosed(cb: () => void): () => void {
+  if (pending == null) {
+    cb();
+    return () => {};
+  }
+  closeWaiters.add(cb);
+  return () => {
+    closeWaiters.delete(cb);
+  };
 }
 
 /**

@@ -1,4 +1,4 @@
-export { appAlert, dismissAppAlert } from './appAlert';
+export { appAlert, dismissAppAlert, runWhenAppAlertClosed } from './appAlert';
 export { AlertProvider } from './AlertProvider';
 export { AppAlertDialog } from './AppAlertDialog';
 export type {

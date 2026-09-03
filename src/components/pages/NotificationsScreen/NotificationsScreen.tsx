@@ -197,7 +197,7 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
         if (!token) return;
         onOpenPurchase(await getMyPurchase(token, dest.saleId));
       } catch {
-        // La venta puede no ser visible como compra (o sin red): la fila queda leída.
+        // La venta puede no ser de este usuario (o sin red): la fila queda leída.
       } finally {
         openingPurchaseRef.current = false;
       }

@@ -369,6 +369,7 @@
       "sending": "Enviando…",
       "cancel": "Cancelar",
       "messageRequired": "Escribe un mensaje antes de enviar.",
+      "sentTitle": "Mensaje enviado",
       "sendSuccess": "Recibimos tu mensaje. El equipo de soporte te va a contactar.",
       "sendError": "No se pudo enviar el mensaje. Intentá de nuevo."
     },

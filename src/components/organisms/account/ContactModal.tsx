@@ -1,6 +1,10 @@
 /**
  * Contacto — Figma 536-23051
  * Envío a service-platform (POST /me/support-tickets).
+ *
+ * La confirmación y el error se muestran DENTRO del modal, no con `appAlert`: el
+ * alert es un `Modal` nativo, y abrirlo mientras este modal se desmonta dejaba una
+ * capa huérfana que se tragaba todos los toques de la app.
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -12,7 +16,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { AppTextInput } from '../../atoms/AppTextInput';
-import { ImageUp } from 'lucide-react-native';
+import { CircleCheck, ImageUp } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import {
   launchPhotoLibraryNow,
@@ -27,7 +31,6 @@ import {
 import { GlassModalHeader } from '../profile/GlassModalHeader';
 import { FONT_FAMILY } from '../../../theme/typography';
 import { themeColors } from '../../../theme/colors';
-import { appAlert } from '../../../alerts';
 import { createSupportTicket } from '../../../api/platformApi';
 import { ApiError } from '../../../api/authApi';
 
@@ -52,11 +55,17 @@ export const ContactModal: React.FC<ContactModalProps> = ({
   const [evidence, setEvidence] = useState<PickerPhoto[]>([]);
   const [interactionsReady, setInteractionsReady] = useState(false);
   const [sending, setSending] = useState(false);
+  /** El ticket ya se creó: el cuerpo pasa a la confirmación y el CTA a "Listo". */
+  const [sent, setSent] = useState(false);
+  /** Error del último envío; se limpia al editar el mensaje. */
+  const [errorText, setErrorText] = useState<string | null>(null);
 
   const resetState = useCallback(() => {
     setMessage('');
     setEvidence([]);
     setSending(false);
+    setSent(false);
+    setErrorText(null);
   }, []);
 
   useEffect(() => {
@@ -97,30 +106,81 @@ export const ContactModal: React.FC<ContactModalProps> = ({
     });
   };
 
+  const handleChangeMessage = (text: string) => {
+    setMessage(text);
+    if (errorText) {
+      setErrorText(null);
+    }
+  };
+
   const handleSend = async () => {
-    if (sending) {
+    if (sending || sent) {
       return;
     }
     const body = message.trim();
     if (!body) {
-      appAlert(t('common.appName'), t('account.contactModal.messageRequired'));
+      setErrorText(t('account.contactModal.messageRequired'));
       return;
     }
     setSending(true);
+    setErrorText(null);
     try {
       await createSupportTicket({ message: body, evidence });
-      appAlert(t('common.appName'), t('account.contactModal.sendSuccess'));
-      modalRef.current?.dismiss();
+      setSent(true);
     } catch (error) {
       const fallback = t('account.contactModal.sendError');
       const detail = error instanceof ApiError ? error.message : fallback;
-      appAlert(t('common.appName'), detail || fallback);
+      setErrorText(detail || fallback);
     } finally {
       setSending(false);
     }
   };
 
   const canSend = message.trim().length > 0 && !sending;
+
+  const footer = sent ? (
+    <View style={styles.footer}>
+      <TouchableOpacity
+        style={styles.primaryBtn}
+        onPress={() => modalRef.current?.dismiss()}
+        activeOpacity={0.88}
+        accessibilityRole="button"
+        accessibilityLabel={t('common.done')}
+      >
+        <RNText style={styles.primaryBtnText}>{t('common.done')}</RNText>
+      </TouchableOpacity>
+    </View>
+  ) : (
+    <View style={styles.footer}>
+      <TouchableOpacity
+        style={[styles.primaryBtn, !canSend && styles.primaryBtnDisabled]}
+        onPress={handleSend}
+        disabled={!canSend}
+        activeOpacity={0.88}
+        accessibilityLabel={
+          sending
+            ? t('account.contactModal.sending')
+            : t('account.contactModal.send')
+        }
+      >
+        {sending ? (
+          <ActivityIndicator color={themeColors.glass.text} />
+        ) : (
+          <RNText style={styles.primaryBtnText}>
+            {t('account.contactModal.send')}
+          </RNText>
+        )}
+      </TouchableOpacity>
+      <TouchableOpacity
+        onPress={handleClose}
+        hitSlop={12}
+        activeOpacity={0.75}
+        disabled={sending}
+      >
+        <RNText style={styles.cancelText}>{t('account.contactModal.cancel')}</RNText>
+      </TouchableOpacity>
+    </View>
+  );
 
   return (
     <GlassFullScreenModal
@@ -139,45 +199,29 @@ export const ContactModal: React.FC<ContactModalProps> = ({
           closeDisabled={sending}
         />
       }
-      footer={
-        <View style={styles.footer}>
-          <TouchableOpacity
-            style={[styles.primaryBtn, !canSend && styles.primaryBtnDisabled]}
-            onPress={handleSend}
-            disabled={!canSend}
-            activeOpacity={0.88}
-            accessibilityLabel={
-              sending
-                ? t('account.contactModal.sending')
-                : t('account.contactModal.send')
-            }
-          >
-            {sending ? (
-              <ActivityIndicator color={themeColors.glass.text} />
-            ) : (
-              <RNText style={styles.primaryBtnText}>
-                {t('account.contactModal.send')}
-              </RNText>
-            )}
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={handleClose}
-            hitSlop={12}
-            activeOpacity={0.75}
-            disabled={sending}
-          >
-            <RNText style={styles.cancelText}>{t('account.contactModal.cancel')}</RNText>
-          </TouchableOpacity>
-        </View>
-      }
+      footer={footer}
     >
+      {sent ? (
+        <View style={styles.successBox} accessibilityLiveRegion="polite">
+          <View style={styles.successIconWrap}>
+            <CircleCheck size={28} color={themeColors.success} strokeWidth={2.2} />
+          </View>
+          <RNText style={styles.successTitle}>
+            {t('account.contactModal.sentTitle')}
+          </RNText>
+          <RNText style={styles.successBody}>
+            {t('account.contactModal.sendSuccess')}
+          </RNText>
+        </View>
+      ) : (
+        <>
               <View style={styles.fieldGroup}>
                 <RNText style={styles.fieldLabel}>
                   {t('account.contactModal.messageLabel')}
                 </RNText>
                 <AppTextInput
                   value={message}
-                  onChangeText={setMessage}
+                  onChangeText={handleChangeMessage}
                   placeholder={t('account.contactModal.messagePlaceholder')}
                   placeholderTextColor={themeColors.glass.placeholder}
                   style={styles.messageInput}
@@ -231,6 +275,14 @@ export const ContactModal: React.FC<ContactModalProps> = ({
                   )}
                 </View>
               </View>
+
+              {errorText ? (
+                <RNText style={styles.errorText} accessibilityLiveRegion="polite">
+                  {errorText}
+                </RNText>
+              ) : null}
+        </>
+      )}
     </GlassFullScreenModal>
   );
 };
@@ -314,6 +366,46 @@ const styles = StyleSheet.create({
     borderStyle: 'dashed',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  errorText: {
+    fontFamily: FONT_FAMILY.semibold,
+    fontSize: 12,
+    lineHeight: 18,
+    color: themeColors.danger,
+    letterSpacing: 0.05,
+    includeFontPadding: false,
+  },
+  successBox: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 32,
+  },
+  successIconWrap: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: `${themeColors.success}22`,
+    marginBottom: 8,
+  },
+  successTitle: {
+    fontFamily: FONT_FAMILY.bold,
+    fontSize: 17,
+    lineHeight: 24,
+    color: themeColors.glass.text,
+    textAlign: 'center',
+    includeFontPadding: false,
+  },
+  successBody: {
+    fontFamily: FONT_FAMILY.regular,
+    fontSize: 14,
+    lineHeight: 20,
+    color: themeColors.glass.textMuted,
+    textAlign: 'center',
+    includeFontPadding: false,
   },
   footer: {
     gap: 24,

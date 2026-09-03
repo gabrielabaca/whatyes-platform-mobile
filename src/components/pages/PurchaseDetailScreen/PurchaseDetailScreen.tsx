@@ -39,6 +39,7 @@ import {
 } from '../../../api/profileApi';
 import { isHandle } from '../../../utils/handle';
 import {
+  getMyPurchase,
   getMyPurchasePayment,
   getMyPurchaseTracking,
   getUserProfileProducts,
@@ -180,6 +181,10 @@ function formatShippingAddress(
 }
 
 export interface PurchaseDetailScreenProps {
+  /**
+   * Valor inicial, tal como lo trajo la lista de Actividad o un push. La pantalla
+   * vuelve a pedir la venta por su uuid y trabaja con esa respuesta.
+   */
   purchase: PurchaseItem;
   onBack: () => void;
   onOpenSellerProfile?: (sellerUserId: string) => void;
@@ -190,7 +195,7 @@ export interface PurchaseDetailScreenProps {
 }
 
 export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
-  purchase,
+  purchase: initialPurchase,
   onBack,
   onOpenSellerProfile,
   onStartChat,
@@ -199,6 +204,12 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
   const { t, i18n } = useTranslation();
   const insets = useSafeAreaInsets();
   const { isDark } = useTheme();
+  /**
+   * Fuente de verdad de la pantalla. La prop viene del objeto que cargó la lista de
+   * Actividad y puede tener horas: el cron avanza el envío sin que esa lista se
+   * entere, y el timeline quedaba en un paso viejo junto a eventos frescos.
+   */
+  const [purchase, setPurchase] = useState<PurchaseItem>(initialPurchase);
   const sellerId = purchase.counterpart.user_id;
 
   // Overrides oscuros; en claro todos son `null` y mandan los estilos estáticos.
@@ -256,6 +267,31 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
   useEffect(() => {
     setBioExpanded(false);
   }, [bioText]);
+
+  /**
+   * Se vuelve a pedir la venta por su uuid al montar (la pantalla se desmonta al
+   * salir, así que cada entrada la refresca) y cuando cambia la prop (un push a
+   * otra compra con el detalle ya abierto). Mientras carga se muestra la prop, para
+   * no parpadear. Si falla, queda la prop: un detalle que no abre por un problema
+   * de red es peor que un estado viejo.
+   */
+  useEffect(() => {
+    let cancelled = false;
+    setPurchase(initialPurchase);
+    void (async () => {
+      try {
+        const token = await storage.getAccessToken();
+        if (!token) return;
+        const fresh = await getMyPurchase(token, initialPurchase.sale_uuid);
+        if (!cancelled) setPurchase(fresh);
+      } catch {
+        // Sin red (o venta ya no visible): se sigue mostrando lo que trajo la lista.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [initialPurchase]);
 
   useEffect(() => {
     let cancelled = false;

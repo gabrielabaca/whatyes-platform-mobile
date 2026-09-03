@@ -21,6 +21,7 @@ import { DismissKeyboardView } from '../../atoms/DismissKeyboardView';
 import { KeyboardDismissScrollView } from '../../atoms/KeyboardDismissScrollView';
 import { KeyboardAccessoryAppearanceProvider } from '../../atoms/AppTextInput';
 import { ModalWindowBoundary } from '../../../context/OverlayPortalContext';
+import { runWhenAppAlertClosed } from '../../../alerts';
 
 export interface GlassFullScreenModalHandle {
   dismiss: () => void;
@@ -138,9 +139,15 @@ export const GlassFullScreenModal = forwardRef<
       duration: 220,
       useNativeDriver: true,
     }).start(({ finished }) => {
-      if (finished) {
-        onClose();
-      }
+      if (!finished) return;
+      /**
+       * Si hay un `appAlert` abierto, el `onClose` espera a que se cierre. Un alert es
+       * otro `Modal` nativo: abrirlo y desmontar este en el mismo tick deja una capa
+       * huérfana que captura todos los toques de la app (hubo que matar el proceso).
+       * El orden `appAlert(...)` + `dismiss()` sigue siendo legal para quien lo escribe,
+       * pero ya no puede colgar la app.
+       */
+      runWhenAppAlertClosed(onClose);
     });
   };
 

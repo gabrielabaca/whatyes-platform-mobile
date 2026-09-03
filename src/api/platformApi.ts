@@ -1418,7 +1418,10 @@ export async function getMyPurchases(
   return res.json() as Promise<PurchasesListResponse>;
 }
 
-/** Detalle de una compra propia. */
+/**
+ * Detalle de una venta propia, como comprador o como vendedor. La contraparte
+ * viene según el rol del autenticado (vendedor en compras, comprador en ventas).
+ */
 export async function getMyPurchase(
   accessToken: string,
   saleUuid: string
