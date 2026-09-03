@@ -1054,6 +1054,8 @@
     "stepConfirmed": "Pedido confirmado",
     "stepPaymentApproved": "Pago aprobado",
     "stepPaymentPendingHint": "Estamos esperando la confirmación del pago",
+    "stepCancelled": "Cancelada",
+    "stepCancelledHint": "El pago no se completó y la operación quedó sin efecto",
     "paymentPendingTitle": "Falta pagar tu compra",
     "paymentPendingBody": "No pudimos cobrarte automáticamente. Pagá con tu cuenta de Mercado Pago para que preparemos el envío.",
     "paymentPendingCta": "Pagar con Mercado Pago",

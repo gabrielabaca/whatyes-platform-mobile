@@ -1378,6 +1378,8 @@ export interface PurchaseItem {
   total_cents?: number;
   currency: string;
   payment_status: 'pending' | 'paid' | 'cancelled' | string;
+  /** Epoch s en que se aprobó el cobro; null si todavía no se cobró. */
+  paid_at?: number | null;
   /** Estado del envío espejado desde service_delivery. */
   fulfillment_status?: FulfillmentStatus | string | null;
   /** N° de seguimiento del transportista (guía); null hasta que se crea el envío. */

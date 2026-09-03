@@ -483,6 +483,8 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
 
   const locale = i18n.language || 'es';
   const isPaid = purchase.payment_status === 'paid';
+  /** El cobro venció sin completarse: la operación quedó sin efecto y no hay envío. */
+  const isCancelled = purchase.payment_status === 'cancelled';
   const fulfillmentStatus = normalizeFulfillmentStatus(purchase.fulfillment_status);
   const shipmentFailed = isFulfillmentFailure(fulfillmentStatus);
   // Índice en la línea de avance: 1 = guía creada, 2 = en tránsito, 4 = entregado.
@@ -501,6 +503,7 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
   const deliveredAt =
     purchase.delivered_at ?? tracking?.delivered_at ?? eventDateFor(['DELIVERED']);
   const estimatedAt = tracking?.estimated_delivery_at ?? purchase.estimated_delivery_at;
+  const paidAt = purchase.paid_at ?? paymentDetail?.paid_at ?? null;
   const guideId = (tracking?.guide_id ?? purchase.delivery_guide_id)?.trim() || null;
 
   const stepDate = (epochSec?: number | null): string | undefined =>
@@ -530,62 +533,81 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
     return shippingReached === index - 1 ? 'current' : 'todo';
   };
 
+  type TimelineStep = {
+    label: string;
+    sub?: string;
+    state: 'done' | 'current' | 'todo' | 'failed';
+  };
+
+  const confirmedStep: TimelineStep = {
+    label: t('activity.stepConfirmed'),
+    sub: formatDateTime(purchase.created_at, locale),
+    state: 'done',
+  };
+  const paymentStep: TimelineStep = {
+    label: t('activity.stepPaymentApproved'),
+    state: isPaid ? 'done' : 'current',
+    sub: isPaid ? stepDate(paidAt) : t('activity.stepPaymentPendingHint'),
+  };
+
   /**
    * Timeline real: los tres últimos pasos salen de `fulfillment_status`, no del
    * pago. Un envío fallido reemplaza el paso donde se cortó por uno en rojo — un
    * timeline de 5 pasos verdes no puede representar un envío que no llegó.
+   *
+   * Cancelada (el cobro venció sin completarse): se muestran los pasos que sí
+   * pasaron y la cancelación en rojo, sin pasos de envío — ese envío no va a
+   * existir, y dejarlos en gris la hacía parecer una compra en curso.
    */
-  const timelineSteps: {
-    label: string;
-    sub?: string;
-    state: 'done' | 'current' | 'todo' | 'failed';
-  }[] = [
-    {
-      label: t('activity.stepConfirmed'),
-      sub: formatDateTime(purchase.created_at, locale),
-      state: 'done',
-    },
-    {
-      label: t('activity.stepPaymentApproved'),
-      state: isPaid ? 'done' : 'current',
-      sub: isPaid ? undefined : t('activity.stepPaymentPendingHint'),
-    },
-    fulfillmentStatus === 'shipment_failed'
-      ? {
-          label: t('activity.stepShipmentFailed'),
+  const timelineSteps: TimelineStep[] = isCancelled
+    ? [
+        confirmedStep,
+        ...(paidAt ? [{ ...paymentStep, state: 'done' as const }] : []),
+        {
+          label: t('activity.stepCancelled'),
           state: 'failed',
-          sub: t('activity.stepShipmentFailedHint'),
-        }
-      : {
-          label: t('activity.stepPreparing'),
-          state: stepState(1),
-          sub:
-            stepDate(shippedAt) ??
-            (stepState(1) === 'current' ? t('activity.stepPreparingHint') : undefined),
+          sub: t('activity.stepCancelledHint'),
         },
-    {
-      label: t('activity.stepOnTheWay'),
-      state: stepState(2),
-      sub: stepDate(inTransitAt),
-    },
-    fulfillmentStatus === 'failed_delivery'
-      ? {
-          label: t('activity.stepFailedDelivery'),
-          state: 'failed',
-          sub: t('activity.stepFailedDeliveryHint'),
-        }
-      : fulfillmentStatus === 'returned'
-        ? {
-            label: t('activity.stepReturned'),
-            state: 'failed',
-            sub: t('activity.stepReturnedHint'),
-          }
-        : {
-            label: t('activity.stepDelivered'),
-            state: stepState(3),
-            sub: stepDate(deliveredAt),
-          },
-  ];
+      ]
+    : [
+        confirmedStep,
+        paymentStep,
+        fulfillmentStatus === 'shipment_failed'
+          ? {
+              label: t('activity.stepShipmentFailed'),
+              state: 'failed',
+              sub: t('activity.stepShipmentFailedHint'),
+            }
+          : {
+              label: t('activity.stepPreparing'),
+              state: stepState(1),
+              sub:
+                stepDate(shippedAt) ??
+                (stepState(1) === 'current' ? t('activity.stepPreparingHint') : undefined),
+            },
+        {
+          label: t('activity.stepOnTheWay'),
+          state: stepState(2),
+          sub: stepDate(inTransitAt),
+        },
+        fulfillmentStatus === 'failed_delivery'
+          ? {
+              label: t('activity.stepFailedDelivery'),
+              state: 'failed',
+              sub: t('activity.stepFailedDeliveryHint'),
+            }
+          : fulfillmentStatus === 'returned'
+            ? {
+                label: t('activity.stepReturned'),
+                state: 'failed',
+                sub: t('activity.stepReturnedHint'),
+              }
+            : {
+                label: t('activity.stepDelivered'),
+                state: stepState(3),
+                sub: stepDate(deliveredAt),
+              },
+      ];
 
   const conditionLabel =
     purchase.condition === 'new'

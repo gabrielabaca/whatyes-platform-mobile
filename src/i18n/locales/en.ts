@@ -1072,6 +1072,8 @@ export default {
     "stepConfirmed": "Order confirmed",
     "stepPaymentApproved": "Payment approved",
     "stepPaymentPendingHint": "We're waiting for payment confirmation",
+    "stepCancelled": "Cancelled",
+    "stepCancelledHint": "Payment wasn't completed and the order was voided",
     "paymentPendingTitle": "Your purchase needs payment",
     "paymentPendingBody": "We couldn't charge you automatically. Pay with your Mercado Pago account so we can prepare the shipment.",
     "paymentPendingCta": "Pay with Mercado Pago",
