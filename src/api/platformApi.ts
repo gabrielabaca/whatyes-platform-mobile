@@ -1491,6 +1491,8 @@ export interface PurchasePaymentDetail {
   tax_rate_bp?: number | null;
   shipping_cost_cents?: number | null;
   total_cents: number;
+  /** Monto que Mercado Pago cobró de verdad (solo con cobro aprobado). */
+  charged_cents?: number | null;
   currency: string;
   shipping_address?: PurchaseShippingAddress | null;
 }

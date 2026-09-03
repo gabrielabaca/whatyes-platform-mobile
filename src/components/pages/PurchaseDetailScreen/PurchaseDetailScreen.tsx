@@ -624,8 +624,12 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
   );
   // Ventas viejas o aún sin cotizar: sin desglose, el total es el producto solo.
   const shippingCents = purchase.shipping_cost_cents;
+  // "Total pagado" es lo que MP cobró de verdad cuando se sabe; la suma calculada
+  // solo mientras el cobro no está aprobado.
   const totalLabel = formatStreamPrice(
-    Math.round((purchase.total_cents ?? purchase.amount_cents) / 100),
+    Math.round(
+      (paymentDetail?.charged_cents ?? purchase.total_cents ?? purchase.amount_cents) / 100
+    ),
     purchase.currency
   );
   const shippingLabel =
