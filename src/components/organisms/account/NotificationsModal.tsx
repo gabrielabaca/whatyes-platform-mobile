@@ -1,13 +1,19 @@
 /**
  * Modal notificaciones — Figma 536-23077
+ *
+ * Además de las preferencias, es la segunda entrada a la pantalla "Activar
+ * Notificaciones" (1115:3279): las cuentas existentes nunca pasan por el
+ * onboarding, y acá es donde el usuario se entera de que el permiso del SO le
+ * bloquea los avisos que está prendiendo.
  */
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   StyleSheet,
   TouchableOpacity,
   Text as RNText,
   Switch,
+  AppState,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import {
@@ -18,6 +24,11 @@ import { GlassModalHeader } from '../profile/GlassModalHeader';
 import { FONT_FAMILY } from '../../../theme/typography';
 import { themeColors } from '../../../theme/colors';
 import { appAlert } from '../../../alerts';
+import { EnableNotificationsScreen } from '../../pages/EnableNotificationsScreen';
+import {
+  getPushPermissionStatus,
+  type PushPermissionStatus,
+} from '../../../hooks/usePushNotifications';
 import {
   getNotificationPreferences,
   loadNotificationPreferences,
@@ -44,6 +55,34 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ visible,
   });
   const [loading, setLoading] = useState(false);
   const dirtyRef = useRef(false);
+
+  /** Permiso del SO. `null` mientras se consulta; sin fila si está concedido o no hay nativo. */
+  const [permission, setPermission] = useState<PushPermissionStatus | null>(null);
+  const [permissionScreenVisible, setPermissionScreenVisible] = useState(false);
+  const permissionBlocked = permission === 'denied' || permission === 'undetermined';
+
+  const refreshPermission = useCallback(async () => {
+    const status = await getPushPermissionStatus();
+    setPermission(status);
+  }, []);
+
+  useEffect(() => {
+    if (!visible) {
+      setPermissionScreenVisible(false);
+      return;
+    }
+    void refreshPermission();
+    // El usuario puede ir a Ajustes desde acá y volver: releer al pasar a foreground.
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') void refreshPermission();
+    });
+    return () => sub.remove();
+  }, [visible, refreshPermission]);
+
+  const closePermissionScreen = () => {
+    setPermissionScreenVisible(false);
+    void refreshPermission();
+  };
 
   useEffect(() => {
     if (!visible) {
@@ -145,7 +184,38 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ visible,
         </View>
       }
       contentContainerStyle={styles.scrollContent}
+      /**
+       * La pantalla va en `overlay` (misma ventana nativa) y no como Modal hermano:
+       * en iOS un segundo Modal no se presenta mientras este está abierto.
+       */
+      overlay={
+        permissionScreenVisible ? (
+          <View style={StyleSheet.absoluteFill}>
+            <EnableNotificationsScreen
+              onBack={closePermissionScreen}
+              onSkip={closePermissionScreen}
+              onContinue={closePermissionScreen}
+            />
+          </View>
+        ) : null
+      }
     >
+      {permissionBlocked ? (
+        <TouchableOpacity
+          style={styles.permissionRow}
+          onPress={() => setPermissionScreenVisible(true)}
+          activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityLabel={t('account.notificationsModal.systemDisabledCta')}
+        >
+          <RNText style={styles.permissionText}>
+            {t('account.notificationsModal.systemDisabled')}
+          </RNText>
+          <RNText style={styles.permissionCta}>
+            {t('account.notificationsModal.systemDisabledCta')}
+          </RNText>
+        </TouchableOpacity>
+      ) : null}
       <View style={styles.toggles}>
         <ToggleRow
           label={t('account.notificationsModal.all')}
@@ -199,6 +269,32 @@ const styles = StyleSheet.create({
   toggles: {
     gap: 12,
     width: '100%',
+  },
+  permissionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: themeColors.gold,
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: themeColors.glass.rowBg,
+    gap: 12,
+  },
+  permissionText: {
+    flex: 1,
+    fontFamily: FONT_FAMILY.semibold,
+    fontSize: 12,
+    lineHeight: 18,
+    color: themeColors.glass.text,
+    includeFontPadding: false,
+  },
+  permissionCta: {
+    fontFamily: FONT_FAMILY.bold,
+    fontSize: 14,
+    lineHeight: 20,
+    color: themeColors.gold,
+    includeFontPadding: false,
   },
   pillRow: {
     flexDirection: 'row',
