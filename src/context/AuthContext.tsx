@@ -14,7 +14,7 @@ import {
   ensureFreshAccessToken,
   ApiError,
 } from '../api';
-import { unregisterCurrentPushToken } from '../hooks/usePushNotifications';
+import { unregisterCurrentPushToken, usePushNotifications } from '../hooks/usePushNotifications';
 import {
   signInWithGoogle,
   signInWithApple,
@@ -62,6 +62,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // Refresh proactivo: mantiene vigente el access token mientras hay sesión y al
   // volver del background (los timers de JS se congelan mientras la app está en background).
   const hasSession = !!user;
+
+  /**
+   * Push al entrar autenticado: registra el token FCM en silencio si el permiso
+   * YA está concedido (aceptado antes, o cuenta vieja que nunca vio la pantalla)
+   * y cuelga los listeners de refresh de token y tap en la notificación. No pide
+   * permiso —eso es de la pantalla "Activar Notificaciones"— y es best-effort,
+   * igual que la baja del token en el logout. Espera al fin del bootstrap para
+   * que el PUT salga con el access token ya refrescado y no con uno vencido.
+   */
+  usePushNotifications(hasSession && !isBootstrapping);
+
   useEffect(() => {
     if (!hasSession) return;
     let timer: ReturnType<typeof setTimeout> | null = null;

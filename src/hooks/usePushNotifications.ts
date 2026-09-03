@@ -1,11 +1,14 @@
 /**
  * Permiso, registro FCM y tap-to-navigate de push nativo.
  *
- * La pantalla "Activar Notificaciones" del Figma la construye otro agente
- * sobre este hook: pedir permiso, registrar el token y abrir Settings si está
- * denegado. Acá el disparador es mínimo (arranque autenticado).
+ * Dos caminos que NO se mezclan:
+ * - `usePushNotifications(enabled)`: al arrancar autenticado registra el token en
+ *   silencio si el permiso YA está concedido y cuelga los listeners. Nunca muestra
+ *   el diálogo del SO.
+ * - `requestPermissionAndRegister` / `openSettings`: los usa la pantalla "Activar
+ *   Notificaciones" (Figma 1115:3279), que sí pide el permiso con contexto.
  */
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect } from 'react';
 import { Linking, PermissionsAndroid, Platform } from 'react-native';
 import { upsertPushDevice } from '../api/platformApi';
 import i18n from '../i18n';
@@ -27,14 +30,27 @@ type MessagingModule = {
     getInitialNotification: () => Promise<RemoteMessage | null>;
     setBackgroundMessageHandler?: (cb: (msg: RemoteMessage) => Promise<void>) => void;
   };
-  AuthorizationStatus?: { AUTHORIZED: number; PROVISIONAL: number; DENIED: number };
+  AuthorizationStatus?: {
+    NOT_DETERMINED?: number;
+    AUTHORIZED: number;
+    PROVISIONAL: number;
+    DENIED: number;
+  };
 };
+
+export type PushPermissionStatus = 'granted' | 'denied' | 'undetermined' | 'unavailable';
 
 type RemoteMessage = {
   data?: Record<string, string>;
 };
 
 let lastRegisteredToken: string | null = null;
+/**
+ * Android 13+: `never_ask_again` = el usuario ya lo negó dos veces y el diálogo no
+ * vuelve a salir; solo Ajustes lo revierte. `PermissionsAndroid.check` no distingue
+ * ese caso de "nunca se preguntó", así que se recuerda acá.
+ */
+let androidPermanentlyDenied = false;
 
 function loadMessaging(): MessagingModule | null {
   try {
@@ -57,6 +73,7 @@ async function requestNativePermission(messaging: MessagingModule): Promise<bool
     const granted = await PermissionsAndroid.request(
       PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS
     );
+    androidPermanentlyDenied = granted === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN;
     if (granted !== PermissionsAndroid.RESULTS.GRANTED) return false;
   }
   try {
@@ -115,12 +132,54 @@ export async function openSystemNotificationSettings(): Promise<void> {
   await Linking.openSettings();
 }
 
+/**
+ * Estado del permiso del SO SIN pedirlo. `undetermined` = todavía se puede mostrar
+ * el diálogo; `denied` = solo Ajustes lo revierte; `unavailable` = Firebase no está
+ * linkeado en este build.
+ */
+export async function getPushPermissionStatus(): Promise<PushPermissionStatus> {
+  const messaging = loadMessaging();
+  if (!messaging) return 'unavailable';
+  try {
+    if (Platform.OS === 'android') {
+      if (Platform.Version < 33) return 'granted';
+      const granted = await PermissionsAndroid.check(
+        PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS
+      );
+      if (granted) return 'granted';
+      return androidPermanentlyDenied ? 'denied' : 'undetermined';
+    }
+    const status = await messaging().hasPermission();
+    if (isAuthorized(status, messaging)) return 'granted';
+    const notDetermined = messaging.AuthorizationStatus?.NOT_DETERMINED ?? -1;
+    return status === notDetermined ? 'undetermined' : 'denied';
+  } catch {
+    return 'unavailable';
+  }
+}
+
+/**
+ * Registro silencioso: si el permiso YA está concedido, obtiene el token y lo
+ * registra. Nunca muestra el diálogo del SO. Best-effort: si el backend responde
+ * 503 (tablas de push sin aplicar) o no hay red, se reintenta en el próximo
+ * arranque autenticado.
+ */
+export async function registerPushTokenIfGranted(): Promise<void> {
+  const messaging = loadMessaging();
+  if (!messaging) return;
+  try {
+    if ((await getPushPermissionStatus()) !== 'granted') return;
+    const token = await messaging().getToken();
+    if (token) await registerToken(token);
+  } catch {
+    // Best-effort: no puede romper el arranque.
+  }
+}
+
 export function usePushNotifications(enabled: boolean): {
   requestPermissionAndRegister: () => Promise<boolean>;
   openSettings: () => Promise<void>;
 } {
-  const askedRef = useRef(false);
-
   const requestPermissionAndRegister = useCallback(async (): Promise<boolean> => {
     const messaging = loadMessaging();
     if (!messaging) return false;
@@ -140,10 +199,9 @@ export function usePushNotifications(enabled: boolean): {
     const messaging = loadMessaging();
     if (!messaging) return;
 
-    if (!askedRef.current) {
-      askedRef.current = true;
-      void requestPermissionAndRegister();
-    }
+    // Solo registra si el permiso ya está concedido (usuario que aceptó antes o
+    // cuenta vieja que nunca vio la pantalla). Pedirlo es de la pantalla.
+    void registerPushTokenIfGranted();
 
     let unsubRefresh: (() => void) | undefined;
     let unsubOpened: (() => void) | undefined;
@@ -166,7 +224,7 @@ export function usePushNotifications(enabled: boolean): {
       unsubRefresh?.();
       unsubOpened?.();
     };
-  }, [enabled, requestPermissionAndRegister]);
+  }, [enabled]);
 
   return {
     requestPermissionAndRegister,
