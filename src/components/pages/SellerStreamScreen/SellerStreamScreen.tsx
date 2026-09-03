@@ -14,6 +14,7 @@ import {
   Dimensions,
   Platform,
   ActivityIndicator,
+  AppState,
 } from 'react-native';
 import {
   Camera,
@@ -33,6 +34,7 @@ import {
   createRoom,
   goLive,
   endStream,
+  getMyLiveRoom,
   getWebRTCCredentials,
   startRecording,
   getRoomLiveCommerce,
@@ -46,6 +48,7 @@ import {
   cancelRoomAuction,
   type AuctionCancelReasonCode,
   type LiveCommerceResponse,
+  type PlatformRoomResponse,
   type RoomCatalogProductItem,
 } from '../../../api/platformApi';
 import { getUserPublicProfile, type UserPublicProfile } from '../../../api/profileApi';
@@ -58,13 +61,20 @@ import {
   setKinesisWebRTCMasterMicMuted,
 } from '../../../native/KinesisWebRTCNative';
 import {
+  addIvsStageListeners,
   joinIvsStageAsPublisher,
   leaveIvsStage,
   setIvsStageMicMuted,
   setIvsStageVideoEnabled,
   switchIvsStageCamera,
   IvsLocalPreviewView,
+  type IvsConnectionState,
 } from '../../../native/IvsStageNative';
+import {
+  addLivePipListener,
+  isLivePipSupported,
+  setLivePipEnabled,
+} from '../../../native/LivePipNative';
 import { useStreamChat } from '../../../hooks/useStreamChat';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StreamToast, useStreamToast } from '../../molecules/stream/StreamToast';
@@ -87,17 +97,30 @@ import { useLiveRoomNote } from '../../../hooks/useLiveRoomNote';
 import { SellerAddProductDrawer } from '../../organisms/stream/SellerAddProductDrawer';
 import { SellerAddProductTypeDrawer, type ProductListType } from '../../organisms/stream/SellerAddProductTypeDrawer';
 import type { ProductListScope } from '../../../api/types';
-import { appAlert } from '../../../alerts';
+import { appAlert, runWhenAppAlertClosed } from '../../../alerts';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
+/** Reintentos de reconexión al stage cuando el servidor dice que la sala sigue viva. */
+const IVS_RECONNECT_MAX_ATTEMPTS = 4;
+const IVS_RECONNECT_BASE_DELAY_MS = 1000;
+/** GET /rooms/me/live: reintentos ante error de red antes de responder 'unknown'. */
+const ROOM_ALIVE_CHECK_ATTEMPTS = 3;
+const ROOM_ALIVE_CHECK_RETRY_MS = 1500;
+
 interface SellerStreamScreenProps {
   streamConfig: StreamConfig;
+  /**
+   * Vivo LIVE a retomar tras un crash (GET /rooms/me/live): salta el asistente y
+   * reusa la sala con el mismo token de publicación en vez de crear una nueva.
+   */
+  resumeRoom?: PlatformRoomResponse | null;
   onEndStream: () => void;
 }
 
 export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
   streamConfig,
+  resumeRoom = null,
   onEndStream,
 }) => {
   const { t } = useTranslation();
@@ -108,7 +131,7 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
   const [roomId, setRoomId] = useState<string | null>(null);
   const [streamError, setStreamError] = useState<string | null>(null);
   const [isStarting, setIsStarting] = useState(true);
-  const [preLiveReady, setPreLiveReady] = useState(false);
+  const [preLiveReady, setPreLiveReady] = useState(Boolean(resumeRoom));
   const [resolvedStreamConfig, setResolvedStreamConfig] = useState<StreamConfig>(streamConfig);
   const [localWebRTCStream, setLocalWebRTCStream] = useState<MediaStream | null>(null);
   // Publicando al IVS Stage (transporte 'ivs'): el preview local es la view nativa.
@@ -144,9 +167,17 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
   const [isMicMuted, setIsMicMuted] = useState(false);
   // Figma 698-12228: al crear la sala el vivo ya queda listado, pero arranca en
   // pausa ("por comenzar") hasta que el vendedor toca "Comenzar Live".
-  const [hasStartedLive, setHasStartedLive] = useState(false);
+  const [hasStartedLive, setHasStartedLive] = useState(Boolean(resumeRoom));
   const [startLivePending, setStartLivePending] = useState(false);
-  const initialPauseSentRef = useRef(false);
+  const initialPauseSentRef = useRef(Boolean(resumeRoom));
+  /** Token PUBLISH del stage (go_live o /me/live): reconectar con el mismo conserva la grabación. */
+  const ivsPublishTokenRef = useRef<string | null>(null);
+  /** Hay que mandar stream_resume apenas el WS conecte (vuelta de background / retomar). */
+  const pendingResumeRef = useRef(false);
+  /** App en background: el WS se cierra para que corra el grace period del servidor. */
+  const [wsSuspended, setWsSuspended] = useState(false);
+  /** Salida voluntaria o vivo ya cerrado: un DISCONNECTED del stage acá no es una caída. */
+  const leavingRef = useRef(false);
   const [liveCoverUrl, setLiveCoverUrl] = useState<string | null>(null);
   const [noteDrawerVisible, setNoteDrawerVisible] = useState(false);
   const userProvidedCover = Boolean(resolvedStreamConfig.coverUrl?.trim());
@@ -192,6 +223,7 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
   } = useStreamChat({
     roomId,
     accessToken: token,
+    enabled: !wsSuspended,
     role: 'master',
     reconnect: true,
     onLike: handleLikeEvent,
@@ -266,28 +298,36 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
           return;
         }
         setToken(accessToken);
-        const name = resolvedStreamConfig?.title || user?.name || undefined;
-        const categoryUuids = resolvedStreamConfig?.interestCategoryUuids;
-        const room = await createRoom(
-          accessToken,
-          name || null,
-          categoryUuids?.length ? categoryUuids : null,
-          {
-            scheduled_at: resolvedStreamConfig.scheduledAt ?? null,
-            recurrence: resolvedStreamConfig.recurrence ?? 'none',
-            moderator_user_ids: resolvedStreamConfig.moderatorUserIds ?? [],
-            sale_format: resolvedStreamConfig.saleFormat ?? 'individual',
-            explicit_content: resolvedStreamConfig.explicitContent ?? false,
-            blocked_words_enabled: resolvedStreamConfig.blockedWordsEnabled ?? false,
-            blocked_words: resolvedStreamConfig.blockedWords ?? [],
-            privacy: resolvedStreamConfig.privacy ?? 'public',
-            cover_url: resolvedStreamConfig.coverUrl ?? null,
-            intro_video_url: resolvedStreamConfig.introVideoUrl ?? null,
-          }
-        );
-        if (cancelled) return;
-        const live = await goLive(accessToken, room.uuid);
-        if (cancelled) return;
+        let live: PlatformRoomResponse;
+        if (resumeRoom) {
+          // Recuperación tras crash: la sala ya está LIVE en el servidor; se reusa
+          // con el mismo token de publicación en vez de crear otra.
+          live = resumeRoom;
+          pendingResumeRef.current = true;
+        } else {
+          const name = resolvedStreamConfig?.title || user?.name || undefined;
+          const categoryUuids = resolvedStreamConfig?.interestCategoryUuids;
+          const room = await createRoom(
+            accessToken,
+            name || null,
+            categoryUuids?.length ? categoryUuids : null,
+            {
+              scheduled_at: resolvedStreamConfig.scheduledAt ?? null,
+              recurrence: resolvedStreamConfig.recurrence ?? 'none',
+              moderator_user_ids: resolvedStreamConfig.moderatorUserIds ?? [],
+              sale_format: resolvedStreamConfig.saleFormat ?? 'individual',
+              explicit_content: resolvedStreamConfig.explicitContent ?? false,
+              blocked_words_enabled: resolvedStreamConfig.blockedWordsEnabled ?? false,
+              blocked_words: resolvedStreamConfig.blockedWords ?? [],
+              privacy: resolvedStreamConfig.privacy ?? 'public',
+              cover_url: resolvedStreamConfig.coverUrl ?? null,
+              intro_video_url: resolvedStreamConfig.introVideoUrl ?? null,
+            }
+          );
+          if (cancelled) return;
+          live = await goLive(accessToken, room.uuid);
+          if (cancelled) return;
+        }
         setRoomId(live.uuid);
         try {
           if (live.video_transport === 'ivs' && live.ivs_publish?.token) {
@@ -312,6 +352,7 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
             }
             if (cancelled) return;
             setIsStreaming(true);
+            ivsPublishTokenRef.current = live.ivs_publish.token;
             await joinIvsStageAsPublisher(live.ivs_publish.token, {
               initialFacingMode: cameraPosition === 'front' ? 'user' : 'environment',
             });
@@ -352,7 +393,7 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
       }
     })();
     return () => { cancelled = true; };
-  }, [preLiveReady, resolvedStreamConfig, user?.name]);
+  }, [preLiveReady, resolvedStreamConfig, resumeRoom, user?.name]);
 
   useEffect(() => {
     if (!token || !user?.uuid) return;
@@ -612,6 +653,8 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
   }, []);
 
   const confirmEndStream = useCallback(async () => {
+    // Salida voluntaria: el DISCONNECTED del stage que sigue no es una caída.
+    leavingRef.current = true;
     disconnectPermanently();
     try {
       if (ivsPublishing) {
@@ -722,6 +765,300 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
     setHasStartedLive(true);
     setStartLivePending(false);
   }, [ivsPublishing, sendStreamResume, t]);
+
+  // ---------------------------------------------------------------------------
+  // B-04 · El vendedor tiene que saber si su vivo sigue vivo.
+  //
+  // Fuente de verdad: el servidor (GET /rooms/me/live), nunca un timer local ni
+  // el estado optimista de la pantalla. Tres entradas al mismo camino:
+  //  - AppState → background: pausar por el mismo camino que el botón y cerrar
+  //    el WS, que es lo que arranca el grace period de 2 min en el servidor.
+  //  - AppState → active: preguntar si la sala sigue LIVE; recién ahí despausar.
+  //  - Stage DISCONNECTED (con o sin `error`): preguntar y reconectar con el
+  //    mismo token, o avisar que el vivo terminó si el servidor ya lo cerró.
+  // ---------------------------------------------------------------------------
+  const liveActive = isPublishing && roomId != null && token != null && !streamError;
+
+  const tokenRef = useRef(token);
+  const roomIdRef = useRef(roomId);
+  const isStreamPausedRef = useRef(isStreamPaused);
+  const isMicMutedRef = useRef(isMicMuted);
+  const cameraPositionRef = useRef(cameraPosition);
+  const onEndStreamRef = useRef(onEndStream);
+  useEffect(() => {
+    tokenRef.current = token;
+    roomIdRef.current = roomId;
+    isStreamPausedRef.current = isStreamPaused;
+    isMicMutedRef.current = isMicMuted;
+    cameraPositionRef.current = cameraPosition;
+    onEndStreamRef.current = onEndStream;
+  });
+
+  /** Último estado del stage que reportó el nativo. */
+  const ivsStateRef = useRef<IvsConnectionState>('CONNECTING');
+  /** App en background (o PiP): el vivo quedó pausado y el WS cerrado hasta volver. */
+  const suspendedRef = useRef(false);
+  /** La pausa la puso el background, no el vendedor: al volver se reanuda sola. */
+  const autoPausedRef = useRef(false);
+  /** El mic lo silenció el background: al volver se restaura al estado que tenía. */
+  const micMutedByBackgroundRef = useRef(false);
+  const ivsRecoveringRef = useRef(false);
+  const ivsRetryCountRef = useRef(0);
+  const [ivsReconnecting, setIvsReconnecting] = useState(false);
+  const [pipActive, setPipActive] = useState(false);
+
+  const setTransportVideoEnabled = useCallback(
+    (enabled: boolean) =>
+      (ivsPublishing
+        ? setIvsStageVideoEnabled(enabled)
+        : setKinesisWebRTCMasterVideoEnabled(enabled)
+      ).catch(() => {}),
+    [ivsPublishing],
+  );
+  const setTransportMicMuted = useCallback(
+    (muted: boolean) =>
+      (ivsPublishing ? setIvsStageMicMuted(muted) : setKinesisWebRTCMasterMicMuted(muted)).catch(
+        () => {},
+      ),
+    [ivsPublishing],
+  );
+
+  /** Pregunta al servidor si ESTA sala sigue LIVE. 'unknown' = sin respuesta (red). */
+  const checkRoomAlive = useCallback(async (): Promise<'live' | 'ended' | 'unknown'> => {
+    const accessToken = tokenRef.current;
+    const currentRoomId = roomIdRef.current;
+    if (!accessToken || !currentRoomId) return 'unknown';
+    for (let attempt = 0; attempt < ROOM_ALIVE_CHECK_ATTEMPTS; attempt += 1) {
+      try {
+        const room = await getMyLiveRoom(accessToken);
+        return room?.uuid === currentRoomId ? 'live' : 'ended';
+      } catch {
+        await new Promise<void>((resolve) => setTimeout(resolve, ROOM_ALIVE_CHECK_RETRY_MS));
+      }
+    }
+    return 'unknown';
+  }, []);
+
+  /** El servidor ya cerró la sala (pasaron los 2 minutos): no hay nada que reconectar. */
+  const handleLiveEnded = useCallback(() => {
+    if (leavingRef.current) return;
+    leavingRef.current = true;
+    suspendedRef.current = false;
+    setIvsReconnecting(false);
+    disconnectPermanently();
+    (ivsPublishing ? leaveIvsStage() : stopKinesisWebRTCMaster()).catch(() => {});
+    appAlert(t('stream.sellerLiveEndedTitle'), t('stream.sellerLiveEndedBody'), [
+      {
+        text: t('stream.endedAccept'),
+        // La pantalla tiene drawers (Modal nativo): desmontarla recién con el alert cerrado.
+        onPress: () => runWhenAppAlertClosed(() => onEndStreamRef.current()),
+      },
+    ]);
+  }, [disconnectPermanently, ivsPublishing, t]);
+
+  /** La sala vive pero no hay forma de volver a publicar: cerrarla y salir con error. */
+  const giveUpLive = useCallback(
+    (message: string) => {
+      if (leavingRef.current) return;
+      leavingRef.current = true;
+      suspendedRef.current = false;
+      setIvsReconnecting(false);
+      disconnectPermanently();
+      (ivsPublishing ? leaveIvsStage() : stopKinesisWebRTCMaster()).catch(() => {});
+      // Cerrarla ahora en vez de dejar que el grace la barra con los viewers
+      // mirando una pausa que no vuelve.
+      if (tokenRef.current && roomIdRef.current) {
+        endStream(tokenRef.current, roomIdRef.current).catch(() => {});
+      }
+      setStreamError(message);
+    },
+    [disconnectPermanently, ivsPublishing],
+  );
+
+  const recoverIvsConnectionRef = useRef<() => Promise<void>>(async () => {});
+  /** Stage caído con la app activa: confirmar con el servidor y reconectar con el mismo token. */
+  const recoverIvsConnection = useCallback(async () => {
+    if (ivsRecoveringRef.current || leavingRef.current || suspendedRef.current) return;
+    ivsRecoveringRef.current = true;
+    setIvsReconnecting(true);
+    try {
+      const alive = await checkRoomAlive();
+      if (leavingRef.current || suspendedRef.current) return;
+      if (alive === 'ended') {
+        handleLiveEnded();
+        return;
+      }
+      const publishToken = ivsPublishTokenRef.current;
+      if (!publishToken || ivsRetryCountRef.current >= IVS_RECONNECT_MAX_ATTEMPTS) {
+        giveUpLive(t('stream.sellerReconnectFailed'));
+        return;
+      }
+      ivsRetryCountRef.current += 1;
+      await new Promise<void>((resolve) =>
+        setTimeout(resolve, IVS_RECONNECT_BASE_DELAY_MS * ivsRetryCountRef.current),
+      );
+      if (leavingRef.current || suspendedRef.current) return;
+      await joinIvsStageAsPublisher(publishToken, {
+        initialFacingMode: cameraPositionRef.current === 'front' ? 'user' : 'environment',
+      });
+      // El join arranca con cámara y mic abiertos: volver al estado que ve el comprador.
+      await setIvsStageVideoEnabled(!isStreamPausedRef.current);
+      await setIvsStageMicMuted(isMicMutedRef.current);
+    } catch {
+      // El join falló sin llegar a emitir DISCONNECTED: reintentar desde acá.
+      setTimeout(() => {
+        void recoverIvsConnectionRef.current();
+      }, IVS_RECONNECT_BASE_DELAY_MS);
+    } finally {
+      ivsRecoveringRef.current = false;
+    }
+  }, [checkRoomAlive, giveUpLive, handleLiveEnded, t]);
+  useEffect(() => {
+    recoverIvsConnectionRef.current = recoverIvsConnection;
+  }, [recoverIvsConnection]);
+
+  /** Background: pausar por el mismo camino que el botón y cerrar el WS. */
+  const suspendLive = useCallback(() => {
+    if (suspendedRef.current || leavingRef.current) return;
+    suspendedRef.current = true;
+    ivsRetryCountRef.current = 0;
+    setIvsReconnecting(false);
+    // Solo si el vendedor no lo había pausado él (o todavía no lo había empezado):
+    // al volver se reanuda únicamente lo que pausó el background.
+    autoPausedRef.current = !isStreamPausedRef.current;
+    if (autoPausedRef.current) {
+      sendStreamPause();
+      void setTransportVideoEnabled(false);
+    }
+    // El mic también: en pausa el comprador no lo oye, pero seguiría capturando y
+    // quedando en la grabación mientras el vendedor contesta un mensaje.
+    micMutedByBackgroundRef.current = !isMicMutedRef.current;
+    if (micMutedByBackgroundRef.current) void setTransportMicMuted(true);
+    // Cerrar el WS (después de mandar la pausa) arranca el grace period en el
+    // servidor: es lo que hace valer los 2 minutos también en Android, donde el
+    // socket sobreviviría en background.
+    setWsSuspended(true);
+  }, [sendStreamPause, setTransportMicMuted, setTransportVideoEnabled]);
+
+  const resumeLiveRef = useRef<() => Promise<void>>(async () => {});
+  /** Vuelta a foreground: preguntar al servidor y recién ahí despausar. */
+  const resumeLive = useCallback(async () => {
+    if (!suspendedRef.current || leavingRef.current) return;
+    const alive = await checkRoomAlive();
+    if (!suspendedRef.current || leavingRef.current) return;
+    if (alive === 'ended') {
+      handleLiveEnded();
+      return;
+    }
+    if (alive === 'unknown') {
+      appAlert(t('stream.sellerCheckFailedTitle'), t('stream.sellerCheckFailedBody'), [
+        {
+          text: t('stream.endLiveCta'),
+          style: 'cancel',
+          onPress: () => runWhenAppAlertClosed(() => void confirmEndStream()),
+        },
+        {
+          text: t('stream.sellerCheckRetry'),
+          onPress: () => void resumeLiveRef.current(),
+        },
+      ]);
+      return;
+    }
+    suspendedRef.current = false;
+    setWsSuspended(false);
+    if (micMutedByBackgroundRef.current) {
+      micMutedByBackgroundRef.current = false;
+      void setTransportMicMuted(false);
+    }
+    if (autoPausedRef.current) {
+      autoPausedRef.current = false;
+      void setTransportVideoEnabled(true);
+      // El stream_resume sale apenas el WS reconecte (effect de abajo).
+      pendingResumeRef.current = true;
+      showToast(t('stream.sellerResumedAfterBackground'), 'info');
+    }
+    // Si el stage cayó mientras estábamos fuera, el listener no actuó: reconectar ahora.
+    if (ivsPublishing && ivsStateRef.current === 'DISCONNECTED') {
+      void recoverIvsConnection();
+    }
+  }, [
+    checkRoomAlive,
+    confirmEndStream,
+    handleLiveEnded,
+    ivsPublishing,
+    recoverIvsConnection,
+    setTransportMicMuted,
+    setTransportVideoEnabled,
+    showToast,
+    t,
+  ]);
+  useEffect(() => {
+    resumeLiveRef.current = resumeLive;
+  }, [resumeLive]);
+
+  // stream_resume diferido: el WS se cerró en background (o es un vivo retomado)
+  // y recién ahora conectó.
+  useEffect(() => {
+    if (!isConnected || !pendingResumeRef.current) return;
+    pendingResumeRef.current = false;
+    sendStreamResume();
+  }, [isConnected, sendStreamResume]);
+
+  // Listener de AppState SOLO mientras se transmite: al salir del vivo se desmonta.
+  // iOS pasa por 'inactive' antes de 'background' (centro de control, switcher):
+  // solo 'background' pausa.
+  useEffect(() => {
+    if (!liveActive) return;
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'background') suspendLive();
+      else if (state === 'active') void resumeLive();
+    });
+    return () => sub.remove();
+  }, [liveActive, resumeLive, suspendLive]);
+
+  // El vendedor escucha su propia conexión al stage (antes solo lo hacía el viewer).
+  useEffect(() => {
+    if (!ivsPublishing) return;
+    const unsubscribe = addIvsStageListeners({
+      onConnectionState: (state) => {
+        ivsStateRef.current = state;
+        if (state === 'CONNECTED') {
+          ivsRetryCountRef.current = 0;
+          setIvsReconnecting(false);
+          return;
+        }
+        // DISCONNECTED con o sin `error`: una caída limpia (red, background) no lo
+        // trae. En background se resuelve al volver (resumeLive), no acá.
+        if (state !== 'DISCONNECTED' || leavingRef.current || suspendedRef.current) return;
+        void recoverIvsConnection();
+      },
+    });
+    return unsubscribe;
+  }, [ivsPublishing, recoverIvsConnection]);
+
+  // Android: PiP con el vivo PAUSADO como recordatorio de "tenés un vivo abierto".
+  // Solo con un vivo activo; al salir del vivo la activity vuelve a no entrar a PiP.
+  // Entrar a PiP pasa la activity a onPause → AppState 'background' → suspendLive;
+  // tocar la ventanita la expande → 'active' → resumeLive (mismo camino).
+  useEffect(() => {
+    if (!liveActive || !isLivePipSupported) return;
+    void setLivePipEnabled(true);
+    const unsubscribe = addLivePipListener(setPipActive);
+    return () => {
+      unsubscribe();
+      setPipActive(false);
+      void setLivePipEnabled(false);
+    };
+  }, [liveActive]);
+
+  // Desmontar es una salida, no una caída: que una recuperación en vuelo no
+  // vuelva a publicar al stage después de irse.
+  useEffect(
+    () => () => {
+      leavingRef.current = true;
+    },
+    [],
+  );
 
   /**
    * Flechas < > (tarea 17): mueven el producto en pantalla una posición dentro
@@ -994,6 +1331,21 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
     );
   }
 
+  if (pipActive) {
+    // Ventanita de PiP (Android): recordatorio, no transmisión. El vivo está
+    // pausado y el mic silenciado; tocarla vuelve a la app y reanuda.
+    return (
+      <View style={styles.pipContainer}>
+        <Text variant="body" className="text-white font-semibold text-center">
+          {t('stream.sellerPipTitle')}
+        </Text>
+        <Text variant="caption" className="text-white/70 text-center">
+          {t('stream.sellerPipHint')}
+        </Text>
+      </View>
+    );
+  }
+
   const activeDevice = device || (cameraPosition === 'front' ? backDevice : frontDevice);
 
   return (
@@ -1090,6 +1442,19 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
         topOffset={Math.max(insets.top, 16) + 64}
       />
 
+      {ivsReconnecting ? (
+        <View
+          style={[styles.reconnectPill, { top: Math.max(insets.top, 16) + 12 }]}
+          pointerEvents="none"
+          accessibilityLiveRegion="polite"
+        >
+          <ActivityIndicator size="small" color="#ffffff" />
+          <Text variant="body" className="text-white ml-2">
+            {t('stream.sellerReconnecting')}
+          </Text>
+        </View>
+      ) : null}
+
       {/* Tarea 18: el drawer abre con la subasta YA pausada (openCancelFlow);
           cerrarlo sin confirmar reanuda desde el restante congelado. */}
       <StreamAuctionCancelDrawer
@@ -1173,6 +1538,24 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
+  },
+  pipContainer: {
+    flex: 1,
+    backgroundColor: '#000000',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 12,
+  },
+  reconnectPill: {
+    position: 'absolute',
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 9999,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    zIndex: 20,
   },
   loadingScreen: {
     justifyContent: 'space-between',

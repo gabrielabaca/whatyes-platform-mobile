@@ -84,6 +84,8 @@ export interface PlatformRoomResponse {
   blocked_words_enabled?: boolean;
   blocked_words?: string[];
   privacy?: string;
+  cover_url?: string | null;
+  intro_video_url?: string | null;
 }
 
 export interface CreateRoomOptions {
@@ -531,6 +533,23 @@ export async function goLive(
     throw new Error((err as any).detail || `goLive: ${res.status}`);
   }
   return res.json();
+}
+
+/**
+ * Vivo en curso del vendedor autenticado (GET /rooms/me/live), o `null` si no tiene.
+ * Es la fuente de verdad de "¿mi vivo sigue vivo?": el servidor solo lo devuelve
+ * mientras la sala está LIVE (dentro del grace period del broadcaster). Trae
+ * `ivs_publish` con el mismo token de go_live para reconectar sin cortar la grabación.
+ */
+export async function getMyLiveRoom(
+  accessToken: string
+): Promise<PlatformRoomResponse | null> {
+  const res = await fetch(`${PLATFORM_HTTP_URL}/rooms/me/live`, {
+    headers: authHeaders(accessToken),
+  });
+  if (!res.ok) throw new Error(`getMyLiveRoom: ${res.status}`);
+  const data = (await res.json()) as PlatformRoomResponse | null;
+  return data && typeof data === 'object' && typeof data.uuid === 'string' ? data : null;
 }
 
 /**

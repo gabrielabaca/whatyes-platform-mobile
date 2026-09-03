@@ -25,8 +25,12 @@ import {
 } from './src/utils/notificationDeepLink';
 import { notifyPushDestination } from './src/utils/pushDestination';
 import { usePushNotifications } from './src/hooks/usePushNotifications';
+import {
+  streamConfigFromRoom,
+  useSellerLiveResumePrompt,
+} from './src/hooks/useSellerLiveResumePrompt';
 import { withTimeout } from './src/utils/withTimeout';
-import { getBuyerKycStatus, ApiError } from './src/api';
+import { getBuyerKycStatus, ApiError, type PlatformRoomResponse } from './src/api';
 import i18n from './src/i18n';
 import { BuyerKycOnboardingScreen } from './src/components/pages/BuyerKycOnboardingScreen';
 import { LoginScreen } from './src/components/pages/LoginScreen';
@@ -74,6 +78,8 @@ function AuthenticatedAppShell({
   setSwipeCategoryUuid,
   activeStreamConfig,
   setActiveStreamConfig,
+  resumeRoom,
+  setResumeRoom,
 }: {
   currentScreen: AppScreen;
   setCurrentScreen: (s: AppScreen) => void;
@@ -87,9 +93,22 @@ function AuthenticatedAppShell({
   setSwipeCategoryUuid: (c: string | undefined) => void;
   activeStreamConfig: StreamConfig | null;
   setActiveStreamConfig: (c: StreamConfig | null) => void;
+  /** Vivo LIVE del vendedor a retomar tras un crash (B-04). */
+  resumeRoom: PlatformRoomResponse | null;
+  setResumeRoom: (r: PlatformRoomResponse | null) => void;
 }) {
   const wizard = useStartLiveWizard();
   usePushNotifications(true);
+
+  // Al abrir la app: si el vendedor tiene un vivo en curso (el servidor solo lo
+  // devuelve dentro de los 2 min de gracia), ofrecer retomarlo. Sin vivo, nada.
+  useSellerLiveResumePrompt({
+    enabled: currentScreen === 'home' && !activeStreamConfig && !resumeRoom,
+    onResume: (room) => {
+      setResumeRoom(room);
+      setCurrentScreen('seller-stream');
+    },
+  });
 
   /**
    * KYC obligatorio para participar de un vivo (comprador) o transmitir (vendedor).
@@ -166,14 +185,18 @@ function AuthenticatedAppShell({
     );
   }
 
-  if (currentScreen === 'seller-stream' && activeStreamConfig) {
+  if (currentScreen === 'seller-stream' && (activeStreamConfig || resumeRoom)) {
     return (
       <>
         <SellerStreamScreen
-          streamConfig={activeStreamConfig}
+          streamConfig={
+            activeStreamConfig ?? streamConfigFromRoom(resumeRoom as PlatformRoomResponse)
+          }
+          resumeRoom={resumeRoom}
           onEndStream={() => {
             setCurrentScreen('home');
             setActiveStreamConfig(null);
+            setResumeRoom(null);
           }}
         />
       </>
@@ -336,6 +359,7 @@ function AppNavigator() {
   const [swipeInitialIndex, setSwipeInitialIndex] = useState(0);
   const [swipeCategoryUuid, setSwipeCategoryUuid] = useState<string | undefined>(undefined);
   const [activeStreamConfig, setActiveStreamConfig] = useState<StreamConfig | null>(null);
+  const [resumeRoom, setResumeRoom] = useState<PlatformRoomResponse | null>(null);
 
   if (isBootstrapping || !minSplashElapsed) {
     return <LoadingScreen />;
@@ -357,6 +381,8 @@ function AppNavigator() {
               setSwipeCategoryUuid={setSwipeCategoryUuid}
               activeStreamConfig={activeStreamConfig}
               setActiveStreamConfig={setActiveStreamConfig}
+              resumeRoom={resumeRoom}
+              setResumeRoom={setResumeRoom}
             />
           </StartLiveWizardProvider>
         );

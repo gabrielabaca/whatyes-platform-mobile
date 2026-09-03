@@ -21,6 +21,7 @@ class MainApplication : Application(), ReactApplication {
       packageList = PackageList(this).packages.apply {
         add(RecordingStoragePackage())
         add(IvsStagePackage())
+        add(LivePipPackage())
       },
     )
   }
