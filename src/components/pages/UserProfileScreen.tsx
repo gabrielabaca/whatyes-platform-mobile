@@ -105,6 +105,8 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   const [tab, setTab] = useState<ProfileTab>('shows');
   const [bioExpanded, setBioExpanded] = useState(false);
   const [editDrawerOpen, setEditDrawerOpen] = useState(false);
+  // Alto real del body (crece al cargar Shows/Productos): dimensiona el gradiente de fondo.
+  const [bodyHeight, setBodyHeight] = useState(0);
   // Detalle de producto y edición
   const [productDetailId, setProductDetailId] = useState<string | null>(null);
   const [editProductValues, setEditProductValues] = useState<ProductInitialValues | null>(null);
@@ -437,8 +439,14 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
         </View>
 
         {/* Body — Figma 536:23142 bg white → #E7E7FF */}
-        <View style={styles.body}>
-          <BodyBackground />
+        <View
+          style={styles.body}
+          onLayout={(e) => {
+            const h = Math.ceil(e.nativeEvent.layout.height);
+            if (h > 0 && h !== bodyHeight) setBodyHeight(h);
+          }}
+        >
+          <BodyBackground height={bodyHeight} />
           <View style={styles.bodyContent}>
             <View style={styles.sectionBlock}>
               <View style={styles.statsSection}>
@@ -765,21 +773,32 @@ const StatCard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   );
 };
 
-/** Fondo body white → #E7E7FF (plano #050f2f en oscuro) */
-const BodyBackground: React.FC = () => {
+/**
+ * Fondo body white → #E7E7FF (plano #050f2f en oscuro).
+ *
+ * Recibe el alto medido del body (onLayout) en vez de height="100%": el body
+ * crece cuando llegan los productos, y con un alto porcentual el SVG quedaba
+ * dibujado al alto inicial (viewport) sin redibujarse — de ahí el corte a una
+ * altura fija con el gradiente completo comprimido arriba. Con un alto numérico
+ * cada cambio de layout re-renderiza el SVG al tamaño real (mismo patrón que
+ * StreamGradientButton). Hasta la primera medición no pinta nada: debajo está
+ * styles.root con el color de fondo del tema.
+ */
+const BodyBackground: React.FC<{ height: number }> = ({ height }) => {
   const gradientId = useId().replace(/:/g, '');
   const { isDark } = useTheme();
   const from = isDark ? themeColors.dark.backgroundTop : '#FFFFFF';
   const to = isDark ? themeColors.dark.backgroundBottom : LAVENDER;
+  if (height <= 0) return null;
   return (
-    <Svg pointerEvents="none" style={StyleSheet.absoluteFill} width="100%" height="100%">
+    <Svg pointerEvents="none" style={StyleSheet.absoluteFill} width="100%" height={height}>
       <Defs>
         <LinearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
           <Stop offset="0" stopColor={from} />
           <Stop offset="1" stopColor={to} />
         </LinearGradient>
       </Defs>
-      <Rect width="100%" height="100%" fill={`url(#${gradientId})`} />
+      <Rect width="100%" height={height} fill={`url(#${gradientId})`} />
     </Svg>
   );
 };
