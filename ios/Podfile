@@ -18,6 +18,10 @@ $RNGoogleSigninAsStaticLibrary = true
 # AmazonIVSBroadcast se rompen con eso. `$RNFirebaseAsStaticFramework` +
 # modular_headers (abajo) es el camino que convive con el workaround de Sign-In.
 $RNFirebaseAsStaticFramework = true
+# RNFB >= 26 resuelve Firebase por SPM por defecto, y eso es incompatible con
+# static_framework (guard "SPM + static linkage is not supported"). Forzamos la
+# resolución por CocoaPods, que es la que usan los pods FirebaseCore/... de abajo.
+$RNFirebaseDisableSPM = true
 
 linkage = ENV['USE_FRAMEWORKS']
 if linkage != nil

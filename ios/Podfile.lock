@@ -16,8 +16,38 @@ PODS:
   - DoubleConversion (1.1.6)
   - fast_float (8.0.0)
   - FBLazyVector (0.83.1)
+  - Firebase/CoreOnly (12.18.0):
+    - FirebaseCore (~> 12.18.0)
+  - Firebase/Messaging (12.18.0):
+    - Firebase/CoreOnly
+    - FirebaseMessaging (~> 12.18.0)
+  - FirebaseCore (12.18.0):
+    - FirebaseCoreInternal (~> 12.18.0)
+    - GoogleUtilities/Environment (~> 8.1)
+    - GoogleUtilities/Logger (~> 8.1)
+  - FirebaseCoreExtension (12.18.0):
+    - FirebaseCore (~> 12.18.0)
+  - FirebaseCoreInternal (12.18.0):
+    - "GoogleUtilities/NSData+zlib (~> 8.1)"
+  - FirebaseInstallations (12.18.0):
+    - FirebaseCore (~> 12.18.0)
+    - GoogleUtilities/Environment (~> 8.1)
+    - GoogleUtilities/UserDefaults (~> 8.1)
+    - PromisesObjC (~> 2.4)
+  - FirebaseMessaging (12.18.0):
+    - FirebaseCore (~> 12.18.0)
+    - FirebaseInstallations (~> 12.18.0)
+    - GoogleDataTransport (~> 10.1)
+    - GoogleUtilities/AppDelegateSwizzler (~> 8.1)
+    - GoogleUtilities/Environment (~> 8.1)
+    - GoogleUtilities/Reachability (~> 8.1)
+    - GoogleUtilities/UserDefaults (~> 8.1)
+    - nanopb (~> 3.30910.0)
   - fmt (11.0.2)
   - glog (0.3.5)
+  - GoogleDataTransport (10.1.1):
+    - nanopb (~> 3.30910.0)
+    - PromisesObjC (~> 2.4)
   - GoogleSignIn (9.2.0):
     - AppAuth (~> 2.1)
     - AppCheckCore (~> 11.0)
@@ -71,6 +101,11 @@ PODS:
     - hermes-engine/Pre-built (= 0.14.0)
   - hermes-engine/Pre-built (0.14.0)
   - JitsiWebRTC (124.0.2)
+  - nanopb (3.30910.0):
+    - nanopb/decode (= 3.30910.0)
+    - nanopb/encode (= 3.30910.0)
+  - nanopb/decode (3.30910.0)
+  - nanopb/encode (3.30910.0)
   - PromisesObjC (2.4.1)
   - PromisesSwift (2.4.1):
     - PromisesObjC (= 2.4.1)
@@ -3011,6 +3046,66 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
+  - RNFBApp (26.3.3):
+    - boost
+    - DoubleConversion
+    - fast_float
+    - Firebase/CoreOnly (= 12.18.0)
+    - fmt
+    - glog
+    - hermes-engine
+    - RCT-Folly
+    - RCT-Folly/Fabric
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - SocketRocket
+    - Yoga
+  - RNFBMessaging (26.3.3):
+    - boost
+    - DoubleConversion
+    - fast_float
+    - Firebase/Messaging (= 12.18.0)
+    - FirebaseCoreExtension (= 12.18.0)
+    - fmt
+    - glog
+    - hermes-engine
+    - RCT-Folly
+    - RCT-Folly/Fabric
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - RNFBApp
+    - SocketRocket
+    - Yoga
   - RNGoogleSignin (16.1.2):
     - boost
     - DoubleConversion
@@ -3141,10 +3236,15 @@ DEPENDENCIES:
   - DoubleConversion (from `../node_modules/react-native/third-party-podspecs/DoubleConversion.podspec`)
   - fast_float (from `../node_modules/react-native/third-party-podspecs/fast_float.podspec`)
   - FBLazyVector (from `../node_modules/react-native/Libraries/FBLazyVector`)
+  - FirebaseCore
+  - FirebaseCoreInternal
+  - FirebaseInstallations
   - fmt (from `../node_modules/react-native/third-party-podspecs/fmt.podspec`)
   - glog (from `../node_modules/react-native/third-party-podspecs/glog.podspec`)
+  - GoogleDataTransport
   - GoogleUtilities
   - hermes-engine (from `../node_modules/react-native/sdks/hermes-engine/hermes-engine.podspec`)
+  - nanopb
   - RCT-Folly (from `../node_modules/react-native/third-party-podspecs/RCT-Folly.podspec`)
   - RCTDeprecation (from `../node_modules/react-native/ReactApple/Libraries/RCTFoundation/RCTDeprecation`)
   - RCTRequired (from `../node_modules/react-native/Libraries/Required`)
@@ -3235,6 +3335,8 @@ DEPENDENCIES:
   - RecaptchaInterop
   - "RNAppleAuthentication (from `../node_modules/@invertase/react-native-apple-authentication`)"
   - "RNCAsyncStorage (from `../node_modules/@react-native-async-storage/async-storage`)"
+  - "RNFBApp (from `../node_modules/@react-native-firebase/app`)"
+  - "RNFBMessaging (from `../node_modules/@react-native-firebase/messaging`)"
   - "RNGoogleSignin (from `../node_modules/@react-native-google-signin/google-signin`)"
   - RNReactNativeHapticFeedback (from `../node_modules/react-native-haptic-feedback`)
   - RNSVG (from `../node_modules/react-native-svg`)
@@ -3247,11 +3349,19 @@ SPEC REPOS:
     - AmazonIVSBroadcast
     - AppAuth
     - AppCheckCore
+    - Firebase
+    - FirebaseCore
+    - FirebaseCoreExtension
+    - FirebaseCoreInternal
+    - FirebaseInstallations
+    - FirebaseMessaging
+    - GoogleDataTransport
     - GoogleSignIn
     - GoogleUtilities
     - GTMAppAuth
     - GTMSessionFetcher
     - JitsiWebRTC
+    - nanopb
     - PromisesObjC
     - PromisesSwift
     - RecaptchaInterop
@@ -3449,6 +3559,10 @@ EXTERNAL SOURCES:
     :path: "../node_modules/@invertase/react-native-apple-authentication"
   RNCAsyncStorage:
     :path: "../node_modules/@react-native-async-storage/async-storage"
+  RNFBApp:
+    :path: "../node_modules/@react-native-firebase/app"
+  RNFBMessaging:
+    :path: "../node_modules/@react-native-firebase/messaging"
   RNGoogleSignin:
     :path: "../node_modules/@react-native-google-signin/google-signin"
   RNReactNativeHapticFeedback:
@@ -3468,14 +3582,22 @@ SPEC CHECKSUMS:
   DoubleConversion: cb417026b2400c8f53ae97020b2be961b59470cb
   fast_float: b32c788ed9c6a8c584d114d0047beda9664e7cc6
   FBLazyVector: 309703e71d3f2f1ed7dc7889d58309c9d77a95a4
+  Firebase: 5523dd53ebe603451b4e1befcd99fa20a5c015cd
+  FirebaseCore: 96787d19ee32dc2242cc487b301bc616afeb398b
+  FirebaseCoreExtension: a86bab02524ca2bff95dddab7a3fcad505c2ddeb
+  FirebaseCoreInternal: 93b2d5f9e184c6818a04433891c358b0720a6a38
+  FirebaseInstallations: 933b2747e8594084c9117b65e8358fce29d7ced7
+  FirebaseMessaging: 422bb80cbf8ff83e69e50bea4d4984fc4704f665
   fmt: a40bb5bd0294ea969aaaba240a927bd33d878cdd
   glog: 5683914934d5b6e4240e497e0f4a3b42d1854183
+  GoogleDataTransport: a24e58982ab3ba2f64d79613e027fe7f57e88539
   GoogleSignIn: e449a40a92e9f2eea56e98b5214d13725dc5a00a
   GoogleUtilities: 766ace00c6b10d8148408f329d10c4f051931850
   GTMAppAuth: 217a876b249c3c585a54fd6f73e6b58c4f5c4238
   GTMSessionFetcher: 5aea5ba6bd522a239e236100971f10cb71b96ab6
   hermes-engine: 8fce98769c7ec3457fa995522b75489298cbf1a9
   JitsiWebRTC: b47805ab5668be38e7ee60e2258f49badfe8e1d0
+  nanopb: fad817b59e0457d11a5dfbde799381cd727c1275
   PromisesObjC: 752c3227f599e3467650e47ea36f433eeb10c273
   PromisesSwift: 217dea0fd5d2ad65222a109c48698add13cc1c5b
   RCT-Folly: 846fda9475e61ec7bcbf8a3fe81edfcaeb090669
@@ -3567,6 +3689,8 @@ SPEC CHECKSUMS:
   RecaptchaInterop: 11e0b637842dfb48308d242afc3f448062325aba
   RNAppleAuthentication: d6fe579e5f43cf8db54bdc48518bccea61c592a4
   RNCAsyncStorage: 302f2fac014fd450046c120567ca364632da682b
+  RNFBApp: e44236105425081c619ec7452c28ee6be8721f62
+  RNFBMessaging: 7a47c698b18c4cf167ffb1953f0acfed7e4c5e76
   RNGoogleSignin: fa028e2f7f3560a657c298fe367ab9511df2fcb0
   RNReactNativeHapticFeedback: 9c84024daf3a295bfb313b1673064d5758c5d124
   RNSVG: 55fc5dc0eaa36a875ffb7d05c0f2cd5b2cbfc342
@@ -3574,6 +3698,6 @@ SPEC CHECKSUMS:
   VisionCamera: 3ea10c46a5c612f5f89fb46a54bef4a0de8b58a7
   Yoga: 5bd0956bf9cb16f75101e78b5e852c7577bc5a45
 
-PODFILE CHECKSUM: 3bdb31e2726c4388dd9557da38e8d4553d448243
+PODFILE CHECKSUM: 954b3d7b6481e0c4d35711c0dfb815b0409eb7a5
 
 COCOAPODS: 1.15.2

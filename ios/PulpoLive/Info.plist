@@ -25,7 +25,7 @@
     <key>CFBundleSignature</key>
     <string>????</string>
     <key>CFBundleVersion</key>
-    <string>24</string>
+    <string>26</string>
     <key>CFBundleURLTypes</key>
     <array>
       <dict>
@@ -34,6 +34,14 @@
         <key>CFBundleURLSchemes</key>
         <array>
           <string>pulpolive</string>
+        </array>
+      </dict>
+      <dict>
+        <key>CFBundleURLName</key>
+        <string>com.pulpolive.googlesignin</string>
+        <key>CFBundleURLSchemes</key>
+        <array>
+          <string>com.googleusercontent.apps.991457831379-4nvcfqvg4b15hal3h09hut0oeukrgeij</string>
         </array>
       </dict>
     </array>
@@ -55,11 +63,22 @@
       </dict>
     </dict>
     <key>NSLocationWhenInUseUsageDescription</key>
-    <string>Usamos tu ubicación para completar automáticamente tu dirección en los formularios de envío y facturación</string>
+    <string>
+       Usamos tu ubicación para completar automáticamente tu dirección en los
+      formularios de envío y facturación 
+    </string>
     <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-    <string>Usamos tu ubicación para completar automáticamente tu dirección en los formularios de envío y facturación. Solo la usamos mientras la app está abierta.</string>
+    <string>
+       Usamos tu ubicación para completar automáticamente tu dirección en los
+      formularios de envío y facturación. Solo la usamos mientras la app está
+      abierta. 
+    </string>
     <key>NSLocationAlwaysUsageDescription</key>
-    <string>Usamos tu ubicación para completar automáticamente tu dirección en los formularios de envío y facturación. Solo la usamos mientras la app está abierta.</string>
+    <string>
+       Usamos tu ubicación para completar automáticamente tu dirección en los
+      formularios de envío y facturación. Solo la usamos mientras la app está
+      abierta. 
+    </string>
     <key>NSCameraUsageDescription</key>
     <string>Necesitamos acceso a tu cámara para transmitir en vivo</string>
     <key>NSMicrophoneUsageDescription</key>

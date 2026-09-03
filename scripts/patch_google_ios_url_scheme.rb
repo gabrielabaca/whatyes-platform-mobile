@@ -57,13 +57,23 @@ def save_plist(doc, path)
   end
 end
 
+def next_element(node)
+  # index()+elements[] mezcla nodos de texto (el Pretty formatter inserta
+  # whitespace) con elementos: el "siguiente" caía en UIBackgroundModes.
+  sibling = node.next_sibling
+  sibling = sibling.next_sibling while sibling && !sibling.is_a?(REXML::Element)
+  sibling
+end
+
 def url_types_array(doc)
   root = doc.root
   url_types = root.elements.to_a("dict/key").find { |k| k.text == "CFBundleURLTypes" }
   return nil unless url_types
 
-  idx = url_types.parent.index(url_types) + 1
-  url_types.parent.elements[idx]
+  value = next_element(url_types)
+  return nil unless value&.name == "array"
+
+  value
 end
 
 def google_url_type_dict(url_types_array)
@@ -78,8 +88,8 @@ def placeholder_google_dict(url_types_array)
     schemes = dict.elements.to_a("key").find { |k| k.text == "CFBundleURLSchemes" }
     next false unless schemes
 
-    arr = schemes.parent.index(schemes) + 1
-    scheme_array = schemes.parent.elements[arr]
+    arr = next_element(schemes)
+    scheme_array = arr
     scheme_array&.elements.to_a("string").any? do |s|
       s.text&.include?("PLACEHOLDER") || s.text&.include?("_")
     end
@@ -107,8 +117,7 @@ def upsert_google_scheme(url_types_array, scheme)
   end
 
   schemes_key = dict.elements.to_a("key").find { |k| k.text == "CFBundleURLSchemes" }
-  idx = dict.index(schemes_key) + 1
-  schemes_array = dict.elements[idx]
+  schemes_array = next_element(schemes_key)
   string_el = schemes_array.elements["string"]
   if string_el
     string_el.text = scheme
