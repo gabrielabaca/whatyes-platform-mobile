@@ -245,7 +245,7 @@ export const StreamAddCardDrawer: React.FC<StreamAddCardDrawerProps> = ({
       const saved = await createSavedCard(payload);
       onSaved(saved);
     } catch (e) {
-      feedback('paymentError');
+      feedback('walletLinkError');
       if (e instanceof MpCardTokenError) {
         appAlert(t('common.appName'), mpCauseMessage(e.codes) ?? e.message);
       } else if (e instanceof ApiError) {

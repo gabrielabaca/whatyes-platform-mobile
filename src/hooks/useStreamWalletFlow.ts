@@ -210,7 +210,7 @@ export function useStreamWalletFlow() {
     });
     setSuccessMessage(t('stream.wallet.successCardMessage'));
     setStep('success');
-    feedback('paymentSuccess');
+    feedback('walletLinked');
     await refreshHubState();
   }, [refreshHubState, t]);
 
@@ -223,7 +223,7 @@ export function useStreamWalletFlow() {
     setSuccessPaymentMethod({ type: 'mp_wallet' });
     setSuccessMessage(t('stream.wallet.mpWalletLinked'));
     setStep('success');
-    feedback('paymentSuccess');
+    feedback('walletLinked');
   }, [t]);
 
   /**
@@ -254,7 +254,7 @@ export function useStreamWalletFlow() {
     } catch (e) {
       setMpConnectVisible(false);
       const msg = e instanceof ApiError ? e.message : t('stream.wallet.mpConnectError');
-      feedback('paymentError');
+      feedback('walletLinkError');
       appAlert(t('common.appName'), msg);
     } finally {
       setMpConnectLoading(false);
@@ -274,7 +274,7 @@ export function useStreamWalletFlow() {
         setStep('methods');
         return;
       }
-      feedback('paymentError');
+      feedback('walletLinkError');
       appAlert(t('common.appName'), t('stream.wallet.mpConnectFailure'));
       setStep('methods');
     },
@@ -327,7 +327,7 @@ export function useStreamWalletFlow() {
       lastFour: card.last_four,
     });
     setStep('success');
-    feedback('paymentSuccess');
+    feedback('walletLinked');
   }, []);
 
   const shippingActionLabel = hasShipping

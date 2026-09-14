@@ -48,6 +48,7 @@ export const UI_SOUND_FILES = [
   'message_received',
   'prelive_countdown_tick',
   'prelive_countdown_go',
+  'push_product_sold',
 ] as const;
 
 export type UiSoundName = (typeof UI_SOUND_FILES)[number];
@@ -87,9 +88,21 @@ export const FEEDBACK_EVENTS = {
   // --- Seller, before going live (mic not open yet) -----------------------
   preliveCountdownTick: { sound: 'prelive_countdown_tick', liveSound: ['seller'] },
   preliveCountdownGo: { sound: 'prelive_countdown_go', liveSound: ['seller'] },
+  // --- Wallet inside the live (buyer links a method so they can bid) ------
+  walletLinked: {
+    sound: 'payment_success',
+    haptic: 'notificationSuccess',
+    liveSound: ['viewer'],
+  },
+  walletLinkError: {
+    sound: 'payment_error',
+    haptic: 'notificationError',
+    liveSound: ['viewer'],
+  },
   // --- Outside the live ----------------------------------------------------
+  /** The purchase actually became paid. Muted inside a live on purpose. */
   paymentSuccess: { sound: 'payment_success', haptic: 'notificationSuccess' },
-  paymentError: { sound: 'payment_error', haptic: 'notificationError' },
+  productSold: { sound: 'push_product_sold', haptic: 'notificationSuccess' },
   productCreated: { sound: 'product_created', haptic: 'notificationSuccess' },
   notificationPop: { sound: 'notification_pop' },
   messageSent: { sound: 'message_sent' },
@@ -101,6 +114,20 @@ export const FEEDBACK_EVENTS = {
 } as const satisfies Record<string, FeedbackSpec>;
 
 export type FeedbackEvent = keyof typeof FEEDBACK_EVENTS;
+
+/** Foreground in-app cue for a push type. `new_message` is handled by the chat path. */
+const FOREGROUND_NOTIFICATION_FEEDBACK: Record<string, FeedbackEvent> = {
+  auction_won: 'winCelebration',
+  buy_now_won: 'winCelebration',
+  raffle_won: 'winCelebration',
+  product_sold: 'productSold',
+  purchase_paid: 'paymentSuccess',
+};
+
+export function feedbackForNotificationType(type: string | null | undefined): FeedbackEvent {
+  if (!type) return 'notificationPop';
+  return FOREGROUND_NOTIFICATION_FEEDBACK[type] ?? 'notificationPop';
+}
 
 /** Single copy of the options that used to be duplicated per component. */
 const HAPTIC_OPTIONS = { enableVibrateFallback: true, ignoreAndroidSystemSettings: false };

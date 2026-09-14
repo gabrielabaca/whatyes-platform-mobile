@@ -3,6 +3,7 @@ import {
   UI_SOUND_FILES,
   enterLiveSession,
   feedback,
+  feedbackForNotificationType,
   getActiveLiveSessionKind,
   leaveLiveSession,
 } from '../src/utils/uiFeedback';
@@ -34,6 +35,23 @@ describe('uiFeedback event map', () => {
         expect(['preliveCountdownTick', 'preliveCountdownGo']).toContain(event);
       }
     }
+  });
+
+  it('wallet linking sounds for the viewer inside a live; paymentSuccess does not', () => {
+    expect(FEEDBACK_EVENTS.walletLinked.liveSound).toEqual(['viewer']);
+    expect(FEEDBACK_EVENTS.walletLinkError.liveSound).toEqual(['viewer']);
+    expect('liveSound' in FEEDBACK_EVENTS.paymentSuccess).toBe(false);
+  });
+
+  it('maps foreground notification types to a specific cue, and the rest to the pop', () => {
+    expect(feedbackForNotificationType('auction_won')).toBe('winCelebration');
+    expect(feedbackForNotificationType('buy_now_won')).toBe('winCelebration');
+    expect(feedbackForNotificationType('raffle_won')).toBe('winCelebration');
+    expect(feedbackForNotificationType('product_sold')).toBe('productSold');
+    expect(feedbackForNotificationType('purchase_paid')).toBe('paymentSuccess');
+    expect(feedbackForNotificationType('purchase_shipment_created')).toBe('notificationPop');
+    expect(feedbackForNotificationType('seller_live_start')).toBe('notificationPop');
+    expect(feedbackForNotificationType(null)).toBe('notificationPop');
   });
 });
 

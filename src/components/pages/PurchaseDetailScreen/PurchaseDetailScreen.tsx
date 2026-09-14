@@ -5,7 +5,7 @@
  * (fulfillment_status + historial de service_delivery), detalle de pago,
  * información del vendedor, reseña y productos similares.
  */
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   TouchableOpacity,
@@ -71,6 +71,8 @@ import { APP_DOWNLOAD_URL } from '../../../constants/externalLinks';
 import { appAlert } from '../../../alerts';
 import { launchPhotoLibraryNow, photoFromUri } from '../../../utils/mediaPicker';
 import { deferMediaPicker } from '../../../utils/deferMediaPicker';
+import { feedback } from '../../../utils/uiFeedback';
+import { createPaidCueTracker } from '../../../utils/paymentPaidCue';
 
 const PRIMARY = themeColors.primary;
 /** Paleta oscura: se aplica inline sobre los estilos estáticos (claro sin cambios). */
@@ -214,6 +216,8 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
    */
   const [purchase, setPurchase] = useState<PurchaseItem>(initialPurchase);
   const sellerId = purchase.counterpart.user_id;
+  /** Seeds on first observation of a sale: opening an already-paid purchase is silent. */
+  const paidCueRef = useRef(createPaidCueTracker());
 
   // Overrides oscuros; en claro todos son `null` y mandan los estilos estáticos.
   const darkText = isDark ? { color: D.text } : null;
@@ -416,6 +420,51 @@ export const PurchaseDetailScreen: React.FC<PurchaseDetailScreenProps> = ({
       cancelled = true;
     };
   }, [purchase.sale_uuid, purchase.payment_status]);
+
+  /**
+   * Paid cue: only on the transition to `paid`. First observation of this sale
+   * (including "opened already paid") never sounds — same rule as outbid.
+   */
+  useEffect(() => {
+    if (paidCueRef.current.register(purchase.sale_uuid, purchase.payment_status)) {
+      feedback('paymentSuccess');
+    }
+  }, [purchase.sale_uuid, purchase.payment_status]);
+
+  /**
+   * The checkout-URL effect above bails out when status is paid/cancelled, but
+   * it does not refresh the sale. While payment is still open, poll so a
+   * checkout completed in another app can become a paid transition here.
+   */
+  const paymentIsTerminal =
+    purchase.payment_status === 'paid' || purchase.payment_status === 'cancelled';
+
+  useEffect(() => {
+    if (paymentIsTerminal) return;
+    let cancelled = false;
+    const saleUuid = purchase.sale_uuid;
+    const id = setInterval(() => {
+      void (async () => {
+        try {
+          const token = await storage.getAccessToken();
+          if (!token || cancelled) return;
+          const fresh = await getMyPurchase(token, saleUuid);
+          if (cancelled) return;
+          setPurchase((prev) =>
+            prev.sale_uuid === fresh.sale_uuid && prev.payment_status === fresh.payment_status
+              ? prev
+              : fresh
+          );
+        } catch {
+          // Keep the snapshot on screen.
+        }
+      })();
+    }, 5_000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [purchase.sale_uuid, paymentIsTerminal]);
 
   const openCheckout = async () => {
     if (!pendingCheckoutUrl) return;
