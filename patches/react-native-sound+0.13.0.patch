@@ -1,0 +1,63 @@
+diff --git a/node_modules/react-native-sound/ios/RNSound.mm b/node_modules/react-native-sound/ios/RNSound.mm
+index 94b2335..fa13f00 100644
+--- a/node_modules/react-native-sound/ios/RNSound.mm
++++ b/node_modules/react-native-sound/ios/RNSound.mm
+@@ -10,6 +10,7 @@ @implementation RNSound {
+     NSMutableDictionary *_playerPool;
+     NSMutableDictionary *_callbackPool;
+     double _key;  // Add this line to declare _key
++    BOOL _audioSessionObserved;
+ }
+ 
+ RCT_EXPORT_MODULE()
+@@ -35,8 +36,8 @@ - (void)audioSessionChangeObserver:(NSNotification *)notification {
+     AVAudioPlayer *player = [self playerForKey:self._key];
+     
+     if (interruptionType == AVAudioSessionInterruptionTypeEnded && player) {
+-        [player play];
+-        [self setOnPlay:YES forPlayerKey:self._key];
++        // One-shot UI sounds: do not replay the last file after a phone call.
++        [self setOnPlay:NO forPlayerKey:self._key];
+     } else if (routeChangeReason == AVAudioSessionRouteChangeReasonOldDeviceUnavailable && player) {
+         [player pause];
+         [self setOnPlay:NO forPlayerKey:self._key];
+@@ -218,17 +219,20 @@ - (NSString *)categoryForName:(NSString *)categoryName {
+ RCT_EXPORT_METHOD(play:(double)key callback:(RCTResponseSenderBlock)callback) {
+     [[AVAudioSession sharedInstance] setActive:YES error:nil];
+     
+-    [[NSNotificationCenter defaultCenter]
+-     addObserver:self
+-        selector:@selector(audioSessionChangeObserver:)
+-            name:AVAudioSessionRouteChangeNotification
+-          object:[AVAudioSession sharedInstance]];
+-    
+-    [[NSNotificationCenter defaultCenter]
+-     addObserver:self
+-        selector:@selector(audioSessionChangeObserver:)
+-            name:AVAudioSessionInterruptionNotification
+-          object:[AVAudioSession sharedInstance]];
++    if (!_audioSessionObserved) {
++        _audioSessionObserved = YES;
++        [[NSNotificationCenter defaultCenter]
++         addObserver:self
++            selector:@selector(audioSessionChangeObserver:)
++                name:AVAudioSessionRouteChangeNotification
++              object:[AVAudioSession sharedInstance]];
++        
++        [[NSNotificationCenter defaultCenter]
++         addObserver:self
++            selector:@selector(audioSessionChangeObserver:)
++                name:AVAudioSessionInterruptionNotification
++              object:[AVAudioSession sharedInstance]];
++    }
+     
+     self._key = key;
+     AVAudioPlayer *player = [self playerForKey:key];
+@@ -267,6 +271,7 @@ - (NSString *)categoryForName:(NSString *)categoryName {
+             [[self callbackPool] removeObjectForKey:myNumber];
+             [[self playerPool] removeObjectForKey:myNumber];
+             [[NSNotificationCenter defaultCenter] removeObserver:self];
++            _audioSessionObserved = NO;
+         }
+     }
+ }
