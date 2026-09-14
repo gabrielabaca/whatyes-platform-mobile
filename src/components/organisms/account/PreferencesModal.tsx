@@ -9,6 +9,7 @@ import {
   Text as RNText,
   Linking,
   Platform,
+  Switch,
 } from 'react-native';
 import { ChevronDown, ChevronRight } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
@@ -29,6 +30,12 @@ import {
   resetRecordingDirectoryToDefault,
 } from '../../../native/recordingStorage';
 import { appAlert } from '../../../alerts';
+import {
+  DEFAULT_SOUND_PREFERENCES,
+  getSoundPreferences,
+  persistSoundPreferences,
+} from '../../../utils/soundPreferences';
+import { setUiSoundsEnabled } from '../../../utils/uiFeedback';
 
 const THEME_OPTIONS: ThemePreference[] = ['light', 'dark', 'system'];
 const LANGUAGE_OPTIONS: AppLanguage[] = ['es', 'en'];
@@ -59,6 +66,10 @@ export const PreferencesModal: React.FC<PreferencesModalProps> = ({
   const [themePickerVisible, setThemePickerVisible] = useState(false);
   const [languagePickerVisible, setLanguagePickerVisible] = useState(false);
   const [recordingFolderPath, setRecordingFolderPath] = useState('');
+  /** The app's own UI sounds; push sounds belong to the OS (see NotificationsModal). */
+  const [draftUiSounds, setDraftUiSounds] = useState(
+    DEFAULT_SOUND_PREFERENCES.uiSoundsEnabled
+  );
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -66,6 +77,9 @@ export const PreferencesModal: React.FC<PreferencesModalProps> = ({
       return;
     }
     getRecordingDirectoryDisplay().then(setRecordingFolderPath).catch(() => {});
+    getSoundPreferences()
+      .then((prefs) => setDraftUiSounds(prefs.uiSoundsEnabled))
+      .catch(() => {});
     setDraftTheme(themePreference);
     setDraftLanguage(i18nInstance.language === 'en' ? 'en' : 'es');
   }, [visible, themePreference, i18nInstance.language]);
@@ -94,6 +108,8 @@ export const PreferencesModal: React.FC<PreferencesModalProps> = ({
       if (i18n.language !== draftLanguage) {
         await i18n.changeLanguage(draftLanguage);
       }
+      await persistSoundPreferences({ uiSoundsEnabled: draftUiSounds });
+      setUiSoundsEnabled(draftUiSounds);
       handleClose();
     } finally {
       setSaving(false);
@@ -243,6 +259,19 @@ export const PreferencesModal: React.FC<PreferencesModalProps> = ({
           </View>
 
           <View style={[styles.section, styles.sectionBorder]}>
+            <RNText style={styles.sectionTitle}>{t('account.preferencesModal.sounds')}</RNText>
+            <ToggleRow
+              label={t('account.preferencesModal.appSounds')}
+              value={draftUiSounds}
+              onValueChange={setDraftUiSounds}
+              disabled={saving}
+            />
+            <RNText style={styles.pathPreview}>
+              {t('account.preferencesModal.appSoundsHint')}
+            </RNText>
+          </View>
+
+          <View style={[styles.section, styles.sectionBorder]}>
             <RNText style={styles.sectionTitle}>
               {t('account.preferencesModal.recordings')}
             </RNText>
@@ -309,6 +338,26 @@ const PickerRow: React.FC<{ value: string; onPress: () => void }> = ({ value, on
     </RNText>
     <ChevronDown size={20} color={themeColors.glass.textSoft} />
   </TouchableOpacity>
+);
+
+/** Same switch as NotificationsModal so both screens look alike. */
+const ToggleRow: React.FC<{
+  label: string;
+  value: boolean;
+  onValueChange: (v: boolean) => void;
+  disabled?: boolean;
+}> = ({ label, value, onValueChange, disabled }) => (
+  <View style={styles.pillRow}>
+    <RNText style={styles.pillValue}>{label}</RNText>
+    <Switch
+      value={value}
+      onValueChange={onValueChange}
+      disabled={disabled}
+      trackColor={{ false: '#767577', true: themeColors.glass.text }}
+      thumbColor={themeColors.primary}
+      ios_backgroundColor="#767577"
+    />
+  </View>
 );
 
 const ActionRow: React.FC<{ label: string; onPress: () => void }> = ({ label, onPress }) => (

@@ -17,6 +17,7 @@ import { AddProductHost } from '../../organisms/addProduct/AddProductHost';
 import { AddProductSuccessCelebration } from '../../organisms/addProduct/AddProductSuccessCelebration';
 import { addProductStyles } from '../../organisms/addProduct/addProductStyles';
 import type { PackageTierId, ProductConditionId, SaleFormatId } from '../../../constants/productWeightPresets';
+import { feedback } from '../../../utils/uiFeedback';
 
 export interface AddProductScreenProps {
   onCancel: () => void;
@@ -42,7 +43,10 @@ export const AddProductScreen: React.FC<AddProductScreenProps> = ({
   const form = useAddProductForm({
     categories,
     initialValues,
-    onSuccess: () => setSuccessVisible(true),
+    onSuccess: () => {
+      setSuccessVisible(true);
+      feedback('productCreated');
+    },
   });
 
   const handleSuccessDismiss = React.useCallback(() => {

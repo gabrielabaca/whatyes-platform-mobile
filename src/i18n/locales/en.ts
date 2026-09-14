@@ -466,7 +466,10 @@ export default {
       "resetRecordingFolder": "Use gallery (default)",
       "recordingFolderIosHint": "On iPhone, recordings are saved to your Photos.",
       "recordingFolderPickError": "Could not choose folder.",
-      "recordingFolderOpenError": "Could not open folder."
+      "recordingFolderOpenError": "Could not open folder.",
+      "sounds": "Sounds",
+      "appSounds": "App sounds",
+      "appSoundsHint": "Bids, messages, payments and celebrations. Notification sounds are controlled by the operating system."
     },
     "changePasswordModal": {
       "titleEmail": "Change password",

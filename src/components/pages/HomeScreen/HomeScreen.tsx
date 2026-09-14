@@ -47,6 +47,7 @@ import {
   type UserRealtimeChatMessage,
   type UserRealtimeNotification,
 } from '../../../hooks/useUserRealtime';
+import { feedback } from '../../../utils/uiFeedback';
 import {
   AppHeadsUp,
   useAppHeadsUp,
@@ -212,6 +213,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         void reloadChatUnread();
         return;
       }
+      feedback('notificationPop');
       showHeadsUp(
         'notification',
         notification.title?.trim() || t('notifications.defaultTitle'),
@@ -230,6 +232,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       void reloadChatUnread();
       // Mensaje propio replicado a mis otros dispositivos: refresca, no avisa.
       if (!message.sender_user_id || message.sender_user_id === user?.uuid) return;
+      // Sounds even with the conversation open (messaging convention); the
+      // heads-up, on the other hand, is redundant while reading it.
+      feedback('messageReceived');
       if (isReadingConversation(message.conversation_id)) return;
       const preview = message.body?.trim()
         ? message.body.trim()

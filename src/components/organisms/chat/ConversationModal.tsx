@@ -47,6 +47,7 @@ import { launchPhotoLibraryNow, photosFromPickerResponse, type PickerPhoto } fro
 import { FONT_FAMILY } from '../../../theme/typography';
 import { themeColors } from '../../../theme/colors';
 import { appAlert } from '../../../alerts';
+import { feedback } from '../../../utils/uiFeedback';
 
 const PRIMARY = themeColors.primary;
 const G = themeColors.glass;
@@ -211,6 +212,7 @@ export const ConversationModal: React.FC<ConversationModalProps> = ({
     setMessages((prev) => [local, ...prev]);
     setDraft('');
     setAttachments([]);
+    feedback('messageSent');
     void deliver(local);
   };
 

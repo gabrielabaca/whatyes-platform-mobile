@@ -51,6 +51,7 @@ import { destinationFromNotification } from '../../../utils/notificationDestinat
 import { FONT_FAMILY } from '../../../theme/typography';
 import { themeColors } from '../../../theme/colors';
 import { useTheme } from '../../../context/ThemeContext';
+import { feedback } from '../../../utils/uiFeedback';
 
 const PRIMARY = themeColors.primary;
 const TEXT = '#18181B';
@@ -247,6 +248,7 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
             <RefreshControl
               refreshing={refreshing}
               onRefresh={() => {
+                feedback('pullToRefresh');
                 void load(true);
               }}
               tintColor={PRIMARY}

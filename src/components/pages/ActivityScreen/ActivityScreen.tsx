@@ -26,6 +26,7 @@ import {
   normalizeFulfillmentStatus,
 } from '../../../utils/fulfillment';
 import type { PurchaseItem } from '../../../api/platformApi';
+import { feedback } from '../../../utils/uiFeedback';
 
 const PRIMARY = '#685CF0';
 const TEXT = '#18181B';
@@ -180,6 +181,7 @@ export const ActivityScreen: React.FC<ActivityScreenProps> = ({
             <RefreshControl
               refreshing={loading}
               onRefresh={() => {
+                feedback('pullToRefresh');
                 void reload();
               }}
               tintColor={PRIMARY}

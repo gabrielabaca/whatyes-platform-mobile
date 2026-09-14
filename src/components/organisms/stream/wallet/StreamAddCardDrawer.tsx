@@ -27,6 +27,7 @@ import {
 } from '../../../../api/paymentsApi';
 import { ApiError } from '../../../../api';
 import { appAlert } from '../../../../alerts';
+import { feedback } from '../../../../utils/uiFeedback';
 
 export interface StreamAddCardDrawerProps {
   visible: boolean;
@@ -244,6 +245,7 @@ export const StreamAddCardDrawer: React.FC<StreamAddCardDrawerProps> = ({
       const saved = await createSavedCard(payload);
       onSaved(saved);
     } catch (e) {
+      feedback('paymentError');
       if (e instanceof MpCardTokenError) {
         appAlert(t('common.appName'), mpCauseMessage(e.codes) ?? e.message);
       } else if (e instanceof ApiError) {

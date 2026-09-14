@@ -4,6 +4,7 @@ import { getRooms, getRoomsFeed } from '../api/platformApi';
 import { storage } from '../utils/storage';
 import { mapPlatformRoomToPreview } from '../utils/buyerLiveRoomPreviewMap';
 import type { LiveStreamPreviewModel } from '../components/organisms/home/types';
+import { feedback } from '../utils/uiFeedback';
 
 const DEFAULT_POLL_MS = 15000;
 
@@ -94,7 +95,9 @@ export function useBuyerLiveRoomPreviews(
     return () => clearInterval(interval);
   }, [load, pollMs, enabled]);
 
+  /** Pull-to-refresh on Home and the category screen: light haptic, no sound. */
   const onRefresh = () => {
+    feedback('pullToRefresh');
     setRefreshing(true);
     load().catch(() => {});
   };

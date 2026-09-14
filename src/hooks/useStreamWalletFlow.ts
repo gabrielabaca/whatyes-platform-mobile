@@ -24,6 +24,7 @@ import type { UserMe } from '../api/types';
 import { storage, type PreferredPaymentOrigin } from '../utils/storage';
 import { useAuth } from './useAuth';
 import { appAlert } from '../alerts';
+import { feedback } from '../utils/uiFeedback';
 
 export type WalletStep =
   | 'closed'
@@ -209,6 +210,7 @@ export function useStreamWalletFlow() {
     });
     setSuccessMessage(t('stream.wallet.successCardMessage'));
     setStep('success');
+    feedback('paymentSuccess');
     await refreshHubState();
   }, [refreshHubState, t]);
 
@@ -221,6 +223,7 @@ export function useStreamWalletFlow() {
     setSuccessPaymentMethod({ type: 'mp_wallet' });
     setSuccessMessage(t('stream.wallet.mpWalletLinked'));
     setStep('success');
+    feedback('paymentSuccess');
   }, [t]);
 
   /**
@@ -251,6 +254,7 @@ export function useStreamWalletFlow() {
     } catch (e) {
       setMpConnectVisible(false);
       const msg = e instanceof ApiError ? e.message : t('stream.wallet.mpConnectError');
+      feedback('paymentError');
       appAlert(t('common.appName'), msg);
     } finally {
       setMpConnectLoading(false);
@@ -270,6 +274,7 @@ export function useStreamWalletFlow() {
         setStep('methods');
         return;
       }
+      feedback('paymentError');
       appAlert(t('common.appName'), t('stream.wallet.mpConnectFailure'));
       setStep('methods');
     },
@@ -322,6 +327,7 @@ export function useStreamWalletFlow() {
       lastFour: card.last_four,
     });
     setStep('success');
+    feedback('paymentSuccess');
   }, []);
 
   const shippingActionLabel = hasShipping

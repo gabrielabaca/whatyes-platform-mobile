@@ -17,6 +17,7 @@ import { IconBell } from '../../icons';
 import { FONT_FAMILY } from '../../../theme/typography';
 import { themeColors } from '../../../theme/colors';
 import { useTheme } from '../../../context/ThemeContext';
+import { feedback } from '../../../utils/uiFeedback';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const PRIMARY = themeColors.primary;
@@ -69,6 +70,9 @@ export const FollowSuccessCelebration: React.FC<FollowSuccessCelebrationProps> =
       toastTranslateY.setValue(-16);
       return;
     }
+
+    // No sound: the confetti is enough. The haptic goes with the toast entrance.
+    feedback('followSuccess');
 
     Animated.parallel([
       Animated.timing(toastOpacity, {

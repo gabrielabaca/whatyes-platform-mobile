@@ -465,7 +465,10 @@
       "resetRecordingFolder": "Usar galería (predeterminado)",
       "recordingFolderIosHint": "En iPhone las grabaciones se guardan en tus Fotos.",
       "recordingFolderPickError": "No se pudo elegir la carpeta.",
-      "recordingFolderOpenError": "No se pudo abrir la carpeta."
+      "recordingFolderOpenError": "No se pudo abrir la carpeta.",
+      "sounds": "Sonidos",
+      "appSounds": "Sonidos de la app",
+      "appSoundsHint": "Ofertas, mensajes, pagos y festejos. Los sonidos de las notificaciones los controla el sistema operativo."
     },
     "changePasswordModal": {
       "titleEmail": "Cambiar Contraseña",
