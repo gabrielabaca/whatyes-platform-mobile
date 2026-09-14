@@ -9,7 +9,7 @@ While a push-only file (or `win_celebration`) is still a placeholder, an iOS
 push of that type plays silence instead of the system default sound, because
 the file exists in the bundle.
 
-In-app (15):
+In-app (16):
 
 - `outbid.wav`
 - `countdown_tick.wav`
@@ -26,9 +26,9 @@ In-app (15):
 - `message_received.wav`
 - `prelive_countdown_tick.wav`
 - `prelive_countdown_go.wav`
+- `push_product_sold.wav`
 
-Push-only (3):
+Push-only (2):
 
 - `push_live_start.wav`
-- `push_product_sold.wav`
 - `push_payment_action.wav`

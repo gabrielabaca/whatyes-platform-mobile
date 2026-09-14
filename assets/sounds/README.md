@@ -33,7 +33,7 @@ Keep both copies identical. If you replace a file, replace it in both places.
 - Mono is fine. 44.1 kHz / 16-bit is the safe choice for both platforms.
 - Licensing: CC0 only (see `docs/plan-sonidos.md` §F).
 
-## In-app manifest (15 files, played by `uiFeedback.ts`)
+## In-app manifest (16 files, played by `uiFeedback.ts`)
 
 | File | Event | Character / target length |
 |---|---|---|
@@ -44,30 +44,32 @@ Keep both copies identical. If you replace a file, replace it in both places.
 | `bid_placed` | Your bid was sent | Minimal confirmation, ~0.15 s |
 | `bid_rejected` | Your bid was below the floor | Short soft error, ~0.3 s |
 | `win_celebration` | You won the auction / buy-now | Celebration with sparkle, 1–1.5 s. **Same file the push uses.** |
-| `payment_success` | Payment method saved / linked | Success, ~0.8 s |
-| `payment_error` | Payment method failed | Soft error, ~0.4 s (no harsh buzzer) |
+| `payment_success` | Purchase became `paid`; also wallet linked (same file) | Success, ~0.8 s |
+| `payment_error` | Wallet / card link failed | Soft error, ~0.4 s (no harsh buzzer) |
 | `product_created` | Product created | Light success, ~0.5 s |
 | `notification_pop` | Notification arrived while the app is open | Very short pop, ~0.2 s |
 | `message_sent` | 1-to-1 message sent | Classic messenger "sent", < 0.2 s |
 | `message_received` | 1-to-1 message received | Classic messenger "received", < 0.2 s, different from `message_sent` |
 | `prelive_countdown_tick` | Seller pre-live 3-2-1 (plays 3 times) | Rising tone, short |
 | `prelive_countdown_go` | Seller goes live | Final tone, brighter |
+| `push_product_sold` | Seller sold a product (foreground notification) | Cash register "cha-ching", ~0.6 s |
 
-## Push-only files (3 files + `win_celebration`, named by the backend payload)
+## Push-only files (2 files + `win_celebration` / `push_product_sold`, named by the backend payload)
 
 | File | Notification type | Character |
 |---|---|---|
 | `win_celebration` | `auction_won`, `buy_now_won`, `raffle_won` | Same file as the in-app win, on purpose: the user has to associate them |
 | `push_live_start` | `seller_live_start` | Short, cheerful bell, ~0.5 s |
-| `push_product_sold` | `product_sold` (seller) | Cash register "cha-ching", ~0.6 s |
+| `push_product_sold` | `product_sold` (seller) | Same file as the in-app product-sold cue |
 | `push_payment_action` | `purchase_payment_action_required` | Attention, **not** error, ~0.5 s |
 
 Every other notification type keeps the system default sound.
 
-On Android the push sound belongs to the **notification channel**, and a channel
-is immutable once created: until the per-type channels exist in the app, FCM
-falls back to the manifest default channel (`pulpo_default`, system sound). See
-the report of the sounds batch for the proposed channel list.
+On Android the push sound belongs to the **notification channel**, which is
+immutable once created. Channels are created in `MainApplication.kt`
+(`pulpo_default`, `pulpo_wins`, `pulpo_live`, `pulpo_sales`, `pulpo_payments`)
+and must match `push_service.py`. Changing a sound later requires a new
+channel ID and a migration.
 
 ## Placeholders
 

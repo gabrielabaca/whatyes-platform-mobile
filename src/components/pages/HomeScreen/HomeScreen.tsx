@@ -47,7 +47,7 @@ import {
   type UserRealtimeChatMessage,
   type UserRealtimeNotification,
 } from '../../../hooks/useUserRealtime';
-import { feedback } from '../../../utils/uiFeedback';
+import { feedback, feedbackForNotificationType } from '../../../utils/uiFeedback';
 import {
   AppHeadsUp,
   useAppHeadsUp,
@@ -213,7 +213,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         void reloadChatUnread();
         return;
       }
-      feedback('notificationPop');
+      feedback(feedbackForNotificationType(notification.type));
       showHeadsUp(
         'notification',
         notification.title?.trim() || t('notifications.defaultTitle'),
