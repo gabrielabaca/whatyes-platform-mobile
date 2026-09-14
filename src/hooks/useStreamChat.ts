@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { PLATFORM_WS_URL } from '../api/config';
 import i18n from '../i18n';
+import { feedback } from '../utils/uiFeedback';
+import {
+  createCountdownTickState,
+  createOutbidTracker,
+  shouldTickCountdown,
+} from '../utils/liveAuctionCues';
 
 export interface ChatMessage {
   id: string;
@@ -27,6 +33,11 @@ interface UseStreamChatOptions {
   onAuctionEnded?: (hadWinner: boolean) => void;
   /** Error dirigido a este socket (puja rechazada, subasta pausada, etc.). */
   onWsError?: (error: WsErrorEvent) => void;
+  /**
+   * UUID of the authenticated user: lets the hook detect by id (never by name)
+   * the "I was leading and got outbid" transition behind the outbid cue.
+   */
+  currentUserId?: string | null;
 }
 
 /** Frame `type: "error"` del WS, ya normalizado. */
@@ -100,6 +111,8 @@ export interface AuctionState {
 
 export interface AuctionBid {
   id: string;
+  /** Bidder UUID. Backends older than the outbid detection don't send it. */
+  user_id?: string;
   username: string;
   amount: number;
   created_at: number;
@@ -161,6 +174,7 @@ export function useStreamChat({
   onAuctionStarted,
   onAuctionEnded,
   onWsError,
+  currentUserId = null,
 }: UseStreamChatOptions) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [viewerCount, setViewerCount] = useState(0);
@@ -224,6 +238,15 @@ export function useStreamChat({
   useEffect(() => {
     onWsErrorRef.current = onWsError;
   }, [onWsError]);
+
+  const currentUserIdRef = useRef(currentUserId);
+  useEffect(() => {
+    currentUserIdRef.current = currentUserId;
+  }, [currentUserId]);
+  /** Tracks "am I leading" so the outbid cue fires only on the transition. */
+  const outbidTrackerRef = useRef(createOutbidTracker());
+  /** Last second that ticked: once per second, no repeat after a pause or an extension. */
+  const countdownTickRef = useRef(createCountdownTickState());
 
   // Offset (segundos) entre el reloj del servidor y el del dispositivo.
   // serverNow() = reloj local + offset. Imprescindible para que la cuenta regresiva
@@ -349,6 +372,7 @@ export function useStreamChat({
             const detail = typeof msg.detail === 'string' ? msg.detail.trim() : '';
             const code =
               typeof msg.code === 'string' && msg.code.trim() ? msg.code.trim() : null;
+            if (code === 'bid_below_floor') feedback('bidRejected');
             if (code || detail) {
               onWsErrorRef.current?.({
                 code,
@@ -406,14 +430,23 @@ export function useStreamChat({
               const bids = Array.isArray(a.bids) ? a.bids : [];
               setAuctionBids(bids.map((b: any) => ({
                 id: b.id || `${b.username}-${b.created_at}`,
+                user_id: typeof b.user_id === 'string' ? b.user_id : undefined,
                 username: b.username || 'Usuario',
                 amount: b.amount ?? 0,
                 created_at: b.created_at ?? 0,
               })));
+              // A late joiner (or a reconnect) may already be leading: the last
+              // bid of the snapshot seeds the outbid state.
+              const lastBid = bids.length > 0 ? bids[bids.length - 1] : null;
+              outbidTrackerRef.current.seed(
+                typeof lastBid?.user_id === 'string' ? lastBid.user_id : null,
+                currentUserIdRef.current
+              );
             } else {
               setAuction(null);
               setAuctionBids([]);
               setAuctionPausedRemaining(null);
+              outbidTrackerRef.current.reset();
             }
             return;
           }
@@ -427,6 +460,8 @@ export function useStreamChat({
               setAuctionBids([]);
               setLastAuctionExtension(null);
               setAuctionPausedRemaining(null);
+              outbidTrackerRef.current.reset();
+              feedback('auctionStart');
               onAuctionStartedRef.current?.();
             }
             return;
@@ -461,6 +496,7 @@ export function useStreamChat({
             setAuctionBids([]);
             setLastAuctionExtension(null);
             setAuctionPausedRemaining(null);
+            outbidTrackerRef.current.reset();
             onAuctionCancelledRef.current?.(info);
             return;
           }
@@ -481,18 +517,26 @@ export function useStreamChat({
             setAuctionBids([]);
             setLastAuctionExtension(null);
             setAuctionPausedRemaining(null);
+            outbidTrackerRef.current.reset();
             onAuctionEndedRef.current?.(hadWinner);
             return;
           }
           if (msg.type === 'auction_bid' && msg.payload) {
             const b = msg.payload;
             const bidId = b.id || `${b.username}-${b.created_at}`;
+            const bidUserId = typeof b.user_id === 'string' ? b.user_id : undefined;
             setAuctionBids(prev => [...prev, {
               id: bidId,
+              user_id: bidUserId,
               username: b.username || 'Usuario',
               amount: b.amount ?? 0,
               created_at: b.created_at ?? 0,
             }]);
+            // Outbid: only the TRANSITION "I was first and now I'm not". While I
+            // stay behind, further third-party bids don't sound again.
+            if (outbidTrackerRef.current.registerBid(bidUserId, currentUserIdRef.current)) {
+              feedback('outbid');
+            }
             // Anti-sniping: la puja corre el cierre. El servidor manda el ends_at
             // resultante, así que todos recalculan el countdown desde ahí en vez
             // de sumar segundos por su cuenta (que divergiría entre dispositivos).
@@ -505,6 +549,7 @@ export function useStreamChat({
             }
             if (typeof b.extended_by === 'number' && b.extended_by > 0) {
               setLastAuctionExtension({ id: bidId, seconds: b.extended_by });
+              feedback('auctionExtend');
             }
             return;
           }
@@ -617,8 +662,13 @@ export function useStreamChat({
     }
     // Durante la gracia se muestra 0 (no `null`): el reloj ya llegó al final, pero
     // la oferta sigue en pantalla por si una puja tardía la reabre.
+    // A paused auction returns above: a frozen clock doesn't tick either.
     const update = () => {
-      setAuctionSecondsRemaining(Math.max(0, auction.endsAt - serverNow()));
+      const remaining = Math.max(0, auction.endsAt - serverNow());
+      setAuctionSecondsRemaining(remaining);
+      if (shouldTickCountdown(countdownTickRef.current, auction.id, remaining)) {
+        feedback('countdownTick');
+      }
     };
     update();
     const id = setInterval(update, 1000);

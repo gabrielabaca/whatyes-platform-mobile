@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { ImagePickerResponse } from 'react-native-image-picker';
 import Video from 'react-native-video';
 import { launchPhotoCameraNow, launchPhotoLibraryNow, launchVideoCameraNow, launchVideoLibraryNow, videoFromPickerResponse, type PickerVideo } from '../../../utils/mediaPicker';
+import { feedback } from '../../../utils/uiFeedback';
 import {
   ActivityIndicator,
   Animated,
@@ -745,6 +746,13 @@ export const PreLiveSetupOverlay: React.FC<{
     introVideoUrl: liveIntroVideoUrl ?? null,
   });
 
+  // 3-2-1: one tick per number. The only seller-side sound, because nothing is
+  // transmitting yet (the mic opens with onStart).
+  useEffect(() => {
+    if (countdown == null) return;
+    feedback('preliveCountdownTick');
+  }, [countdown]);
+
   const startCountdown = () => {
     clearLaunchTimers();
     setCountdown(3);
@@ -757,6 +765,7 @@ export const PreLiveSetupOverlay: React.FC<{
             countdownIntervalRef.current = null;
           }
           queueMicrotask(() => {
+            feedback('preliveCountdownGo');
             onStart(buildConfig());
           });
           return null;
