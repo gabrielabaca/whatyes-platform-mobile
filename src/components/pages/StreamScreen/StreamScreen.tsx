@@ -60,6 +60,7 @@ import { useAuth } from '../../../hooks/useAuth';
 import { useFloatingHearts, FloatingHeartsLayer } from '../../molecules/FloatingHearts/FloatingHearts';
 import { useFloatingBids, FloatingBidsLayer } from '../../molecules/FloatingBids/FloatingBids';
 import { enableSpeakerphone, disableSpeakerphone, muteSpeakerOutput } from '../../../utils/audioRoute';
+import { enterLiveSession, leaveLiveSession } from '../../../utils/uiFeedback';
 import { useLiveKeepAwake } from '../../../hooks/useLiveKeepAwake';
 import { StreamBuyerOverlay } from '../../organisms/stream/StreamBuyerOverlay';
 import { StreamLiveNoteDrawer } from '../../organisms/stream/StreamLiveNoteDrawer';
@@ -189,6 +190,13 @@ export const StreamScreen: React.FC<StreamScreenProps> = ({
   const { likeEvents, handleLikeDone, handleLikeEvent } = useFloatingHearts();
   const { isRecording, recordingTimeLabel, toggleRecording } = useLiveScreenRecording();
   const wallet = useStreamWalletFlow();
+  // Global sound rule: while this screen is mounted the app is "inside a live"
+  // and only the auction cues may sound. The token-based cleanup covers every
+  // unmount path (back, error, room swap), not just the happy one.
+  useEffect(() => {
+    const liveSession = enterLiveSession('viewer');
+    return () => leaveLiveSession(liveSession);
+  }, []);
   const [sellerFollowInitial, setSellerFollowInitial] = useState(false);
   // Inicializar con stream.coverUrl para que la portada esté disponible inmediatamente
   // sin esperar el GET /rooms. El WS o el getRooms pueden sobreescribirlo luego.

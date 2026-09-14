@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import ConfettiCannon from 'react-native-confetti-cannon';
 import { useTranslation } from 'react-i18next';
-import HapticFeedback from 'react-native-haptic-feedback';
+import { feedback } from '../../../utils/uiFeedback';
 import { PulpoLogo } from '../../atoms/stream/PulpoLogo';
 import { formatStreamPrice } from '../../atoms/stream/StreamPriceText';
 import { FONT_FAMILY } from '../../../theme/typography';
@@ -26,8 +26,6 @@ const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 const GOLD = '#FFC900';
 const PRIMARY = '#685CF0';
 const CONFETTI_COLORS = [GOLD, PRIMARY, '#FFFFFF', '#FB2C36', '#00C566'];
-
-const HAPTIC_OPTIONS = { enableVibrateFallback: true, ignoreAndroidSystemSettings: false };
 
 export interface AuctionWinnerCelebrationProps {
   winner: AuctionWinner | null;
@@ -54,7 +52,7 @@ export const AuctionWinnerCelebration: React.FC<AuctionWinnerCelebrationProps> =
   useEffect(() => {
     if (!visible) return;
 
-    HapticFeedback.trigger('notificationSuccess', HAPTIC_OPTIONS);
+    feedback('winCelebration');
 
     enter.setValue(0);
     Animated.spring(enter, {

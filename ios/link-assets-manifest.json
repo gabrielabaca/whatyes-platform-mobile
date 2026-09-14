@@ -24,6 +24,78 @@
     {
       "path": "assets/fonts/PlusJakartaSans-Bold.ttf",
       "sha1": "725f9514c93b5356230588f805f771d2c8381487"
+    },
+    {
+      "path": "assets/sounds/files/auction_extend.wav",
+      "sha1": "9060f1b1eee35440ce054d7ee7fc21b6d4b550fd"
+    },
+    {
+      "path": "assets/sounds/files/auction_start.wav",
+      "sha1": "9060f1b1eee35440ce054d7ee7fc21b6d4b550fd"
+    },
+    {
+      "path": "assets/sounds/files/bid_placed.wav",
+      "sha1": "9060f1b1eee35440ce054d7ee7fc21b6d4b550fd"
+    },
+    {
+      "path": "assets/sounds/files/bid_rejected.wav",
+      "sha1": "9060f1b1eee35440ce054d7ee7fc21b6d4b550fd"
+    },
+    {
+      "path": "assets/sounds/files/countdown_tick.wav",
+      "sha1": "9060f1b1eee35440ce054d7ee7fc21b6d4b550fd"
+    },
+    {
+      "path": "assets/sounds/files/message_received.wav",
+      "sha1": "9060f1b1eee35440ce054d7ee7fc21b6d4b550fd"
+    },
+    {
+      "path": "assets/sounds/files/message_sent.wav",
+      "sha1": "9060f1b1eee35440ce054d7ee7fc21b6d4b550fd"
+    },
+    {
+      "path": "assets/sounds/files/notification_pop.wav",
+      "sha1": "9060f1b1eee35440ce054d7ee7fc21b6d4b550fd"
+    },
+    {
+      "path": "assets/sounds/files/outbid.wav",
+      "sha1": "9060f1b1eee35440ce054d7ee7fc21b6d4b550fd"
+    },
+    {
+      "path": "assets/sounds/files/payment_error.wav",
+      "sha1": "9060f1b1eee35440ce054d7ee7fc21b6d4b550fd"
+    },
+    {
+      "path": "assets/sounds/files/payment_success.wav",
+      "sha1": "9060f1b1eee35440ce054d7ee7fc21b6d4b550fd"
+    },
+    {
+      "path": "assets/sounds/files/prelive_countdown_go.wav",
+      "sha1": "9060f1b1eee35440ce054d7ee7fc21b6d4b550fd"
+    },
+    {
+      "path": "assets/sounds/files/prelive_countdown_tick.wav",
+      "sha1": "9060f1b1eee35440ce054d7ee7fc21b6d4b550fd"
+    },
+    {
+      "path": "assets/sounds/files/product_created.wav",
+      "sha1": "9060f1b1eee35440ce054d7ee7fc21b6d4b550fd"
+    },
+    {
+      "path": "assets/sounds/files/push_live_start.wav",
+      "sha1": "9060f1b1eee35440ce054d7ee7fc21b6d4b550fd"
+    },
+    {
+      "path": "assets/sounds/files/push_payment_action.wav",
+      "sha1": "9060f1b1eee35440ce054d7ee7fc21b6d4b550fd"
+    },
+    {
+      "path": "assets/sounds/files/push_product_sold.wav",
+      "sha1": "9060f1b1eee35440ce054d7ee7fc21b6d4b550fd"
+    },
+    {
+      "path": "assets/sounds/files/win_celebration.wav",
+      "sha1": "9060f1b1eee35440ce054d7ee7fc21b6d4b550fd"
     }
   ]
 }

@@ -43,6 +43,7 @@ import { LoadingScreen } from './src/components/pages/LoadingScreen';
 import { StreamScreen } from './src/components/pages/StreamScreen';
 import { StreamSwipeScreen } from './src/components/pages/StreamSwipeScreen';
 import { SellerStreamScreen } from './src/components/pages/SellerStreamScreen';
+import { preloadUiFeedback } from './src/utils/uiFeedback';
 import type { StreamData } from './src/components/molecules/StreamCard';
 import type { StreamConfig } from './src/components/organisms/startLive/types';
 
@@ -454,6 +455,11 @@ function ThemedStatusBarAndApp() {
 }
 
 function App() {
+  // Sounds are decoded into memory once, at startup: playback never hits the disk.
+  useEffect(() => {
+    preloadUiFeedback();
+  }, []);
+
   return (
     <SafeAreaProvider>
       <ThemeProvider>

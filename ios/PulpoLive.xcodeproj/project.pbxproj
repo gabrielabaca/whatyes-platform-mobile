@@ -8,18 +8,36 @@
 
 /* Begin PBXBuildFile section */
 		0C80B921A6F3F58F76C31292 /* libPods-PulpoLive.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 5DCACB8F33CDC322A6C60F78 /* libPods-PulpoLive.a */; };
+		0D6C7C02DA2449FEBA072C0F /* outbid.wav in Resources */ = {isa = PBXBuildFile; fileRef = E0D8CE94BD48403B85F0732E /* outbid.wav */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
+		1BEDB9222E7D4E7EB7FD44A7 /* push_product_sold.wav in Resources */ = {isa = PBXBuildFile; fileRef = ACBD4EAE844744B68D2D199A /* push_product_sold.wav */; };
+		33630975B12E4817A5C4EAF1 /* product_created.wav in Resources */ = {isa = PBXBuildFile; fileRef = 1ADBF9EC7CA84C468A4B88C9 /* product_created.wav */; };
+		419B56E76EFC46AB9286A424 /* push_payment_action.wav in Resources */ = {isa = PBXBuildFile; fileRef = 9A6856EAC30E46EF9538CD5D /* push_payment_action.wav */; };
+		45150F4A031D478EB85BE246 /* prelive_countdown_go.wav in Resources */ = {isa = PBXBuildFile; fileRef = 36931C2D101B4702B6BDA9A8 /* prelive_countdown_go.wav */; };
 		57085ACA83904334BC555375 /* Mulish-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 389039A9B5804E04A547967C /* Mulish-Regular.ttf */; };
+		583E0CCF40F94BE08265E2AF /* message_received.wav in Resources */ = {isa = PBXBuildFile; fileRef = 744C0D59984B40879EF0D14D /* message_received.wav */; };
+		6638C1D2A5674EA19121EF8A /* bid_placed.wav in Resources */ = {isa = PBXBuildFile; fileRef = 24332F12D99B4862923F1AD1 /* bid_placed.wav */; };
+		74A40D77BD794BDDA851C558 /* payment_error.wav in Resources */ = {isa = PBXBuildFile; fileRef = D02622C69AD1459AA963FA7E /* payment_error.wav */; };
 		761780ED2CA45674006654EE /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761780EC2CA45674006654EE /* AppDelegate.swift */; };
 		775276EE2D3A405A852EF396 /* Mulish-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C6A2DCA868794AD8A8597FC7 /* Mulish-SemiBold.ttf */; };
+		786F0D57CBDA4ECAAF637F1A /* notification_pop.wav in Resources */ = {isa = PBXBuildFile; fileRef = 17FBF342590A4DA79F28543A /* notification_pop.wav */; };
+		7AB32B46637D45758462724D /* message_sent.wav in Resources */ = {isa = PBXBuildFile; fileRef = B8336EB3A6A54BC2B5612F71 /* message_sent.wav */; };
 		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
+		9747C8301128450E8521A89C /* payment_success.wav in Resources */ = {isa = PBXBuildFile; fileRef = 8C52ED24D0574AB0A0A44CD9 /* payment_success.wav */; };
+		9915E47CB6E74F8393F76141 /* auction_start.wav in Resources */ = {isa = PBXBuildFile; fileRef = E3F1EB84CE424CD6A7689675 /* auction_start.wav */; };
+		A65C19483EFF4D7FA7BF0AAF /* auction_extend.wav in Resources */ = {isa = PBXBuildFile; fileRef = AFACA775E3B24BC69E20FD81 /* auction_extend.wav */; };
 		A6DB5061A21E4F20A8AF2C03 /* PlusJakartaSans-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = EE4F6F362F5D47138755CF12 /* PlusJakartaSans-Bold.ttf */; };
 		A7F6AC0927524C84E0F5163A /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */; };
 		B4E81A102F5D4A11B8C0E001 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = B4E81A102F5D4A11B8C0E002 /* GoogleService-Info.plist */; };
+		B87687009CE64EFA978FDA67 /* prelive_countdown_tick.wav in Resources */ = {isa = PBXBuildFile; fileRef = 27681D30515B4043B72FFA23 /* prelive_countdown_tick.wav */; };
 		B8E9D0122CA456740066501 /* WebRTCAudioBootstrap.m in Sources */ = {isa = PBXBuildFile; fileRef = B8E9D0222CA456740066502 /* WebRTCAudioBootstrap.m */; };
 		C043932823B54D488D8B7D6C /* Mulish-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 8538E93CFC054C33839115CB /* Mulish-Bold.ttf */; };
 		C1A2B3012CA456740066601 /* LiveCoverCapture.m in Sources */ = {isa = PBXBuildFile; fileRef = C1A2B3022CA456740066602 /* LiveCoverCapture.m */; };
 		D2B3C4012CA456740066701 /* IvsStage.m in Sources */ = {isa = PBXBuildFile; fileRef = D2B3C4022CA456740066702 /* IvsStage.m */; };
+		D6FEDF3E1FA940B7AB7B609B /* win_celebration.wav in Resources */ = {isa = PBXBuildFile; fileRef = 8DD0C89B433A46B893DA4DE1 /* win_celebration.wav */; };
+		E104FBAD8C5644B7844339AC /* push_live_start.wav in Resources */ = {isa = PBXBuildFile; fileRef = 5AECA6A8DDBD4C3588BDAEAA /* push_live_start.wav */; };
+		EA1935C5AE254963A112D86D /* countdown_tick.wav in Resources */ = {isa = PBXBuildFile; fileRef = 26C1E5D747D24E03A7B62575 /* countdown_tick.wav */; };
+		EBA6121EA08740D38EBB3AB4 /* bid_rejected.wav in Resources */ = {isa = PBXBuildFile; fileRef = B9B9464531544D6F99AEF6E5 /* bid_rejected.wav */; };
 		F6D409F3F0D24607A677A338 /* Mulish-Italic-Variable.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 394757E24B75439AACC04854 /* Mulish-Italic-Variable.ttf */; };
 		FACAB738756B4297B7CFDBBE /* Mulish-Variable.ttf in Resources */ = {isa = PBXBuildFile; fileRef = D13261782A774E72A05E8577 /* Mulish-Variable.ttf */; };
 /* End PBXBuildFile section */
@@ -29,22 +47,40 @@
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = PulpoLive/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = PulpoLive/Info.plist; sourceTree = "<group>"; };
 		13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = PrivacyInfo.xcprivacy; path = PulpoLive/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		17FBF342590A4DA79F28543A /* notification_pop.wav */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = notification_pop.wav; path = ../assets/sounds/files/notification_pop.wav; sourceTree = "<group>"; };
+		1ADBF9EC7CA84C468A4B88C9 /* product_created.wav */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = product_created.wav; path = ../assets/sounds/files/product_created.wav; sourceTree = "<group>"; };
+		24332F12D99B4862923F1AD1 /* bid_placed.wav */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = bid_placed.wav; path = ../assets/sounds/files/bid_placed.wav; sourceTree = "<group>"; };
+		26C1E5D747D24E03A7B62575 /* countdown_tick.wav */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = countdown_tick.wav; path = ../assets/sounds/files/countdown_tick.wav; sourceTree = "<group>"; };
+		27681D30515B4043B72FFA23 /* prelive_countdown_tick.wav */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = prelive_countdown_tick.wav; path = ../assets/sounds/files/prelive_countdown_tick.wav; sourceTree = "<group>"; };
+		36931C2D101B4702B6BDA9A8 /* prelive_countdown_go.wav */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = prelive_countdown_go.wav; path = ../assets/sounds/files/prelive_countdown_go.wav; sourceTree = "<group>"; };
 		389039A9B5804E04A547967C /* Mulish-Regular.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; name = "Mulish-Regular.ttf"; path = "../assets/fonts/Mulish-Regular.ttf"; sourceTree = "<group>"; };
 		394757E24B75439AACC04854 /* Mulish-Italic-Variable.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; name = "Mulish-Italic-Variable.ttf"; path = "../assets/fonts/Mulish-Italic-Variable.ttf"; sourceTree = "<group>"; };
 		3B4392A12AC88292D35C810B /* Pods-PulpoLive.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-PulpoLive.debug.xcconfig"; path = "Target Support Files/Pods-PulpoLive/Pods-PulpoLive.debug.xcconfig"; sourceTree = "<group>"; };
 		5709B34CF0A7D63546082F79 /* Pods-PulpoLive.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-PulpoLive.release.xcconfig"; path = "Target Support Files/Pods-PulpoLive/Pods-PulpoLive.release.xcconfig"; sourceTree = "<group>"; };
+		5AECA6A8DDBD4C3588BDAEAA /* push_live_start.wav */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = push_live_start.wav; path = ../assets/sounds/files/push_live_start.wav; sourceTree = "<group>"; };
 		5DCACB8F33CDC322A6C60F78 /* libPods-PulpoLive.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-PulpoLive.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		744C0D59984B40879EF0D14D /* message_received.wav */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = message_received.wav; path = ../assets/sounds/files/message_received.wav; sourceTree = "<group>"; };
 		761780EC2CA45674006654EE /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = PulpoLive/AppDelegate.swift; sourceTree = "<group>"; };
 		81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = LaunchScreen.storyboard; path = PulpoLive/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		8538E93CFC054C33839115CB /* Mulish-Bold.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; name = "Mulish-Bold.ttf"; path = "../assets/fonts/Mulish-Bold.ttf"; sourceTree = "<group>"; };
+		8C52ED24D0574AB0A0A44CD9 /* payment_success.wav */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = payment_success.wav; path = ../assets/sounds/files/payment_success.wav; sourceTree = "<group>"; };
+		8DD0C89B433A46B893DA4DE1 /* win_celebration.wav */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = win_celebration.wav; path = ../assets/sounds/files/win_celebration.wav; sourceTree = "<group>"; };
+		9A6856EAC30E46EF9538CD5D /* push_payment_action.wav */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = push_payment_action.wav; path = ../assets/sounds/files/push_payment_action.wav; sourceTree = "<group>"; };
+		ACBD4EAE844744B68D2D199A /* push_product_sold.wav */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = push_product_sold.wav; path = ../assets/sounds/files/push_product_sold.wav; sourceTree = "<group>"; };
+		AFACA775E3B24BC69E20FD81 /* auction_extend.wav */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = auction_extend.wav; path = ../assets/sounds/files/auction_extend.wav; sourceTree = "<group>"; };
 		B4E81A102F5D4A11B8C0E002 /* GoogleService-Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = "GoogleService-Info.plist"; path = "PulpoLive/GoogleService-Info.plist"; sourceTree = "<group>"; };
+		B8336EB3A6A54BC2B5612F71 /* message_sent.wav */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = message_sent.wav; path = ../assets/sounds/files/message_sent.wav; sourceTree = "<group>"; };
 		B8E9D0222CA456740066502 /* WebRTCAudioBootstrap.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = WebRTCAudioBootstrap.m; path = PulpoLive/WebRTCAudioBootstrap.m; sourceTree = "<group>"; };
 		B8E9D0322CA456740066503 /* WebRTCAudioBootstrap.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = WebRTCAudioBootstrap.h; path = PulpoLive/WebRTCAudioBootstrap.h; sourceTree = "<group>"; };
 		B8E9D0422CA456740066504 /* PulpoLive-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "PulpoLive-Bridging-Header.h"; path = "PulpoLive/PulpoLive-Bridging-Header.h"; sourceTree = "<group>"; };
+		B9B9464531544D6F99AEF6E5 /* bid_rejected.wav */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = bid_rejected.wav; path = ../assets/sounds/files/bid_rejected.wav; sourceTree = "<group>"; };
 		C1A2B3022CA456740066602 /* LiveCoverCapture.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = LiveCoverCapture.m; path = PulpoLive/LiveCoverCapture.m; sourceTree = "<group>"; };
 		C6A2DCA868794AD8A8597FC7 /* Mulish-SemiBold.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; name = "Mulish-SemiBold.ttf"; path = "../assets/fonts/Mulish-SemiBold.ttf"; sourceTree = "<group>"; };
+		D02622C69AD1459AA963FA7E /* payment_error.wav */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = payment_error.wav; path = ../assets/sounds/files/payment_error.wav; sourceTree = "<group>"; };
 		D13261782A774E72A05E8577 /* Mulish-Variable.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; name = "Mulish-Variable.ttf"; path = "../assets/fonts/Mulish-Variable.ttf"; sourceTree = "<group>"; };
 		D2B3C4022CA456740066702 /* IvsStage.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = IvsStage.m; path = PulpoLive/IvsStage.m; sourceTree = "<group>"; };
+		E0D8CE94BD48403B85F0732E /* outbid.wav */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = outbid.wav; path = ../assets/sounds/files/outbid.wav; sourceTree = "<group>"; };
+		E3F1EB84CE424CD6A7689675 /* auction_start.wav */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = auction_start.wav; path = ../assets/sounds/files/auction_start.wav; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		EE4F6F362F5D47138755CF12 /* PlusJakartaSans-Bold.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = "PlusJakartaSans-Bold.ttf"; path = "../assets/fonts/PlusJakartaSans-Bold.ttf"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -97,6 +133,24 @@
 				8538E93CFC054C33839115CB /* Mulish-Bold.ttf */,
 				C6A2DCA868794AD8A8597FC7 /* Mulish-SemiBold.ttf */,
 				EE4F6F362F5D47138755CF12 /* PlusJakartaSans-Bold.ttf */,
+				B8336EB3A6A54BC2B5612F71 /* message_sent.wav */,
+				26C1E5D747D24E03A7B62575 /* countdown_tick.wav */,
+				1ADBF9EC7CA84C468A4B88C9 /* product_created.wav */,
+				8DD0C89B433A46B893DA4DE1 /* win_celebration.wav */,
+				5AECA6A8DDBD4C3588BDAEAA /* push_live_start.wav */,
+				27681D30515B4043B72FFA23 /* prelive_countdown_tick.wav */,
+				ACBD4EAE844744B68D2D199A /* push_product_sold.wav */,
+				B9B9464531544D6F99AEF6E5 /* bid_rejected.wav */,
+				D02622C69AD1459AA963FA7E /* payment_error.wav */,
+				24332F12D99B4862923F1AD1 /* bid_placed.wav */,
+				17FBF342590A4DA79F28543A /* notification_pop.wav */,
+				AFACA775E3B24BC69E20FD81 /* auction_extend.wav */,
+				9A6856EAC30E46EF9538CD5D /* push_payment_action.wav */,
+				8C52ED24D0574AB0A0A44CD9 /* payment_success.wav */,
+				744C0D59984B40879EF0D14D /* message_received.wav */,
+				36931C2D101B4702B6BDA9A8 /* prelive_countdown_go.wav */,
+				E3F1EB84CE424CD6A7689675 /* auction_start.wav */,
+				E0D8CE94BD48403B85F0732E /* outbid.wav */,
 			);
 			name = Resources;
 			sourceTree = "<group>";
@@ -211,6 +265,24 @@
 				C043932823B54D488D8B7D6C /* Mulish-Bold.ttf in Resources */,
 				775276EE2D3A405A852EF396 /* Mulish-SemiBold.ttf in Resources */,
 				A6DB5061A21E4F20A8AF2C03 /* PlusJakartaSans-Bold.ttf in Resources */,
+				7AB32B46637D45758462724D /* message_sent.wav in Resources */,
+				EA1935C5AE254963A112D86D /* countdown_tick.wav in Resources */,
+				33630975B12E4817A5C4EAF1 /* product_created.wav in Resources */,
+				D6FEDF3E1FA940B7AB7B609B /* win_celebration.wav in Resources */,
+				E104FBAD8C5644B7844339AC /* push_live_start.wav in Resources */,
+				B87687009CE64EFA978FDA67 /* prelive_countdown_tick.wav in Resources */,
+				1BEDB9222E7D4E7EB7FD44A7 /* push_product_sold.wav in Resources */,
+				EBA6121EA08740D38EBB3AB4 /* bid_rejected.wav in Resources */,
+				74A40D77BD794BDDA851C558 /* payment_error.wav in Resources */,
+				6638C1D2A5674EA19121EF8A /* bid_placed.wav in Resources */,
+				786F0D57CBDA4ECAAF637F1A /* notification_pop.wav in Resources */,
+				A65C19483EFF4D7FA7BF0AAF /* auction_extend.wav in Resources */,
+				419B56E76EFC46AB9286A424 /* push_payment_action.wav in Resources */,
+				9747C8301128450E8521A89C /* payment_success.wav in Resources */,
+				583E0CCF40F94BE08265E2AF /* message_received.wav in Resources */,
+				45150F4A031D478EB85BE246 /* prelive_countdown_go.wav in Resources */,
+				9915E47CB6E74F8393F76141 /* auction_start.wav in Resources */,
+				0D6C7C02DA2449FEBA072C0F /* outbid.wav in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

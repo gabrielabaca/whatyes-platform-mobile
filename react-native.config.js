@@ -8,6 +8,12 @@
  */
 module.exports = {
   assets: ['./assets/fonts'],
+  /**
+   * UI / push sounds go to the iOS bundle through react-native-asset (Copy Bundle
+   * Resources). Android reads them from android/app/src/main/res/raw, committed
+   * by hand: react-native-asset only routes .mp3 files there.
+   */
+  iosAssets: ['./assets/sounds/files'],
   project: {
     android: {
       packageName: 'com.pulpolive',

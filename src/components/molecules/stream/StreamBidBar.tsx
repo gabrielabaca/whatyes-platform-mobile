@@ -20,7 +20,7 @@ import Svg, {
   Mask,
 } from 'react-native-svg';
 import { useTranslation } from 'react-i18next';
-import HapticFeedback from 'react-native-haptic-feedback';
+import { feedback } from '../../../utils/uiFeedback';
 import { formatStreamPrice } from '../../atoms/stream/StreamPriceText';
 import { PulpoLogo } from '../../atoms/stream/PulpoLogo';
 import { STREAM_COLORS, STREAM_RADIUS } from './streamTokens';
@@ -46,8 +46,6 @@ const COMPLETE_THRESHOLD = 0.7;
 /** Un flick rápido (px/ms) confirma aunque no llegue al umbral de distancia. */
 const FLICK_VELOCITY = 0.8;
 const FLICK_MIN_PROGRESS = 0.3;
-
-const HAPTIC_OPTIONS = { enableVibrateFallback: true, ignoreAndroidSystemSettings: false };
 
 /** Doble flecha (double_arrow) del Figma */
 const DoubleArrow: React.FC<{ size?: number }> = ({ size = 24 }) => (
@@ -157,7 +155,7 @@ export const StreamBidBar: React.FC<StreamBidBarProps> = ({
     if (completingRef.current) return;
     completingRef.current = true;
     armedRef.current = false;
-    HapticFeedback.trigger('notificationSuccess', HAPTIC_OPTIONS);
+    feedback('bidPlaced');
     onBidRef.current();
     reset();
   };
@@ -194,7 +192,7 @@ export const StreamBidBar: React.FC<StreamBidBarProps> = ({
         posAnim.stopAnimation();
         posAnim.setOffset(0);
         posAnim.setValue(0);
-        HapticFeedback.trigger('impactLight', HAPTIC_OPTIONS);
+        feedback('bidSlideStart');
       },
       onPanResponderMove: (_, g) => {
         const max = maxTravelRef.current;
@@ -205,7 +203,7 @@ export const StreamBidBar: React.FC<StreamBidBarProps> = ({
         const overThreshold = max > 0 && traveled / max >= COMPLETE_THRESHOLD;
         if (overThreshold !== armedRef.current) {
           armedRef.current = overThreshold;
-          HapticFeedback.trigger(overThreshold ? 'impactMedium' : 'impactLight', HAPTIC_OPTIONS);
+          feedback(overThreshold ? 'bidSlideArmed' : 'bidSlideDisarmed');
         }
       },
       onPanResponderRelease: settle,

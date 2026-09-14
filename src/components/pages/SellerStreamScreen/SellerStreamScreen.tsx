@@ -76,6 +76,7 @@ import {
   setLivePipEnabled,
 } from '../../../native/LivePipNative';
 import { useStreamChat } from '../../../hooks/useStreamChat';
+import { enterLiveSession, leaveLiveSession } from '../../../utils/uiFeedback';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StreamToast, useStreamToast } from '../../molecules/stream/StreamToast';
 import { StreamAuctionCancelDrawer } from '../../organisms/stream/StreamAuctionCancelDrawer';
@@ -125,6 +126,12 @@ export const SellerStreamScreen: React.FC<SellerStreamScreenProps> = ({
 }) => {
   const { t } = useTranslation();
   const { user } = useAuth();
+  // Seller side: the mic is open once live, so the feedback module mutes every
+  // sound while this screen is mounted except the pre-live countdown.
+  useEffect(() => {
+    const liveSession = enterLiveSession('seller');
+    return () => leaveLiveSession(liveSession);
+  }, []);
   const [messageText, setMessageText] = useState('');
   const [cameraPosition, setCameraPosition] = useState<'front' | 'back'>('front');
   const [token, setToken] = useState<string | null>(null);
